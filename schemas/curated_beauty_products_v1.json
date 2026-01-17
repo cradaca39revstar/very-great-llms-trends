@@ -1,0 +1,281 @@
+{
+  "schema_name": "curated_beauty_products",
+  "version": "1.0.0",
+  "description": "Curated schema for beauty products sales data with data quality metadata",
+  "last_updated": "2024-01-17",
+  "fields": [
+    {
+      "name": "month",
+      "type": "DATE",
+      "nullable": false,
+      "description": "Transaction month in ISO date format (YYYY-MM-DD)",
+      "source_column": "Month",
+      "transformation": "Parse from M/DD/YYYY format to DATE",
+      "validation_rules": [
+        "Must be a valid date",
+        "Should be within reasonable range (2020-2030)"
+      ],
+      "business_definition": "The month in which the sales transactions occurred"
+    },
+    {
+      "name": "product_id",
+      "type": "BIGINT",
+      "nullable": false,
+      "description": "Unique product identifier",
+      "source_column": "Product Id",
+      "transformation": "Parse from scientific notation (e.g., 1.72938E+18) to BIGINT",
+      "validation_rules": [
+        "Must be a positive integer",
+        "Must be less than 9223372036854775807 (BIGINT max)",
+        "Generate synthetic ID if original is invalid"
+      ],
+      "business_definition": "Unique identifier for each product in the catalog"
+    },
+    {
+      "name": "product_name",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Product name",
+      "source_column": "Product Name",
+      "transformation": "Trim whitespace, normalize encoding, limit to 500 characters",
+      "validation_rules": [
+        "Cannot be null or empty",
+        "Maximum length: 500 characters",
+        "Must contain printable characters"
+      ],
+      "business_definition": "Human-readable name of the product"
+    },
+    {
+      "name": "shop_name",
+      "type": "STRING",
+      "nullable": true,
+      "description": "Shop or seller name",
+      "source_column": "Shop Name",
+      "transformation": "Trim whitespace, normalize encoding, limit to 200 characters",
+      "validation_rules": [
+        "Maximum length: 200 characters"
+      ],
+      "business_definition": "Name of the shop or seller offering the product"
+    },
+    {
+      "name": "l1_category",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Level 1 product category (top level)",
+      "source_column": "L1 category",
+      "transformation": "Trim whitespace, default to 'Uncategorized' if null",
+      "validation_rules": [
+        "Maximum length: 100 characters"
+      ],
+      "business_definition": "Top-level category in the product taxonomy"
+    },
+    {
+      "name": "l2_category",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Level 2 product category (sub-category)",
+      "source_column": "L2 category",
+      "transformation": "Trim whitespace, default to 'Uncategorized' if null",
+      "validation_rules": [
+        "Maximum length: 100 characters"
+      ],
+      "business_definition": "Second-level category in the product taxonomy"
+    },
+    {
+      "name": "l3_category",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Level 3 product category (detailed category)",
+      "source_column": "L3 category",
+      "transformation": "Trim whitespace, default to 'Uncategorized' if null",
+      "validation_rules": [
+        "Maximum length: 100 characters"
+      ],
+      "business_definition": "Most detailed category in the product taxonomy"
+    },
+    {
+      "name": "item_sold",
+      "type": "INT",
+      "nullable": false,
+      "description": "Quantity of items sold",
+      "source_column": "Item Sold",
+      "transformation": "Remove commas, parse as integer, default to 0 if invalid",
+      "validation_rules": [
+        "Must be >= 0",
+        "Must be <= 1,000,000 (anomaly threshold)"
+      ],
+      "business_definition": "Number of units sold in the given month"
+    },
+    {
+      "name": "revenue_usd",
+      "type": "DECIMAL(18,2)",
+      "nullable": false,
+      "description": "Total revenue in USD",
+      "source_column": "Revenue",
+      "transformation": "Remove currency symbols and commas, parse as decimal, default to 0.00 if invalid",
+      "validation_rules": [
+        "Must be >= 0",
+        "Must be <= 10,000,000 (anomaly threshold)"
+      ],
+      "business_definition": "Total revenue generated from product sales in US dollars"
+    },
+    {
+      "name": "avg_unit_price_usd",
+      "type": "DECIMAL(10,2)",
+      "nullable": false,
+      "description": "Average unit price in USD",
+      "source_column": "Avg. Unit Price",
+      "transformation": "Remove currency symbols and commas, parse as decimal, default to 0.00 if invalid",
+      "validation_rules": [
+        "Must be >= 0"
+      ],
+      "business_definition": "Average price per unit sold in US dollars"
+    },
+    {
+      "name": "mom_growth_pct",
+      "type": "DECIMAL(5,4)",
+      "nullable": true,
+      "description": "Month-over-month growth rate as decimal ratio",
+      "source_column": "MoM Growth %",
+      "transformation": "Remove % symbol, divide by 100 to get decimal ratio",
+      "validation_rules": [
+        "Reasonable range: -1.0 to 10.0 (flag if outside)",
+        "Null allowed for first month data"
+      ],
+      "business_definition": "Month-over-month revenue growth rate expressed as decimal (-0.42 = -42% decline)"
+    },
+    {
+      "name": "source_file",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Original source file path",
+      "source_column": "N/A (metadata)",
+      "transformation": "Captured during ETL processing",
+      "validation_rules": [],
+      "business_definition": "S3 path of the source CSV file for data lineage"
+    },
+    {
+      "name": "source_record_number",
+      "type": "BIGINT",
+      "nullable": false,
+      "description": "Line number in source CSV file",
+      "source_column": "N/A (metadata)",
+      "transformation": "Generated during ETL processing",
+      "validation_rules": [],
+      "business_definition": "Record number in source file for traceability"
+    },
+    {
+      "name": "processed_timestamp",
+      "type": "TIMESTAMP",
+      "nullable": false,
+      "description": "Timestamp when record was processed (UTC)",
+      "source_column": "N/A (metadata)",
+      "transformation": "Current timestamp during ETL execution",
+      "validation_rules": [],
+      "business_definition": "When the record was processed and written to curated zone"
+    },
+    {
+      "name": "transformation_version",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Version of ETL transformation logic applied",
+      "source_column": "N/A (metadata)",
+      "transformation": "Job parameter passed to ETL",
+      "validation_rules": [
+        "Format: vX.Y.Z (semantic versioning)"
+      ],
+      "business_definition": "Version of transformation rules for change tracking"
+    },
+    {
+      "name": "data_quality_score",
+      "type": "DECIMAL(5,4)",
+      "nullable": false,
+      "description": "Data quality score from 0.0000 to 1.0000",
+      "source_column": "N/A (calculated)",
+      "transformation": "Calculated based on validation rule violations",
+      "validation_rules": [
+        "Range: 0.0000 to 1.0000"
+      ],
+      "business_definition": "Composite score indicating data quality (1.0 = perfect, 0.0 = poor)"
+    },
+    {
+      "name": "quality_flags",
+      "type": "STRING",
+      "nullable": true,
+      "description": "Comma-separated list of quality issues detected",
+      "source_column": "N/A (calculated)",
+      "transformation": "Concatenated from quality checks",
+      "validation_rules": [],
+      "business_definition": "Flags indicating specific data quality issues for remediation"
+    },
+    {
+      "name": "created_by",
+      "type": "STRING",
+      "nullable": false,
+      "description": "Job or user that created the record",
+      "source_column": "N/A (metadata)",
+      "transformation": "Set to job name during ETL",
+      "validation_rules": [],
+      "business_definition": "Source of the curated record for governance"
+    },
+    {
+      "name": "record_hash",
+      "type": "STRING",
+      "nullable": false,
+      "description": "MD5 hash of key fields for deduplication",
+      "source_column": "N/A (calculated)",
+      "transformation": "MD5(product_id||month||shop_name||product_name||revenue)",
+      "validation_rules": [],
+      "business_definition": "Hash for detecting duplicate records"
+    },
+    {
+      "name": "year",
+      "type": "INT",
+      "nullable": false,
+      "description": "Year extracted from month (partition column)",
+      "source_column": "Derived from month",
+      "transformation": "YEAR(month)",
+      "validation_rules": [],
+      "business_definition": "Partition key for query optimization"
+    },
+    {
+      "name": "month_num",
+      "type": "INT",
+      "nullable": false,
+      "description": "Month number 1-12 (partition column)",
+      "source_column": "Derived from month",
+      "transformation": "MONTH(month)",
+      "validation_rules": [
+        "Range: 1 to 12"
+      ],
+      "business_definition": "Partition key for query optimization"
+    }
+  ],
+  "data_quality_rules": {
+    "scoring_formula": "Start at 1.0000, subtract penalties for each violation",
+    "penalties": {
+      "INVALID_DATE": 0.20,
+      "SYNTHETIC_PRODUCT_ID": 0.15,
+      "MISSING_PRODUCT_NAME": 0.20,
+      "INVALID_REVENUE": 0.15,
+      "INVALID_AVG_PRICE": 0.10,
+      "MISSING_ITEMS": 0.10,
+      "SUSPICIOUS_GROWTH": 0.05,
+      "DUPLICATE_RECORD": 0.10
+    },
+    "thresholds": {
+      "pass": 0.95,
+      "warn": 0.70,
+      "fail": 0.70
+    }
+  },
+  "partitioning": {
+    "columns": ["year", "month_num"],
+    "strategy": "Range partitioning by time for query optimization"
+  },
+  "storage": {
+    "format": "Parquet",
+    "compression": "Snappy",
+    "location": "s3://very-great-products-processed-us-east-1-poc/curated/beauty-products/"
+  }
+}
