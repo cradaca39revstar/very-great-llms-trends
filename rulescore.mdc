@@ -1,0 +1,960 @@
+---
+alwaysApply: true
+---
+core rules
+
+# Core Services API Response Standards
+
+## Overview
+This document defines the mandatory structure for all API responses in the Core Services. Every response must adhere to this format to ensure consistency and predictability.
+
+## 🎯 **CRITICAL RULES - ALWAYS ENFORCE**
+1. **NEVER use hardcoded HTTP status codes** - Always use `HTTPStatus` enum
+2. **ALWAYS use factory methods** - Use `.create()` or `.from_entity()` methods  
+3. **ALWAYS include request_id** - Use `get_log_request_id()` for tracing
+4. **ALWAYS use proper decorators** - `@log_handler` for Lambda entry, `@log()` for internal functions
+5. **ALWAYS validate pagination parameters** - Use `BasePaginatedRequestModel`
+6. **ALWAYS serialize with aliases** - Use `model_dump_json(by_alias=True)`
+
+## 🔍 **PATTERN RECOGNITION**
+When you see these patterns, apply these rules:
+
+- **Lambda handler function** → Use `@log_handler(domain="...")`
+- **Internal business logic** → Use `@log()` decorator
+- **API response creation** → Use appropriate BaseResponse class
+- **Error handling** → Use `ErrorResponse.create()` with proper status codes
+- **Pagination endpoint** → Use `BasePaginatedRequestModel` and `BasePaginatedResponseModel`
+- **Database queries with pagination** → Return `(data, pagination_metadata)` tuple
+
+## Standard Response Structure
+
+All API responses must be JSON objects with these fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status_code` | Integer | Yes | HTTP status code using Python's `http.HTTPStatus` enum |
+| `msg_code` | List<Object> | Yes | List of message objects describing the operation outcome |
+| `request_id` | String | Yes | Unique request identifier from logging system |
+| `body` | Object/List<Object> | Optional | Response payload data |
+| `meta` | Object | Optional | Pagination metadata (only for paginated endpoints) |
+
+### Message Code Object Structure
+
+Each object in `msg_code` must have:
+- `code`: String - Unique machine-readable identifier (e.g., "USER_CREATED_SUCCESS")
+- `description`: String - Human-readable message for end users
+
+## Implementation Rules
+
+### 1. Response Classes
+- Use `BaseResponse` for single object responses
+- Use `BasePaginatedResponseModel` for paginated list responses
+- Use `BaseErrorResponse` for error responses
+- Always use `model_dump_json(by_alias=True)` for final output
+
+### 2. Request Validation
+- Mark all request fields as `Optional` in Pydantic models
+- Use `@field_validator` decorators for required field validation
+- Raise `PydanticCustomError` with specific error codes for validation failures
+- Prefer built-in Pydantic Field validations over custom validators when possible
+
+### 3. Exception Handling
+- Create custom exception classes with:
+  - `error_code`: HTTP status code
+  - `code`: Unique error identifier
+  - `message`: Human-readable error description
+- Use `HTTPStatus` enum for status codes
+- Handle validation errors by mapping Pydantic errors to `MessageCode` objects
+
+### 4. Handler Patterns
+
+#### Success Response
+```python
+response = ResponseClass.create(
+    body=data,
+    msg_code=MessageCode(code="SUCCESS_CODE", description="Success message")
+)
+return response.model_dump_json(by_alias=True)
+```
+
+#### Validation Error Response
+```python
+except ValidationError as e:
+    field_errors = []
+    for err in e.errors():
+        field_errors.append(
+            MessageCode(
+                code=f"{err.get('type', 'VALIDATION_ERROR')}",
+                description=err.get("msg", "Validation error")
+            )
+        )
+    error_response = BaseErrorResponse.create(
+        status_code=HTTPStatus.BAD_REQUEST.value,
+        field_errors=field_errors,
+        request_id=get_log_request_id()
+    )
+    return error_response.model_dump_json(by_alias=True)
+```
+
+#### Custom Exception Response
+```python
+except CustomException as e:
+    error_response = BaseErrorResponse.create(
+        status_code=e.error_code,
+        field_errors=[MessageCode(code=e.code, description=str(e))],
+        request_id=get_log_request_id()
+    )
+    return error_response.model_dump_json(by_alias=True)
+```
+
+#### General Exception Response
+```python
+except Exception:
+    error_response = BaseErrorResponse.create(
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+        request_id=get_log_request_id(),
+        msg_code=[MessageCode(code="GENERIC_ERROR", description="An unexpected error occurred")]
+    )
+    return error_response.model_dump_json(by_alias=True)
+```
+
+## ErrorResponse Class Standards
+
+### Overview
+A standardized model for formatting error responses. Inherits from `BaseResponseModel` and provides consistent error handling across all API endpoints.
+
+### ErrorResponse Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `status_code` | int | Yes | HTTP status error code using Python's `HTTPStatus` enum |
+| `msg_code` | List[dict] | Yes | List of error message objects with code and description |
+| `request_id` | str | Optional | Unique identifier for the request (default: None) |
+
+### Message Code Structure
+Each error message object must contain:
+- `code`: String - Unique error identifier (e.g., "MSG001", "USR002")
+- `description`: String - Human-readable error message
+
+### Factory Method Pattern
+Always use the `create` class method to instantiate ErrorResponse objects:
+
+```python
+@classmethod
+def create(
+    cls,
+    status_code: int,
+    msg_code: List[dict],
+    request_id: Optional[str] = None,
+) -> "ErrorResponse":
+    """Factory method to instantiate an ErrorResponse object."""
+    return cls(
+        status_code=status_code,
+        msg_code=msg_code,
+        request_id=request_id or get_log_request_id(),
+    )
+```
+
+### Usage Examples
+
+#### Single Error Response
+```python
+from http import HTTPStatus
+
+error_response = ErrorResponse.create(
+    status_code=HTTPStatus.BAD_REQUEST.value,
+    msg_code=[{
+        "code": "MSG001", 
+        "description": "The provided email address is invalid."
+    }],
+    request_id="abc-123-xyz",
+)
+```
+
+#### Multiple Error Response
+```python
+error_response = ErrorResponse.create(
+    status_code=HTTPStatus.BAD_REQUEST.value,
+    msg_code=[
+        {
+            "code": "MSG001", 
+            "description": "The provided email address is invalid."
+        },
+        {
+            "code": "MSG002", 
+            "description": "The agent ID already exists in the OpenAI project sandbox."
+        }
+    ],
+    request_id="abc-123-xyz",
+)
+```
+
+#### Validation Error Response
+```python
+except ValidationError as e:
+    field_errors = []
+    for err in e.errors():
+        field_errors.append({
+            "code": f"VALIDATION_{err.get('type', 'ERROR').upper()}",
+            "description": err.get("msg", "Validation error")
+        })
+    
+    error_response = ErrorResponse.create(
+        status_code=HTTPStatus.BAD_REQUEST.value,
+        msg_code=field_errors,
+        request_id=get_log_request_id()
+    )
+    return error_response.model_dump_json(by_alias=True)
+```
+
+#### Custom Exception Error Response
+```python
+except CustomException as e:
+    error_response = ErrorResponse.create(
+        status_code=e.error_code,
+        msg_code=[{
+            "code": e.code,
+            "description": str(e)
+        }],
+        request_id=get_log_request_id()
+    )
+    return error_response.model_dump_json(by_alias=True)
+```
+
+### ErrorResponse Rules
+1. Always use `HTTPStatus` enum for status codes, never hardcoded integers
+2. Always use the `create` class method, never direct instantiation
+3. Error codes must follow the pattern: `[MODULE][NUMBER]` (e.g., "USR001", "MSG002")
+4. Descriptions must be human-readable and suitable for end users
+5. Always include `request_id` for tracing (use `get_log_request_id()` if not provided)
+6. Use `model_dump_json(by_alias=True)` for JSON serialization
+
+## Required Imports
+Always include these imports in response-related files:
+```python
+from http import HTTPStatus
+from typing import List, Optional
+from pydantic import Field, field_validator
+from pydantic_core import PydanticCustomError
+from common.utils.helpers.base_classes import BaseResponse, BaseErrorResponse, BasePaginatedResponseModel, MessageCode, ErrorResponse
+from utils.log_util.decorator import get_log_request_id
+```
+
+## Code Quality Rules
+1. All response classes must have a `create` class method or `from_entity` static method
+2. Use `get_log_request_id()` for request ID generation
+3. Always use `by_alias=True` when serializing responses
+4. Error codes must be unique and follow the pattern: `[MODULE][NUMBER]` (e.g., "CNT001", "USR002")
+5. Status codes must use `HTTPStatus` enum values, not hardcoded integers
+6. Response body classes should use Pydantic aliases for field names when needed
+
+## Examples
+
+### Single Object Response
+```json
+{
+    "status_code": 200,
+    "msg_code": [{"code": "AGT001", "description": "Agent information retrieved successfully."}],
+    "request_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "body": {"id": "agent-123", "name": "AnNA", "status": "active"},
+    "meta": null
+}
+```
+
+### Paginated Response
+```json
+{
+    "status_code": 200,
+    "msg_code": [{"code": "DCT001", "description": "Documents retrieved successfully."}],
+    "request_id": "b2c3d4e5-f6a7-8901-2345-67890abcdef1",
+    "body": [{"id": "doc-001", "title": "Report"}],
+    "meta": {
+        "total_items": 50,
+        "total_pages": 5,
+        "current_page": 1,
+        "per_page": 10,
+        "has_next": true,
+        "has_previous": false
+    }
+}
+```
+
+### Error Response
+```json
+{
+    "status_code": 400,
+    "msg_code": [
+        {"code": "USR002", "description": "Invalid email format."},
+        {"code": "USR005", "description": "Password too short."}
+    ],
+    "request_id": "d4e5f6a7-b8c9-0123-4567-890abcdef123",
+    "body": null,
+    "meta": null
+}
+```
+
+## Logging Utility Standards
+
+### Overview
+This logging utility standardizes how logs are captured across Lambda functions in AWS environments, with built-in support for request correlation through request_id.
+
+### Initialization
+- Logging configuration is loaded from `LOGGING_CONFIG` in `utils.log_util.config`
+- A global `request_id` is generated using `uuid4()` if not set externally
+
+### Decorators Usage
+
+#### 1. @log_handler(domain: str = None)
+✅ **Use only on the Lambda entrypoint handler** (the function that receives event and context)
+
+**Responsibilities:**
+- Extracts `aws_request_id` from the context and stores it globally
+- Attaches a `RequestIdFilter` to the logger
+- Logs function name and arguments before execution
+- Logs result or exception traceback if an error occurs
+
+**Example:**
+```python
+@log_handler(domain="my.domain")
+def lambda_handler(event, context):
+    ...
+```
+
+⚠️ **Do not use this on nested/internal functions** — it expects event and context.
+
+#### 2. @log(external_request_id: str = None)
+✅ **Use this on all other internal business logic functions**
+
+**Responsibilities:**
+- Uses globally stored `request_id` for correlation
+- Logs function name, arguments, result, and exceptions
+- If provided, will use an explicit `external_request_id`
+
+**Example:**
+```python
+@log()
+def process_data(data):
+    ...
+```
+
+### Manual Logging
+```python
+log_message(message: str)
+```
+✅ **Logs a custom message using the globally available request_id**
+
+**Example:**
+```python
+log_message("Process completed successfully.")
+```
+
+### Helper Functions
+- `get_log_request_id()` → Returns the current request ID
+- `set_request_id(external_request_id: str)` → Manually override the request ID
+
+### Design Considerations
+- `RequestIdFilter`: Ensures every log entry includes a `request_id` field for tracing
+- `main_domain`: Optionally used to route logs to a specific domain-based logger
+- Decorators capture and log exception context and traceback with local variables
+
+### Required Imports for Logging
+```python
+from utils.log_util.decorator import log_handler, log, log_message, get_log_request_id, set_request_id
+```
+
+### Logging Rules
+
+#### ✅ Do's
+- Use `@log_handler` only on Lambda entrypoint functions
+- Use `@log` on all internal business logic functions
+- Use `log_message()` for custom logging messages
+- Use `get_log_request_id()` for request ID in API responses
+- Always specify domain in `@log_handler` when applicable
+
+#### ❌ Don'ts
+- Do not call `@log_handler` on internal methods — it is meant for the Lambda entrypoint only
+- Do not access or override the global `request_id` unless strictly necessary
+- Do not use `@log` on Lambda entrypoint functions
+- Do not manually set `request_id` unless absolutely required
+
+### Example Implementation
+```python
+from utils.log_util.decorator import log_handler, log, log_message, get_log_request_id
+
+@log_handler(domain="contacts")
+def lambda_handler(event, context):
+    """Lambda entrypoint - only function that should use @log_handler"""
+    return process_contact_request(event)
+
+@log()
+def process_contact_request(event):
+    """Internal business logic - use @log decorator"""
+    contact_data = extract_contact_data(event)
+    result = validate_contact(contact_data)
+    log_message("Contact processing completed")
+    return result
+
+@log()
+def validate_contact(data):
+    """Another internal function - use @log decorator"""
+    # Validation logic here
+    return validation_result
+```
+
+## PostgreSQL Pagination Implementation Standards
+
+### Overview
+This utility provides a flexible pagination mechanism for querying PostgreSQL databases. It supports both offset pagination (traditional) and cursor pagination (efficient for large datasets) with search, filtering, and multi-field ordering.
+
+### Request Structure Standards
+
+#### Standardized Request Parameters
+All paginated endpoints must accept requests in this format:
+
+```json
+{
+  "page": 1,
+  "page_size": 10,
+  "order_by": ["created_at", "name"],
+  "order_direction": ["DESC", "ASC"],
+  "search": {
+    "field": "name",
+    "keyword": "john"
+  },
+  "filters": {
+    "status": "active",
+    "created_after": "2024-01-01"
+  },
+  "cursor": null
+}
+```
+
+#### Request Parameters Reference
+
+| Field | Type | Description | Default |
+|-------|------|-------------|---------|
+| `page` | int | Page number (1-based). Only used for offset pagination | 1 |
+| `page_size` | int | Number of records per page. Max limit: 100 | 20 |
+| `order_by` | string or string[] | Column(s) to sort by. Supports single field or array | "created_at" |
+| `order_direction` | "ASC" or "DESC" or string[] | Sorting order(s). Must match order_by length | "DESC" |
+| `search` | object | Contains field and keyword to search | null |
+| `filters` | object | Optional filters like status, created_after | null |
+| `cursor` | string or int | Cursor value (used for cursor-based pagination) | null |
+
+### Response Structure Standards
+
+#### Standardized Response Format
+All paginated endpoints must return responses in this format:
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "meta": {
+    "total_items": 124,
+    "total_pages": 13,
+    "current_page": 2,
+    "per_page": 10,
+    "has_next": true,
+    "has_previous": true,
+    "next_cursor": "2024-01-15T09:15:00Z"
+  }
+}
+```
+
+#### Response Metadata Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | array | Array of items for the current page |
+| `meta.total_items` | int | Total number of items across all pages |
+| `meta.total_pages` | int | Total number of pages |
+| `meta.current_page` | int | Current page number (1-based) |
+| `meta.per_page` | int | Number of items per page |
+| `meta.has_next` | boolean | Whether there is a next page |
+| `meta.has_previous` | boolean | Whether there is a previous page |
+| `meta.next_cursor` | string | Cursor for next page (cursor pagination only) |
+
+### Implementation Rules
+
+#### 1. Using BasePaginatedRequestModel
+Always use `BasePaginatedRequestModel` for pagination requests:
+
+```python
+from typing import Optional
+from ai.common.utils.helpers.base_classes import BasePaginatedRequestModel
+
+class FetchDocumentsRequest(BasePaginatedRequestModel):
+    """Request schema for fetching documents with pagination."""
+    tenant_id: str
+    vault_uuid: str
+    status: Optional[str] = None
+    category: Optional[str] = None
+    
+    @field_validator("order_by")
+    @classmethod
+    def validate_order_fields(cls, v):
+        """Validate order_by fields are allowed."""
+        allowed_fields = {"created_at", "updated_at", "name", "status"}
+        if isinstance(v, str):
+            if v not in allowed_fields:
+                raise ValueError(f"order_by must be one of: {allowed_fields}")
+        elif isinstance(v, list):
+            for field in v:
+                if field not in allowed_fields:
+                    raise ValueError(f"order_by field '{field}' not allowed")
+        return v
+```
+
+#### 2. Using BasePaginatedResponseModel
+Always use `BasePaginatedResponseModel` for pagination responses:
+
+```python
+from typing import List, Optional
+from ai.common.utils.helpers.base_classes import BasePaginatedResponseModel, BaseResponseModel
+
+class DocumentData(BaseResponseModel):
+    """Document data model for API responses."""
+    name: str
+    description: str
+    uuid: str
+    file_url: str
+    
+    @classmethod
+    def from_entity(cls, document: Document) -> "DocumentData":
+        """Create response from document entity."""
+        return cls(
+            name=document.name,
+            description=document.description,
+            uuid=document.document_uuid,
+            file_url=f"s3://{document.s3_bucket}/{document.s3_key}",
+        )
+
+class FetchDocumentsResponse(BasePaginatedResponseModel[DocumentData]):
+    """Response schema for fetching documents with pagination."""
+    
+    @classmethod
+    def from_entity(
+        cls,
+        documents: List[Document],
+        total_items: Optional[int] = None,
+        total_pages: Optional[int] = None,
+        current_page: Optional[int] = None,
+        per_page: int = 20,
+        has_next: bool = False,
+        has_previous: bool = False,
+        next_cursor: Optional[str] = None,
+    ) -> "FetchDocumentsResponse":
+        """Create paginated response from documents."""
+        return cls.create(
+            data=[DocumentData.from_entity(doc) for doc in documents],
+            total_items=total_items,
+            total_pages=total_pages,
+            current_page=current_page,
+            per_page=per_page,
+            has_next=has_next,
+            has_previous=has_previous,
+            next_cursor=next_cursor,
+        )
+```
+
+#### 3. Repository Implementation Pattern
+Repository methods must return tuple of (data, pagination_metadata):
+
+```python
+from typing import List, Optional, Tuple
+from ai.common.utils.pagination.pagination import (
+    calculate_pagination_metadata,
+    pagination_query,
+)
+
+class DocumentPostgresRepository:
+    """PostgreSQL implementation of document repository."""
+    
+    def fetch_by_vault_id(
+        self,
+        vault_id: str,
+        page: int = 1,
+        page_size: int = 20,
+        order_by: str = "created_at",
+        order_direction: str = "DESC",
+        status: Optional[str] = None,
+    ) -> Tuple[List[Document], dict]:
+        """Fetch documents with pagination and filtering."""
+        
+        # Build filters
+        filters = {"vault_id": vault_id}
+        if status:
+            filters["status"] = status
+            
+        # Build pagination parameters
+        pagination_params = {
+            "page": page,
+            "page_size": page_size,
+            "order_by": order_by,
+            "order_direction": order_direction,
+            "filters": filters,
+        }
+        
+        # Get pagination query and params
+        pagination_result = pagination_query(pagination_params)
+        
+        # Execute query and get total count
+        # ... query execution logic ...
+        
+        # Calculate pagination metadata
+        pagination_metadata = calculate_pagination_metadata(
+            total_items=total_items,
+            current_page=page,
+            page_size=page_size,
+            current_items_count=len(documents),
+        )
+        
+        return documents, pagination_metadata
+```
+
+#### 4. Handler Pattern
+Lambda handlers must follow this pattern:
+
+```python
+@log_handler(domain="document")
+def handler(event, context):
+    """Lambda handler for fetching documents with pagination."""
+    try:
+        # Parse and validate request
+        body = json.loads(event.get("body", "{}"))
+        req = FetchDocumentsRequest(**body)
+        
+        # Get documents and pagination metadata from service
+        documents, pagination_metadata = service.fetch_documents(req)
+        
+        # Create paginated response
+        response = FetchDocumentsResponse.from_entity(
+            documents=documents,
+            **pagination_metadata
+        )
+        
+        return response.model_dump_json(by_alias=True)
+        
+    except ValidationError as e:
+        # Handle validation errors...
+    except Exception:
+        # Handle general errors...
+```
+
+### Pagination Utility Functions
+
+#### Required Imports for Pagination
+```python
+from ai.common.utils.helpers.base_classes import BasePaginatedRequestModel, BasePaginatedResponseModel
+from ai.common.utils.pagination.pagination import pagination_query, calculate_pagination_metadata
+```
+
+#### Core Functions
+- `pagination_query(parameters: dict)` → Generates SQL query and parameters
+- `calculate_pagination_metadata()` → Calculates pagination metadata
+- `build_where_clause(search, filters)` → Builds WHERE clause dynamically
+- `build_order_clause(order_by, order_direction)` → Builds ORDER BY clause
+
+### Pagination Best Practices
+
+#### 1. Default Values
+- `page`: 1
+- `page_size`: 20 (max 100)
+- `order_by`: "created_at"
+- `order_direction`: "DESC"
+
+#### 2. Multi-Column Ordering
+- Ensure `order_by` and `order_direction` arrays have matching lengths
+- Use most selective column first for better performance
+- Consider indexing strategy for multi-column ordering
+
+#### 3. Performance Considerations
+- Use cursor-based pagination for large datasets (>10,000 records)
+- Ensure sort columns are indexed
+- Limit maximum page size to prevent excessive queries
+- Consider composite indexes for multi-column ordering
+
+#### 4. Validation Rules
+- `page` must be positive integer
+- `page_size` must be between 1 and 100
+- `order_direction` must be "ASC" or "DESC"
+- `order_by` and `order_direction` arrays must have matching lengths
+- Validate `order_by` fields against allowed columns
+
+#### 5. Error Handling
+- Return 400 Bad Request for invalid pagination parameters
+- Return 404 Not Found for out-of-range page numbers
+- Log pagination-related errors for monitoring
+
+#### 6. Testing Requirements
+- Unit tests for pagination logic
+- Integration tests for API endpoints
+- Performance tests for large datasets
+- Tests for multi-column ordering scenarios
+
+### Cursor vs Offset Pagination
+
+#### Use Offset Pagination When:
+- Dataset is small (<10,000 records)
+- Users need to jump to specific pages
+- Total count is required
+
+#### Use Cursor Pagination When:
+- Dataset is large (>10,000 records)
+- Real-time data with frequent inserts
+- Performance is critical
+- Infinite scroll UI pattern
+
+## ❌ **ANTI-PATTERNS - NEVER DO THIS**
+
+### Code Smells to Avoid:
+```python
+# ❌ BAD - Hardcoded status codes
+return {"statusCode": 400}
+
+# ✅ GOOD - Use HTTPStatus enum
+return {"statusCode": HTTPStatus.BAD_REQUEST.value}
+
+# ❌ BAD - Direct instantiation
+response = ErrorResponse(status_code=400, msg_code=[...])
+
+# ✅ GOOD - Use factory method
+response = ErrorResponse.create(status_code=HTTPStatus.BAD_REQUEST.value, msg_code=[...])
+
+# ❌ BAD - Missing logging decorator
+def process_data(data):
+    # business logic
+
+# ✅ GOOD - Proper logging
+@log()
+def process_data(data):
+    # business logic
+
+# ❌ BAD - Manual response construction
+return {
+    "statusCode": 200,
+    "body": json.dumps({"data": result})
+}
+
+# ✅ GOOD - Use response classes
+response = MyResponse.create(body=result, msg_code=MessageCode(...))
+return response.model_dump_json(by_alias=True)
+
+# ❌ BAD - Missing request validation
+class MyRequest(BaseModel):
+    user_id: str  # Required but not validated
+
+# ✅ GOOD - Proper validation
+class MyRequest(BaseModel):
+    user_id: Optional[str] = None
+    
+    @field_validator("user_id")
+    @classmethod
+    def validate_user_id(cls, v):
+        if not v:
+            raise PydanticCustomError("USR001", "user_id is required")
+        return v
+
+# ❌ BAD - Inconsistent pagination
+def get_users(page=1, limit=10):
+    # Custom pagination logic
+    return {"users": [...], "total": 100}
+
+# ✅ GOOD - Standard pagination
+class GetUsersRequest(BasePaginatedRequestModel):
+    # Standard pagination fields inherited
+    
+def get_users(request: GetUsersRequest) -> Tuple[List[User], dict]:
+    # Use pagination utilities
+    return users, pagination_metadata
+```
+
+### Common Mistakes:
+- **Missing `@log_handler` on Lambda entrypoints**
+- **Using `@log_handler` on internal functions**
+- **Forgetting `by_alias=True` in JSON serialization**
+- **Not using `get_log_request_id()` for request correlation**
+- **Creating custom pagination instead of using base classes**
+- **Hardcoding error messages instead of using MessageCode**
+- **Missing field validation in request models**
+- **Not following the `[MODULE][NUMBER]` error code pattern**
+
+## Enforcement
+- All API endpoints must follow this structure
+- All Lambda functions must use proper logging decorators
+- All paginated endpoints must use `BasePaginatedRequestModel` and `BasePaginatedResponseModel`
+- Repository methods must return (data, pagination_metadata) tuples
+- Code reviews must verify compliance with these standards
+- Linting rules should enforce the use of proper response classes and logging patterns
+- Test cases must validate response structure matches these requirements
+
+## 📚 **QUICK REFERENCE**
+
+### Must-Have Imports:
+```python
+# Core response handling
+from http import HTTPStatus
+from typing import List, Optional
+from pydantic import Field, field_validator
+from pydantic_core import PydanticCustomError
+
+# Base classes
+from common.utils.helpers.base_classes import (
+    BaseResponse, 
+    BaseErrorResponse, 
+    BasePaginatedResponseModel, 
+    MessageCode, 
+    ErrorResponse
+)
+
+# Logging utilities
+from utils.log_util.decorator import log_handler, log, log_message, get_log_request_id
+
+# Pagination utilities
+from ai.common.utils.pagination.pagination import pagination_query, calculate_pagination_metadata
+```
+
+### Common Patterns:
+
+#### 🎯 **Success Response Pattern**
+```python
+response = ResponseClass.create(
+    body=data,
+    msg_code=MessageCode(code="MOD001", description="Operation successful")
+)
+return response.model_dump_json(by_alias=True)
+```
+
+#### ❌ **Error Response Pattern**
+```python
+error_response = ErrorResponse.create(
+    status_code=HTTPStatus.BAD_REQUEST.value,
+    msg_code=[{"code": "MOD002", "description": "Validation failed"}],
+    request_id=get_log_request_id()
+)
+return error_response.model_dump_json(by_alias=True)
+```
+
+#### 🔧 **Lambda Handler Pattern**
+```python
+@log_handler(domain="module_name")
+def lambda_handler(event, context):
+    """Lambda entrypoint - use @log_handler"""
+    return process_request(event)
+
+@log()
+def process_request(event):
+    """Internal function - use @log"""
+    # Business logic here
+    log_message("Processing completed")
+    return result
+```
+
+#### 📄 **Pagination Request Pattern**
+```python
+class FetchItemsRequest(BasePaginatedRequestModel):
+    """Paginated request with validation."""
+    tenant_id: str
+    status: Optional[str] = None
+    
+    @field_validator("order_by")
+    @classmethod
+    def validate_order_fields(cls, v):
+        allowed_fields = {"created_at", "updated_at", "name"}
+        # Validation logic here
+        return v
+```
+
+#### 📊 **Pagination Response Pattern**
+```python
+class ItemData(BaseResponseModel):
+    name: str
+    uuid: str
+    
+    @classmethod
+    def from_entity(cls, item: Item) -> "ItemData":
+        return cls(name=item.name, uuid=item.uuid)
+
+class FetchItemsResponse(BasePaginatedResponseModel[ItemData]):
+    @classmethod
+    def from_entity(cls, items: List[Item], **pagination_metadata) -> "FetchItemsResponse":
+        return cls.create(
+            data=[ItemData.from_entity(item) for item in items],
+            **pagination_metadata
+        )
+```
+
+#### 🗄️ **Repository Pattern**
+```python
+def fetch_items(self, filters: dict, pagination_params: dict) -> Tuple[List[Item], dict]:
+    """Repository method returning (data, metadata) tuple."""
+    
+    # Build pagination query
+    pagination_result = pagination_query(pagination_params)
+    
+    # Execute query
+    items = self.execute_query(query, params)
+    
+    # Calculate metadata
+    pagination_metadata = calculate_pagination_metadata(
+        total_items=total_count,
+        current_page=pagination_params["page"],
+        page_size=pagination_params["page_size"],
+        current_items_count=len(items)
+    )
+    
+    return items, pagination_metadata
+```
+
+### 🚨 **Error Code Patterns**
+- **Module Codes**: `USR001`, `CNT002`, `DOC003`, `AGT004`
+- **Validation Codes**: `VALIDATION_MISSING`, `VALIDATION_INVALID`
+- **Generic Codes**: `GENERIC_ERROR`, `INTERNAL_ERROR`
+
+### 🔍 **Status Code Usage**
+```python
+# Success responses
+HTTPStatus.OK.value                    # 200 - Success
+HTTPStatus.CREATED.value              # 201 - Created
+HTTPStatus.NO_CONTENT.value           # 204 - Deleted
+
+# Client error responses  
+HTTPStatus.BAD_REQUEST.value          # 400 - Validation error
+HTTPStatus.UNAUTHORIZED.value         # 401 - Authentication error
+HTTPStatus.FORBIDDEN.value            # 403 - Authorization error
+HTTPStatus.NOT_FOUND.value            # 404 - Resource not found
+HTTPStatus.CONFLICT.value             # 409 - Resource conflict
+
+# Server error responses
+HTTPStatus.INTERNAL_SERVER_ERROR.value # 500 - Internal error
+```
+
+### ⚡ **Performance Tips**
+- Use cursor pagination for datasets > 10,000 records
+- Index columns used in `order_by` clauses
+- Limit `page_size` to maximum of 100
+- Use `BasePaginatedRequestModel` for automatic validation
+- Always include `request_id` for debugging
+
+### 🧪 **Testing Patterns**
+```python
+def test_success_response():
+    response = MyResponse.create(body=data, msg_code=MessageCode(...))
+    assert response.status_code == HTTPStatus.OK.value
+    assert response.body is not None
+    assert response.request_id is not None
+
+def test_error_response():
+    error = ErrorResponse.create(
+        status_code=HTTPStatus.BAD_REQUEST.value,
+        msg_code=[{"code": "TEST001", "description": "Test error"}]
+    )
+    assert error.status_code == HTTPStatus.BAD_REQUEST.value
+    assert len(error.msg_code) == 1

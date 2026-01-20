@@ -1,0 +1,22 @@
+Source Column,Source Data Type,Source Format,Target Column,Target Data Type,Transformation Rule,Business Rule,Quality Check,Example Source,Example Target,Notes
+Month,STRING,M/DD/YYYY or MM/DD/YYYY,month,DATE,Parse date using multiple format attempts; convert to ISO DATE,Transaction month must be valid date,Flag INVALID_DATE if parse fails; penalty -0.20,4/01/2024,2024-04-01,Critical for partitioning
+Product Id,STRING,Scientific notation with commas,product_id,BIGINT,Remove commas; parse as float; convert to int,Must be positive and < BIGINT max,Generate synthetic ID if invalid; flag SYNTHETIC_PRODUCT_ID; penalty -0.15,"1,72938E+18",1729380000000000000,Synthetic ID uses hash if original invalid
+Product Name,STRING,Free text,product_name,STRING,Trim whitespace; normalize spaces; remove non-printable chars; limit 500 chars,Cannot be null or empty,Flag MISSING_PRODUCT_NAME if empty; penalty -0.20,Unbrush Detangling Hair Brush by FHI Heat,Unbrush Detangling Hair Brush by FHI Heat,Required field
+Shop Name,STRING,Free text,shop_name,STRING,Trim whitespace; normalize spaces; limit 200 chars,Optional field,No penalty for null,BeautyChoiceUSA,BeautyChoiceUSA,
+L1 category,STRING,Free text,l1_category,STRING,Trim whitespace; default 'Uncategorized' if null,Standardized taxonomy values preferred,No penalty; defaults applied,Beauty & Personal Care,Beauty & Personal Care,Taxonomy standardization future enhancement
+L2 category,STRING,Free text,l2_category,STRING,Trim whitespace; default 'Uncategorized' if null,Standardized taxonomy values preferred,No penalty; defaults applied,Haircare & Styling,Haircare & Styling,Taxonomy standardization future enhancement
+L3 category,STRING,Free text,l3_category,STRING,Trim whitespace; default 'Uncategorized' if null,Standardized taxonomy values preferred,No penalty; defaults applied,Hair Brushes & Combs,Hair Brushes & Combs,Taxonomy standardization future enhancement
+Item Sold,STRING,Number with commas,item_sold,INT,Remove commas; parse as int; default 0 if invalid,Must be >= 0 and <= 1M,Flag MISSING_ITEMS if invalid; penalty -0.10; quarantine if > 1M,"24,157",24157,Anomaly threshold: 1 million units
+Revenue,STRING,"Currency with $, commas",revenue_usd,DECIMAL(18,2),Remove currency symbols and commas; parse as decimal; default 0.00 if invalid,Must be >= 0; < $10M recommended,Flag INVALID_REVENUE if invalid/negative; penalty -0.15; quarantine if > $10M,"$305,785.10",305785.10,Anomaly threshold: $10 million
+Avg. Unit Price,STRING,"Currency with $, commas",avg_unit_price_usd,DECIMAL(10,2),Remove currency symbols and commas; parse as decimal; default 0.00 if invalid,Must be >= 0,Flag INVALID_AVG_PRICE if invalid; penalty -0.10,$12.66,12.66,
+MoM Growth %,STRING,Percentage with % symbol,mom_growth_pct,DECIMAL(5,4),"Remove % symbol; parse as float; divide by 100",Reasonable range: -100% to +1000%,Flag SUSPICIOUS_GROWTH if outside -1.0 to 10.0 range; penalty -0.05; null allowed,-42%,-0.4200,Null allowed for first month data
+N/A,N/A,N/A,source_file,STRING,Capture S3 path during read,For lineage tracking,No check,N/A,s3://bucket/landing/file.csv,Governance metadata
+N/A,N/A,N/A,source_record_number,BIGINT,Monotonically increasing ID,For traceability,No check,N/A,12345,Governance metadata
+N/A,N/A,N/A,processed_timestamp,TIMESTAMP,Current timestamp (UTC),For data freshness tracking,No check,N/A,2024-04-17T12:34:56.123456Z,Governance metadata
+N/A,N/A,N/A,transformation_version,STRING,Job parameter,For change tracking,No check,N/A,v1.0.0,Governance metadata
+N/A,N/A,N/A,data_quality_score,DECIMAL(5,4),Calculate penalties from quality checks,Range: 0.0000 to 1.0000,No additional check,N/A,0.9500,Calculated field
+N/A,N/A,N/A,quality_flags,STRING,Concatenate flags from all checks,Comma-separated list,No additional check,N/A,"INVALID_DATE,SYNTHETIC_PRODUCT_ID",Calculated field
+N/A,N/A,N/A,created_by,STRING,Set to job name,For governance,No check,N/A,glue-job-beauty-products,Governance metadata
+N/A,N/A,N/A,record_hash,STRING,MD5(product_id||month||shop_name||product_name||revenue),For deduplication,No additional check,N/A,a1b2c3d4e5f6...,Calculated field
+month,DATE,YYYY-MM-DD,year,INT,YEAR(month),Partition column,No check,2024-04-01,2024,Derived from month
+month,DATE,YYYY-MM-DD,month_num,INT,MONTH(month),Partition column; range 1-12,No check,2024-04-01,4,Derived from month

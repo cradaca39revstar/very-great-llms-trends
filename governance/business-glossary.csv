@@ -1,0 +1,32 @@
+Term,Definition,Domain,Owner,Related Tables,Related Columns,Synonyms,Examples,Data Type,Business Rules
+Beauty Products Data Lake,Centralized repository for beauty and personal care product sales data,Data Architecture,Data Steward,All,All,Product Data Lake,N/A,N/A,DAMA-DMBOK aligned architecture
+Month,The calendar month in which sales transactions occurred,Time,Business Analyst,curated_beauty_products,month,Transaction Month|Sales Month,2024-04-01,DATE,Must be valid date; used for partitioning
+Product ID,Unique identifier assigned to each product in the catalog,Product,Product Manager,curated_beauty_products,product_id,Product Code|SKU,1729380000000000000,BIGINT,Must be unique; positive integer
+Product Name,Human-readable name or description of the product,Product,Product Manager,curated_beauty_products,product_name,Product Title|Product Description,Unbrush Detangling Hair Brush by FHI Heat,STRING,Required field; max 500 characters
+Shop Name,Name of the retailer or seller offering the product,Shop,Sales Manager,curated_beauty_products,shop_name,Seller Name|Store Name,BeautyChoiceUSA,STRING,Max 200 characters
+L1 Category,Top-level product category in the taxonomy hierarchy,Product Taxonomy,Category Manager,curated_beauty_products,l1_category,Primary Category|Main Category,Beauty & Personal Care,STRING,Standardized values; defaults to 'Uncategorized' if missing
+L2 Category,Second-level product category (sub-category),Product Taxonomy,Category Manager,curated_beauty_products,l2_category,Sub-Category|Category Level 2,Haircare & Styling,STRING,Standardized values; defaults to 'Uncategorized' if missing
+L3 Category,Third-level product category (most detailed),Product Taxonomy,Category Manager,curated_beauty_products,l3_category,Detailed Category|Category Level 3,Hair Brushes & Combs,STRING,Standardized values; defaults to 'Uncategorized' if missing
+Item Sold,Number of product units sold in a given month,Sales Metrics,Sales Analyst,curated_beauty_products,item_sold,Units Sold|Quantity Sold|Sales Volume,24157,INT,Must be >= 0; > 1M flagged as anomaly
+Revenue,Total sales revenue generated from product in USD,Financial Metrics,Finance Analyst,curated_beauty_products,revenue_usd,Total Revenue|Sales Revenue|Gross Revenue,$305785.10,DECIMAL(18,2),Must be >= 0; > $10M flagged as anomaly
+Average Unit Price,Average price per unit sold in USD,Financial Metrics,Pricing Analyst,curated_beauty_products,avg_unit_price_usd,Unit Price|Price Per Item|Avg Price,$12.66,DECIMAL(10,2),Must be >= 0; calculated from revenue/items
+MoM Growth %,Month-over-month revenue growth rate,Performance Metrics,Sales Analyst,curated_beauty_products,mom_growth_pct,Month-over-Month Growth|Revenue Growth,-0.4200 (-42%),DECIMAL(5,4),Reasonable range: -1.0 to 10.0; null allowed for first month
+Data Quality Score,Composite score (0-1) indicating data quality,Data Quality,Data Steward,curated_beauty_products,data_quality_score,Quality Score|DQ Score,0.9500,DECIMAL(5,4),Range: 0.0000 to 1.0000; >= 0.95 is high quality
+Quality Flags,Comma-separated list of data quality issues,Data Quality,Data Steward,curated_beauty_products,quality_flags,Quality Issues|DQ Flags,INVALID_DATE,SYNTHETIC_PRODUCT_ID,STRING,Empty if no issues; see data quality rules
+Source File,S3 path to original CSV file,Metadata,Data Engineer,curated_beauty_products,source_file,Source Path|Original File,s3://bucket/landing/file.csv,STRING,Captured for lineage tracking
+Processed Timestamp,UTC timestamp when record was processed by ETL,Metadata,Data Engineer,curated_beauty_products,processed_timestamp,Process Time|ETL Timestamp,2024-04-17T12:34:56Z,TIMESTAMP,Always in UTC; tracks data freshness
+Transformation Version,Version of ETL transformation logic applied,Metadata,Data Engineer,curated_beauty_products,transformation_version,ETL Version|Pipeline Version,v1.0.0,STRING,Semantic versioning format
+Record Hash,MD5 hash for deduplication,Technical,Data Engineer,curated_beauty_products,record_hash,Dedup Hash|Unique Hash,a1b2c3d4e5f6...,STRING,MD5(product_id||month||shop_name||product_name||revenue)
+Raw Zone,S3 bucket containing unprocessed source CSV files,Data Architecture,Data Engineer,N/A,N/A,Landing Zone|Bronze Layer,s3://very-great-products-raw-us-east-1-poc,N/A,Immutable source data; 90-day retention
+Curated Zone,S3 bucket containing cleaned and transformed Parquet data,Data Architecture,Data Engineer,N/A,N/A,Processed Zone|Silver Layer,s3://very-great-products-processed-us-east-1-poc,N/A,High-quality data for analytics; 7-year retention
+Quarantine,Storage for records that failed quality checks,Data Quality,Data Steward,quarantine_beauty_products,All,Failed Records|Rejected Data,N/A,N/A,Quality score < 0.70; requires manual review
+Glue Data Catalog,AWS service storing metadata and schemas,Data Architecture,Data Engineer,N/A,N/A,Data Catalog|Metadata Repository,beauty_products_db,N/A,Central metadata store for Athena queries
+ETL Job,AWS Glue job that transforms raw to curated data,Data Processing,Data Engineer,N/A,N/A,Transformation Job|Pipeline Job,beauty-products-etl-job,N/A,Scheduled daily at 2 AM UTC
+Athena,AWS serverless query service for S3 data,Data Access,Data Analyst,N/A,N/A,Query Engine|SQL Interface,N/A,N/A,Read-only access to curated data
+Lineage,Traceability of data from source to target,Data Governance,Data Steward,transformation_lineage,All,Data Lineage|Data Flow,N/A,N/A,Captured in lineage table for each job run
+DAMA-DMBOK,Data Management Body of Knowledge framework,Data Governance,Chief Data Officer,N/A,N/A,DAMA Framework|DMBOK,N/A,N/A,Industry standard for data management best practices
+Pass Rate,Percentage of records passing quality checks,Data Quality,Data Steward,N/A,N/A,Quality Pass Rate|Success Rate,0.95 (95%),DECIMAL,Target: >= 95%; alert if < 90%
+Anomaly,Record with extreme values requiring review,Data Quality,Data Steward,quarantine_beauty_products,quarantine_reason,Outlier|Exception,Revenue > $10M,N/A,Flagged for manual validation
+Deduplication,Process of removing duplicate records,Data Quality,Data Engineer,N/A,N/A,Dedup|Duplicate Removal,N/A,N/A,Based on natural key: product_id + month + shop_name
+Partition,Physical data organization strategy,Data Architecture,Data Architect,curated_beauty_products,year|month_num,Partitioning|Data Partitioning,year=2024/month_num=4,N/A,Optimizes query performance by time range
+Parquet,Columnar storage format for analytics,Data Architecture,Data Engineer,N/A,N/A,Apache Parquet,*.parquet,N/A,Compressed with Snappy; optimized for reads

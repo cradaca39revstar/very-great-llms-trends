@@ -22,7 +22,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
     col, lit, current_timestamp, when, trim, regexp_replace,
     md5, concat_ws, row_number, udf, monotonically_increasing_id, 
-    to_date, year, month, sum as _sum, count, avg, concat, lower, abs
+    to_date, year, month, sum as _sum, count, avg, concat, lower
 )
 from pyspark.sql.types import (
     StringType, DecimalType, IntegerType, LongType, 
@@ -143,10 +143,6 @@ def parse_currency_field(currency_str):
         cleaned = currency_str.replace('$', '').replace('€', '').replace('£', '')
         cleaned = cleaned.replace(',', '').strip()
         
-        # Check if empty after cleaning
-        if not cleaned or cleaned == '':
-            return None
-        
         # Parse as float
         value = float(cleaned)
         
@@ -212,36 +208,15 @@ print("Step 1: Reading raw CSV data...")
 
 raw_path = f"s3://{SOURCE_BUCKET}/landing/beauty-products/"
 
-# Define schema explicitly to avoid inference issues
-from pyspark.sql.types import StructType, StructField, StringType
-
-raw_schema = StructType([
-    StructField("Month", StringType(), True),
-    StructField("Product Id", StringType(), True),
-    StructField("Product Name", StringType(), True),
-    StructField("Shop Name", StringType(), True),
-    StructField("L1 category", StringType(), True),
-    StructField("L2 category", StringType(), True),
-    StructField("L3 category", StringType(), True),
-    StructField("Item Sold", StringType(), True),
-    StructField("Revenue", StringType(), True),
-    StructField("Avg. Unit Price", StringType(), True),
-    StructField("MoM Growth %", StringType(), True)
-])
-
-# Read CSV with explicit schema
+# Read CSV with error handling
 df_raw = spark.read.format("csv") \
     .option("header", "true") \
-    .schema(raw_schema) \
     .option("delimiter", ",") \
     .option("quote", '"') \
     .option("escape", '"') \
     .option("encoding", "UTF-8") \
     .option("mode", "PERMISSIVE") \
     .option("columnNameOfCorruptRecord", "_corrupt_record") \
-    .option("multiLine", "true") \
-    .option("ignoreLeadingWhiteSpace", "true") \
-    .option("ignoreTrailingWhiteSpace", "true") \
     .load(raw_path)
 
 # Add source metadata with actual file path
@@ -404,19 +379,19 @@ df = df.withColumn("data_quality_score",
     .otherwise(col("data_quality_score")))
 
 # Transform: Avg Unit Price (DECIMAL)
-df = df.withColumn("avg_unit_price_usd", parse_currency_udf(col("`Avg. Unit Price`")))
+df = df.withColumn("avg_unit_price_usd", parse_currency_udf(col("Avg. Unit Price")))
 
 df = df.withColumn("avg_unit_price_usd",
     when(col("avg_unit_price_usd").isNull(), lit(0.00))
     .otherwise(col("avg_unit_price_usd")))
 
 df = df.withColumn("quality_flags",
-    when(parse_currency_udf(col("`Avg. Unit Price`")).isNull(), 
+    when(parse_currency_udf(col("Avg. Unit Price")).isNull(), 
          concat(col("quality_flags"), lit("INVALID_AVG_PRICE,")))
     .otherwise(col("quality_flags")))
 
 df = df.withColumn("data_quality_score",
-    when(parse_currency_udf(col("`Avg. Unit Price`")).isNull(), 
+    when(parse_currency_udf(col("Avg. Unit Price")).isNull(), 
          col("data_quality_score") - 0.10)
     .otherwise(col("data_quality_score")))
 
@@ -649,7 +624,7 @@ quality_report = {
     "records_anomalies": anomaly_count,
     "pass_rate": round(passed_count / total_records_read if total_records_read > 0 else 0, 4),
     "quality_issues": quality_issues,
-    "avg_quality_score": round(float(quality_stats["avg_quality_score"]) if quality_stats["avg_quality_score"] is not None else 0.0, 4),
+    "avg_quality_score": round(float(quality_stats["avg_quality_score"]), 4),
     "transformation_version": TRANSFORMATION_VERSION
 }
 

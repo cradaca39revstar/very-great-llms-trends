@@ -1,0 +1,6 @@
+Month,Product Id,Product Name,Shop Name,L1 category,L2 category,L3 category,Item Sold,Revenue,Avg. Unit Price,MoM Growth %
+4/01/2024,1.72938E+18,Unbrush Detangling Hair Brush by FHI Heat,BeautyChoiceUSA,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"24,157","$305,785.10",$12.66,-42%
+invalid-date,bad-id,Product with Issues,,,,,-100,$-50.00,$0.00,5000%
+,,,Missing All Data,,,,,,,
+4/01/2024,9.87654E+17,Duplicate Product,TestShop,Beauty,Makeup,Tools,100,$1000.00,$10.00,5%
+4/01/2024,9.87654E+17,Duplicate Product,TestShop,Beauty,Makeup,Tools,100,$1000.00,$10.00,5%
