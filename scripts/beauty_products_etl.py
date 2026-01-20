@@ -181,7 +181,8 @@ def parse_currency_field(currency_str):
                 return round(value, 2)
         
         return None
-    except:
+    except Exception as e:
+        print(f"[ERROR] parse_currency failed | Input: '{currency_str}' | Type: {type(currency_str).__name__} | Error: {str(e)}")
         return None
 
 def parse_percentage_field(pct_str):
@@ -219,7 +220,8 @@ def parse_percentage_field(pct_str):
                 return round(value / 100.0, 4)
         
         return None
-    except:
+    except Exception as e:
+        print(f"[ERROR] parse_percentage failed | Input: '{pct_str}' | Type: {type(pct_str).__name__} | Error: {str(e)}")
         return None
 
 def parse_integer_field(int_str):
@@ -248,15 +250,17 @@ def parse_integer_field(int_str):
                 return value
         
         return None
-    except:
+    except Exception as e:
+        print(f"[ERROR] parse_integer failed | Input: '{int_str}' | Type: {type(int_str).__name__} | Error: {str(e)}")
         return None
 
 # Register UDFs
 parse_date_udf = udf(parse_date_field, StringType())
 normalize_product_id_udf = udf(normalize_product_id, LongType())
 normalize_text_udf = udf(normalize_text_field, StringType())
-parse_currency_udf = udf(parse_currency_field, DecimalType(18, 2))
-parse_percentage_udf = udf(parse_percentage_field, DecimalType(5, 4))
+from pyspark.sql.types import DoubleType
+parse_currency_udf = udf(parse_currency_field, DoubleType())  # Use DoubleType instead of DecimalType
+parse_percentage_udf = udf(parse_percentage_field, DoubleType())  # Use DoubleType instead of DecimalType
 parse_integer_udf = udf(parse_integer_field, IntegerType())
 
 
@@ -274,11 +278,28 @@ raw_path = f"s3://{SOURCE_BUCKET}/landing/beauty-products/"
 print(f"SOURCE_BUCKET: {SOURCE_BUCKET}")
 print(f"Reading from: {raw_path}")
 
-# Read CSV with header and infer schema using recursiveFileLookup
+# Define explicit schema - all columns as STRING for consistent UDF input
+csv_schema = StructType([
+    StructField("Month", StringType(), True),
+    StructField("Product Id", StringType(), True),
+    StructField("Product Name", StringType(), True),
+    StructField("Shop Name", StringType(), True),
+    StructField("L1 category", StringType(), True),
+    StructField("L2 category", StringType(), True),
+    StructField("L3 category", StringType(), True),
+    StructField("Item Sold", StringType(), True),
+    StructField("Revenue", StringType(), True),
+    StructField("Avg. Unit Price", StringType(), True),
+    StructField("MoM Growth %", StringType(), True)
+])
+
+print("Using explicit schema (all STRING types)")
+
+# Read CSV with explicit schema
 try:
     df_raw = spark.read.format("csv") \
         .option("header", "true") \
-        .option("inferSchema", "true") \
+        .schema(csv_schema) \
         .option("delimiter", ",") \
         .option("quote", '"') \
         .option("escape", '"') \
@@ -293,6 +314,43 @@ try:
 except Exception as e:
     print(f"✗ FAILED to read CSV: {str(e)}")
     raise
+
+# ============================================================================
+# DIAGNOSTIC: Sample data validation
+# ============================================================================
+print("=" * 80)
+print("DIAGNOSTIC: Sampling raw data to verify parsing")
+print("=" * 80)
+
+try:
+    sample_data = df_raw.select("Revenue", "Avg. Unit Price", "Item Sold", "MoM Growth %").limit(5).collect()
+    for idx, row in enumerate(sample_data, 1):
+        print(f"\nSample {idx}:")
+        print(f"  Revenue RAW: '{row['Revenue']}' (Type: {type(row['Revenue']).__name__})")
+        if row['Revenue']:
+            parsed_rev = parse_currency_field(row['Revenue'])
+            print(f"  Revenue PARSED: {parsed_rev}")
+        
+        print(f"  Avg Price RAW: '{row['Avg. Unit Price']}' (Type: {type(row['Avg. Unit Price']).__name__})")
+        if row['Avg. Unit Price']:
+            parsed_price = parse_currency_field(row['Avg. Unit Price'])
+            print(f"  Avg Price PARSED: {parsed_price}")
+        
+        print(f"  Item Sold RAW: '{row['Item Sold']}' (Type: {type(row['Item Sold']).__name__})")
+        if row['Item Sold']:
+            parsed_items = parse_integer_field(row['Item Sold'])
+            print(f"  Item Sold PARSED: {parsed_items}")
+        
+        print(f"  MoM Growth RAW: '{row['MoM Growth %']}' (Type: {type(row['MoM Growth %']).__name__})")
+        if row['MoM Growth %']:
+            parsed_pct = parse_percentage_field(row['MoM Growth %'])
+            print(f"  MoM Growth PARSED: {parsed_pct}")
+    
+    print("\n" + "=" * 80)
+    print("DIAGNOSTIC complete - check logs above for parsing issues")
+    print("=" * 80)
+except Exception as e:
+    print(f"[WARN] Diagnostic sampling failed: {str(e)}")
 
 # Add source metadata with actual file path
 from pyspark.sql.functions import input_file_name, regexp_extract
@@ -448,56 +506,68 @@ df = df.withColumn("l3_category",
     when(normalize_text_udf(col("L3 category")).isNull(), lit("Uncategorized"))
     .otherwise(normalize_text_udf(col("L3 category"))))
 
-# Transform: Revenue (DECIMAL)
-df = df.withColumn("revenue_usd", parse_currency_udf(col("Revenue")))
+# Transform: Revenue (DECIMAL) - Parse once, use multiple times
+df = df.withColumn("_revenue_parsed", parse_currency_udf(col("Revenue")))
 
-df = df.withColumn("revenue_usd",
-    when(col("revenue_usd").isNull(), lit(0.00))
-    .otherwise(col("revenue_usd")))
-
+# Validate and mark quality flags BEFORE replacing NULLs
 df = df.withColumn("quality_flags",
-    when(parse_currency_udf(col("Revenue")).isNull(), 
+    when(col("_revenue_parsed").isNull(), 
          concat(col("quality_flags"), lit("INVALID_REVENUE,")))
     .otherwise(col("quality_flags")))
 
 df = df.withColumn("data_quality_score",
-    when(parse_currency_udf(col("Revenue")).isNull(), 
+    when(col("_revenue_parsed").isNull(), 
          col("data_quality_score") - 0.15)
     .otherwise(col("data_quality_score")))
 
-# Transform: Avg Unit Price (DECIMAL)
-df = df.withColumn("avg_unit_price_usd", parse_currency_udf(col("`Avg. Unit Price`")))
+# NOW replace NULLs with default value
+df = df.withColumn("revenue_usd",
+    when(col("_revenue_parsed").isNull(), lit(0.00))
+    .otherwise(col("_revenue_parsed")))
 
-df = df.withColumn("avg_unit_price_usd",
-    when(col("avg_unit_price_usd").isNull(), lit(0.00))
-    .otherwise(col("avg_unit_price_usd")))
+df = df.drop("_revenue_parsed")
 
+# Transform: Avg Unit Price (DECIMAL) - Parse once, use multiple times
+df = df.withColumn("_avg_price_parsed", parse_currency_udf(col("`Avg. Unit Price`")))
+
+# Validate and mark quality flags BEFORE replacing NULLs
 df = df.withColumn("quality_flags",
-    when(parse_currency_udf(col("`Avg. Unit Price`")).isNull(), 
+    when(col("_avg_price_parsed").isNull(), 
          concat(col("quality_flags"), lit("INVALID_AVG_PRICE,")))
     .otherwise(col("quality_flags")))
 
 df = df.withColumn("data_quality_score",
-    when(parse_currency_udf(col("`Avg. Unit Price`")).isNull(), 
+    when(col("_avg_price_parsed").isNull(), 
          col("data_quality_score") - 0.10)
     .otherwise(col("data_quality_score")))
 
-# Transform: Item Sold (INT)
-df = df.withColumn("item_sold", parse_integer_udf(col("Item Sold")))
+# NOW replace NULLs with default value
+df = df.withColumn("avg_unit_price_usd",
+    when(col("_avg_price_parsed").isNull(), lit(0.00))
+    .otherwise(col("_avg_price_parsed")))
 
-df = df.withColumn("item_sold",
-    when(col("item_sold").isNull(), lit(0))
-    .otherwise(col("item_sold")))
+df = df.drop("_avg_price_parsed")
 
+# Transform: Item Sold (INT) - Parse once, use multiple times
+df = df.withColumn("_items_parsed", parse_integer_udf(col("Item Sold")))
+
+# Validate and mark quality flags BEFORE replacing NULLs
 df = df.withColumn("quality_flags",
-    when(parse_integer_udf(col("Item Sold")).isNull(), 
+    when(col("_items_parsed").isNull(), 
          concat(col("quality_flags"), lit("MISSING_ITEMS,")))
     .otherwise(col("quality_flags")))
 
 df = df.withColumn("data_quality_score",
-    when(parse_integer_udf(col("Item Sold")).isNull(), 
+    when(col("_items_parsed").isNull(), 
          col("data_quality_score") - 0.10)
     .otherwise(col("data_quality_score")))
+
+# NOW replace NULLs with default value
+df = df.withColumn("item_sold",
+    when(col("_items_parsed").isNull(), lit(0))
+    .otherwise(col("_items_parsed")))
+
+df = df.drop("_items_parsed")
 
 # Transform: MoM Growth % (DECIMAL)
 df = df.withColumn("mom_growth_pct", parse_percentage_udf(col("MoM Growth %")))
