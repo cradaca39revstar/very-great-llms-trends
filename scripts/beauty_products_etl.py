@@ -7,26 +7,23 @@ Version: 1.0.0
 """
 
 import sys
-import hashlib
 from datetime import datetime
-from decimal import Decimal
 import json
-import re
 
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-from pyspark.sql import DataFrame
 from pyspark.sql.functions import (
-    col, lit, current_timestamp, when, trim, regexp_replace,
+    col, lit, current_timestamp, when, regexp_replace,
     md5, concat_ws, row_number, udf, monotonically_increasing_id, 
-    to_date, year, month, sum as _sum, count, avg, concat, lower, abs
+    to_date, year, month, count, avg, concat, abs,
+    input_file_name, regexp_extract
 )
 from pyspark.sql.types import (
-    StringType, DecimalType, IntegerType, LongType, 
-    DateType, TimestampType, StructType, StructField
+    StringType, DecimalType, IntegerType, LongType, DoubleType,
+    StructType, StructField
 )
 from pyspark.sql.window import Window
 import boto3
@@ -258,7 +255,6 @@ def parse_integer_field(int_str):
 parse_date_udf = udf(parse_date_field, StringType())
 normalize_product_id_udf = udf(normalize_product_id, LongType())
 normalize_text_udf = udf(normalize_text_field, StringType())
-from pyspark.sql.types import DoubleType
 parse_currency_udf = udf(parse_currency_field, DoubleType())  # Use DoubleType instead of DecimalType
 parse_percentage_udf = udf(parse_percentage_field, DoubleType())  # Use DoubleType instead of DecimalType
 parse_integer_udf = udf(parse_integer_field, IntegerType())
@@ -353,8 +349,6 @@ except Exception as e:
     print(f"[WARN] Diagnostic sampling failed: {str(e)}")
 
 # Add source metadata with actual file path
-from pyspark.sql.functions import input_file_name, regexp_extract
-
 df_raw = df_raw.withColumn("source_file", input_file_name()) \
     .withColumn("source_record_number", monotonically_increasing_id())
 
@@ -450,8 +444,7 @@ df = df_raw.withColumn("data_quality_score", lit(1.0000)) \
     .withColumn("quality_flags", lit(""))
 
 # Transform: Month (DATE)
-df = df.withColumn("month_parsed", parse_date_udf(col("Month")))
-df = df.withColumn("month", to_date(col("month_parsed"), "yyyy-MM-dd"))
+df = df.withColumn("month", to_date(parse_date_udf(col("Month")), "yyyy-MM-dd"))
 
 # Quality check: Invalid date
 df = df.withColumn("quality_flags", 
