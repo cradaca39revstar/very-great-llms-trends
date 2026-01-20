@@ -654,7 +654,7 @@ print("=" * 80)
 
 curated_path = f"s3://{CURATED_BUCKET}/curated/beauty-products/"
 
-# Select final columns for curated table
+# Select final columns for curated table with explicit type casting
 df_curated_final = df_curated.select(
     "month",
     "product_id",
@@ -664,14 +664,14 @@ df_curated_final = df_curated.select(
     "l2_category",
     "l3_category",
     "item_sold",
-    "revenue_usd",
-    "avg_unit_price_usd",
-    "mom_growth_pct",
+    col("revenue_usd").cast(DecimalType(18, 2)).alias("revenue_usd"),
+    col("avg_unit_price_usd").cast(DecimalType(10, 2)).alias("avg_unit_price_usd"),
+    col("mom_growth_pct").cast(DecimalType(5, 4)).alias("mom_growth_pct"),
     "source_file",
     "source_record_number",
     "processed_timestamp",
     "transformation_version",
-    "data_quality_score",
+    col("data_quality_score").cast(DecimalType(5, 4)).alias("data_quality_score"),
     "quality_flags",
     "created_by",
     "record_hash",
