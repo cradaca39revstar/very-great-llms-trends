@@ -77,10 +77,17 @@ print(f"Transformation Version: {TRANSFORMATION_VERSION}")
 
 def parse_date_field(date_str):
     """Parse date from various formats to ISO date string"""
-    if not date_str or date_str.strip() == '':
+    if date_str is None:
         return None
     
+    # Convert to string if not already
+    if not isinstance(date_str, str):
+        date_str = str(date_str)
+    
     date_str = date_str.strip()
+    if not date_str:
+        return None
+    
     formats = ['%m/%d/%Y', '%m/%d/%y', '%Y-%m-%d', '%d/%m/%Y']
     
     for fmt in formats:
@@ -94,32 +101,42 @@ def parse_date_field(date_str):
 
 def normalize_product_id(product_id_str):
     """Convert product ID from scientific notation to BIGINT"""
-    if not product_id_str or product_id_str.strip() == '':
+    if product_id_str is None:
         return None
     
     try:
-        # Remove commas
-        cleaned = product_id_str.replace(',', '').strip()
-        # Parse as float first (handles scientific notation)
-        as_float = float(cleaned)
-        # Convert to int
-        as_int = int(as_float)
-        
-        # Validate range
-        if as_int < 0 or as_int > 9223372036854775807:
+        # If already an int, just validate and return
+        if isinstance(product_id_str, int):
+            if 0 <= product_id_str <= 9223372036854775807:
+                return product_id_str
             return None
         
-        return as_int
+        # Handle string input
+        if isinstance(product_id_str, str):
+            cleaned = product_id_str.replace(',', '').strip()
+            if not cleaned:
+                return None
+            as_float = float(cleaned)
+            as_int = int(as_float)
+            if 0 <= as_int <= 9223372036854775807:
+                return as_int
+        
+        return None
     except:
         return None
 
 def normalize_text_field(text_str, max_length=500):
     """Normalize text: trim, remove extra spaces, clean encoding"""
-    if not text_str or text_str.strip() == '':
+    if text_str is None:
         return None
     
-    # Strip whitespace
+    # Convert to string if not already
+    if not isinstance(text_str, str):
+        text_str = str(text_str)
+    
     cleaned = text_str.strip()
+    if not cleaned:
+        return None
     
     # Replace multiple spaces with single space
     cleaned = ' '.join(cleaned.split())
@@ -135,63 +152,102 @@ def normalize_text_field(text_str, max_length=500):
 
 def parse_currency_field(currency_str):
     """Parse currency string to decimal"""
-    if not currency_str or currency_str.strip() == '':
+    if currency_str is None:
         return None
     
     try:
-        # Remove currency symbols and commas
-        cleaned = currency_str.replace('$', '').replace('€', '').replace('£', '')
-        cleaned = cleaned.replace(',', '').strip()
-        
-        # Check if empty after cleaning
-        if not cleaned or cleaned == '':
+        # If already a number, just validate and return
+        if isinstance(currency_str, (int, float)):
+            value = float(currency_str)
+            if 0 <= value <= 100000000:
+                return round(value, 2)
             return None
         
-        # Parse as float
-        value = float(cleaned)
+        # Handle string input
+        if isinstance(currency_str, str):
+            cleaned = currency_str.strip()
+            if not cleaned:
+                return None
+            
+            # Remove currency symbols and commas
+            cleaned = cleaned.replace('$', '').replace('€', '').replace('£', '')
+            cleaned = cleaned.replace(',', '').strip()
+            
+            if not cleaned:
+                return None
+            
+            value = float(cleaned)
+            if 0 <= value <= 100000000:
+                return round(value, 2)
         
-        # Validate non-negative
-        if value < 0:
-            return None
-        
-        return round(value, 2)
+        return None
     except:
         return None
 
 def parse_percentage_field(pct_str):
     """Parse percentage string to decimal ratio"""
-    if not pct_str or pct_str.strip() == '':
+    if pct_str is None:
         return None
     
     try:
-        # Remove % symbol
-        cleaned = pct_str.replace('%', '').strip()
+        # If already a number, assume it's already a ratio or percentage value
+        if isinstance(pct_str, (int, float)):
+            value = float(pct_str)
+            # If value is between -1 and 10, assume it's already a ratio
+            if -1 <= value <= 10:
+                return round(value, 4)
+            # Otherwise assume it's a percentage
+            if -100 <= value <= 1000:
+                return round(value / 100.0, 4)
+            return None
         
-        # Parse as float
-        value = float(cleaned)
+        # Handle string input
+        if isinstance(pct_str, str):
+            cleaned = pct_str.strip()
+            if not cleaned:
+                return None
+            
+            # Handle Excel errors
+            if cleaned.upper() in ['#DIV/0!', '#N/A', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#NULL!']:
+                return None
+            
+            # Remove % symbol
+            cleaned = cleaned.replace('%', '').strip()
+            
+            value = float(cleaned)
+            if -100 <= value <= 1000:
+                return round(value / 100.0, 4)
         
-        # Convert to decimal ratio
-        ratio = value / 100.0
-        
-        return round(ratio, 4)
+        return None
     except:
         return None
 
 def parse_integer_field(int_str):
     """Parse integer string (with possible commas)"""
-    if not int_str or int_str.strip() == '':
+    if int_str is None:
         return None
     
     try:
-        # Remove commas
-        cleaned = int_str.replace(',', '').strip()
-        value = int(cleaned)
-        
-        # Validate non-negative
-        if value < 0:
+        # If already an int, just validate and return
+        if isinstance(int_str, int):
+            if 0 <= int_str <= 10000000:
+                return int_str
             return None
         
-        return value
+        # Handle string input
+        if isinstance(int_str, str):
+            cleaned = int_str.strip()
+            if not cleaned:
+                return None
+            
+            # Remove commas
+            cleaned = cleaned.replace(',', '').strip()
+            value = int(float(cleaned))  # Use float() first to handle decimals
+            
+            if 0 <= value <= 10000000:
+                return value
+        
+        return None
     except:
         return None
 
@@ -208,41 +264,35 @@ parse_integer_udf = udf(parse_integer_field, IntegerType())
 # STEP 1: READ RAW DATA
 # ============================================================================
 
+print("=" * 80)
 print("Step 1: Reading raw CSV data...")
+print("=" * 80)
 
+# Use recursive file lookup to find all CSV files in subdirectories
 raw_path = f"s3://{SOURCE_BUCKET}/landing/beauty-products/"
 
-# Define schema explicitly to avoid inference issues
-from pyspark.sql.types import StructType, StructField, StringType
+print(f"SOURCE_BUCKET: {SOURCE_BUCKET}")
+print(f"Reading from: {raw_path}")
 
-raw_schema = StructType([
-    StructField("Month", StringType(), True),
-    StructField("Product Id", StringType(), True),
-    StructField("Product Name", StringType(), True),
-    StructField("Shop Name", StringType(), True),
-    StructField("L1 category", StringType(), True),
-    StructField("L2 category", StringType(), True),
-    StructField("L3 category", StringType(), True),
-    StructField("Item Sold", StringType(), True),
-    StructField("Revenue", StringType(), True),
-    StructField("Avg. Unit Price", StringType(), True),
-    StructField("MoM Growth %", StringType(), True)
-])
-
-# Read CSV with explicit schema
-df_raw = spark.read.format("csv") \
-    .option("header", "true") \
-    .schema(raw_schema) \
-    .option("delimiter", ",") \
-    .option("quote", '"') \
-    .option("escape", '"') \
-    .option("encoding", "UTF-8") \
-    .option("mode", "PERMISSIVE") \
-    .option("columnNameOfCorruptRecord", "_corrupt_record") \
-    .option("multiLine", "true") \
-    .option("ignoreLeadingWhiteSpace", "true") \
-    .option("ignoreTrailingWhiteSpace", "true") \
-    .load(raw_path)
+# Read CSV with header and infer schema using recursiveFileLookup
+try:
+    df_raw = spark.read.format("csv") \
+        .option("header", "true") \
+        .option("inferSchema", "true") \
+        .option("delimiter", ",") \
+        .option("quote", '"') \
+        .option("escape", '"') \
+        .option("encoding", "UTF-8") \
+        .option("mode", "PERMISSIVE") \
+        .option("columnNameOfCorruptRecord", "_corrupt_record") \
+        .option("recursiveFileLookup", "true") \
+        .option("pathGlobFilter", "*.csv") \
+        .load(raw_path)
+    
+    print("✓ CSV read operation completed")
+except Exception as e:
+    print(f"✗ FAILED to read CSV: {str(e)}")
+    raise
 
 # Add source metadata with actual file path
 from pyspark.sql.functions import input_file_name, regexp_extract
@@ -284,13 +334,25 @@ if inconsistent_count > 0:
     print("Files will still be processed, but this may indicate organizational issues:")
     inconsistent_files.show(truncate=False)
 else:
-    print("✓ All files have consistent folder/filename dates")
+    print("[OK] All files have consistent folder/filename dates")
 
 # Drop validation columns (not needed for processing)
 df_raw = df_raw.drop("folder_year", "folder_month", "folder_day", "filename_date")
 
-total_records_read = df_raw.count()
-print(f"Total records read: {total_records_read}")
+print("Counting records...")
+try:
+    total_records_read = df_raw.count()
+    print(f"✓ Total records read: {total_records_read}")
+    
+    if total_records_read == 0:
+        print("✗ WARNING: Zero records read!")
+        print("Checking schema:")
+        df_raw.printSchema()
+        print("Checking if dataframe is empty:")
+        print(f"Is empty: {df_raw.rdd.isEmpty()}")
+except Exception as e:
+    print(f"✗ FAILED to count records: {str(e)}")
+    raise
 
 
 # ============================================================================
@@ -473,7 +535,12 @@ df = df.withColumn("quality_flags",
 df = df.withColumn("year", year(col("month"))) \
     .withColumn("month_num", month(col("month")))
 
-print(f"Transformations completed. Total records: {df.count()}")
+try:
+    transform_count = df.count()
+    print(f"✓ Transformations completed. Total records: {transform_count}")
+except Exception as e:
+    print(f"✗ FAILED during transformations: {str(e)}")
+    raise
 
 
 # ============================================================================
@@ -491,6 +558,7 @@ df = df.withColumn("row_num", row_number().over(window_spec))
 # Separate duplicates
 df_duplicates = df.filter(col("row_num") > 1)
 duplicate_count = df_duplicates.count()
+print(f"✓ Found {duplicate_count} duplicates")
 
 if duplicate_count > 0:
     print(f"Found {duplicate_count} duplicate records, writing to error bucket...")
@@ -511,14 +579,17 @@ if duplicate_count > 0:
 # Keep only first occurrence
 df = df.filter(col("row_num") == 1).drop("row_num")
 
-print(f"After deduplication: {df.count()} records")
+dedup_count = df.count()
+print(f"✓ After deduplication: {dedup_count} records")
 
 
 # ============================================================================
 # STEP 5: QUALITY-BASED ROUTING
 # ============================================================================
 
+print("=" * 80)
 print("Step 5: Routing records based on quality scores...")
+print("=" * 80)
 
 # Split by quality score
 df_passed = df.filter(col("data_quality_score") >= DQ_PASS_THRESHOLD)
@@ -535,7 +606,7 @@ warned_count = df_warned.count()
 failed_count = df_failed.count()
 anomaly_count = df_anomalies.count()
 
-print(f"Passed: {passed_count}, Warned: {warned_count}, Failed: {failed_count}, Anomalies: {anomaly_count}")
+print(f"✓ Passed: {passed_count}, Warned: {warned_count}, Failed: {failed_count}, Anomalies: {anomaly_count}")
 
 # Combine passed and warned for curated output
 df_curated = df_passed.union(df_warned)
@@ -577,7 +648,9 @@ if anomaly_count > 0:
 # STEP 6: WRITE CURATED DATA
 # ============================================================================
 
+print("=" * 80)
 print("Step 6: Writing curated data to S3...")
+print("=" * 80)
 
 curated_path = f"s3://{CURATED_BUCKET}/curated/beauty-products/"
 
@@ -613,14 +686,16 @@ df_curated_final.write \
     .parquet(curated_path, compression="snappy")
 
 curated_count = df_curated_final.count()
-print(f"Wrote {curated_count} records to curated zone")
+print(f"✓ Wrote {curated_count} records to curated zone")
 
 
 # ============================================================================
 # STEP 7: GENERATE QUALITY REPORT
 # ============================================================================
 
+print("=" * 80)
 print("Step 7: Generating data quality report...")
+print("=" * 80)
 
 # Calculate aggregate quality metrics
 quality_stats = df.agg(
@@ -664,8 +739,8 @@ s3_client.put_object(
     ContentType='application/json'
 )
 
-print(f"Quality report written to {report_path}")
-print(f"Average quality score: {quality_report['avg_quality_score']}")
+print(f"✓ Quality report written to {report_path}")
+print(f"✓ Average quality score: {quality_report['avg_quality_score']}")
 
 # Log alerts if quality degradation
 if quality_report['avg_quality_score'] < 0.80:
@@ -680,7 +755,9 @@ if error_rate > 0.05:
 # STEP 8: WRITE LINEAGE METADATA
 # ============================================================================
 
+print("=" * 80)
 print("Step 8: Writing lineage metadata...")
+print("=" * 80)
 
 lineage_data = [{
     "source_file_path": raw_path,
@@ -698,7 +775,7 @@ df_lineage = spark.createDataFrame(lineage_data)
 lineage_path = f"s3://{METADATA_BUCKET}/lineage/"
 df_lineage.write.mode("append").parquet(lineage_path)
 
-print(f"Lineage metadata written to {lineage_path}")
+print(f"✓ Lineage metadata written to {lineage_path}")
 
 
 # ============================================================================

@@ -116,6 +116,15 @@ logs/
 .glue/
 glue-local-*/
 
+# Test and temporary files
+**/test_*.py
+**/monitor_*.py
+**/view_*.py
+terraform/quality-report*.json
+terraform/job-logs*.txt
+terraform/job-logs*.json
+terraform/test-*.csv
+
 # Data files (keep structure, ignore large CSV files)
 # Uncomment the line below to ignore all CSV files in data/raw/
 # data/raw/**/*.csv
