@@ -3,7 +3,7 @@
 
 # Raw Zone Bucket
 resource "aws_s3_bucket" "raw" {
-  bucket = "very-great-products-raw-us-east-1-poc"
+  bucket = "very-great-products-raw-us-east-1-dev"
   
   tags = {
     Name        = "Beauty Products Raw Zone"
@@ -69,7 +69,7 @@ resource "aws_s3_bucket_public_access_block" "raw" {
 
 # Curated Zone Bucket
 resource "aws_s3_bucket" "curated" {
-  bucket = "very-great-products-processed-us-east-1-poc"
+  bucket = "very-great-products-processed-us-east-1-dev"
   
   tags = {
     Name        = "Beauty Products Curated Zone"
@@ -157,7 +157,7 @@ resource "aws_s3_bucket_public_access_block" "curated" {
 
 # Metadata Zone Bucket
 resource "aws_s3_bucket" "metadata" {
-  bucket = "very-great-products-metadata-us-east-1-poc"
+  bucket = "very-great-products-metadata-us-east-1-dev"
   
   tags = {
     Name        = "Beauty Products Metadata Zone"
@@ -200,7 +200,7 @@ resource "aws_s3_bucket_public_access_block" "metadata" {
 
 # S3 Bucket for Glue scripts
 resource "aws_s3_bucket" "glue_scripts" {
-  bucket = "very-great-products-glue-scripts-us-east-1-poc"
+  bucket = "very-great-products-glue-scripts-us-east-1-dev"
   
   tags = {
     Name        = "Glue Scripts Storage"

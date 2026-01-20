@@ -49,3 +49,13 @@ output "glue_job_url" {
   value       = "https://console.aws.amazon.com/glue/home?region=${data.aws_region.current.name}#/v2/etl-jobs/view/${aws_glue_job.beauty_products_etl.name}"
   description = "URL to Glue job in AWS Console"
 }
+
+output "glue_workflow_name" {
+  value       = aws_glue_workflow.beauty_products_pipeline.name
+  description = "Name of the Glue ETL workflow"
+}
+
+output "glue_workflow_url" {
+  value       = "https://console.aws.amazon.com/glue/home?region=${data.aws_region.current.name}#/v2/etl-configuration/workflows/view/${aws_glue_workflow.beauty_products_pipeline.name}"
+  description = "URL to Glue workflow in AWS Console"
+}
