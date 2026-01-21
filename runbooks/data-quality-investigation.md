@@ -29,7 +29,7 @@ Quality issues detected through:
    - Triggers when error rate > 5%
 
 3. **Quality Reports:** Review JSON reports in S3
-   - Location: `s3://very-great-products-processed-us-east-1-poc/quality-reports/`
+   - Location: `s3://very-great-products-processed-us-east-1-{environment}/quality-reports/` (replace `{environment}` with `dev`, `staging`, `prod`, or `poc`)
 
 4. **Athena Query:** Check quality trends
    ```sql
@@ -46,13 +46,15 @@ Quality issues detected through:
 
 **Locate Latest Report:**
 ```bash
-aws s3 ls s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/$(date +%Y/%m/%d)/ \
+# Replace {environment} with your environment (dev, staging, prod, poc)
+aws s3 ls s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/$(date +%Y/%m/%d)/ \
   --recursive | sort | tail -1
 ```
 
 **Download and Review:**
 ```bash
-REPORT_PATH="s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/2024/04/17/report_jr_20240417_123456.json"
+# Replace {environment} with your environment
+REPORT_PATH="s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/2024/04/17/report_jr_20240417_123456.json"
 
 aws s3 cp $REPORT_PATH /tmp/quality-report.json
 
@@ -227,8 +229,8 @@ LIMIT 50;
 
 **Check Raw Data:**
 ```bash
-# Download source file
-aws s3 cp s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/2024/04/17/file.csv /tmp/
+# Download source file (replace {environment} with your environment)
+aws s3 cp s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/2024/04/17/file.csv /tmp/
 
 # Check Month column format
 head -20 /tmp/file.csv | cut -d',' -f1

@@ -174,9 +174,9 @@ terraform apply -target=aws_glue_catalog_table.curated_beauty_products
 #### Step 4: Deploy ETL Script
 
 ```bash
-# Upload updated script to S3
+# Upload updated script to S3 (replace {environment} with your environment)
 aws s3 cp scripts/beauty_products_etl.py \
-  s3://very-great-products-glue-scripts-us-east-1-poc/scripts/beauty_products_etl.py
+  s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/beauty_products_etl.py
 
 # Update transformation version parameter
 aws glue update-job \
@@ -194,17 +194,17 @@ Month,Product Id,Product Name,Shop Name,L1 category,L2 category,L3 category,Item
 4/01/2024,123456,Test Product,Test Shop,Beauty,Hair,Brushes,100,$1000.00,$10.00,5%,TestBrand
 ```
 
-**Upload to dev/test environment:**
+**Upload to dev/test environment (replace {environment} with your environment):**
 ```bash
 aws s3 cp test-data-with-brand.csv \
-  s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/test/
+  s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/test/
 ```
 
 **Run job manually in test mode:**
 ```bash
 aws glue start-job-run \
   --job-name beauty-products-etl-job \
-  --arguments='{"--SOURCE_BUCKET":"very-great-products-raw-us-east-1-poc/landing/beauty-products/test/"}'
+  --arguments='{"--SOURCE_BUCKET":"very-great-products-raw-us-east-1-{environment}/landing/beauty-products/test/"}'
 ```
 
 **Verify new column in output:**
@@ -509,11 +509,11 @@ ALTER TABLE beauty_products_db.curated_beauty_products_v2 RENAME TO curated_beau
 
 **Rollback Steps:**
 
-1. **Revert ETL Script:**
+1. **Revert ETL Script (replace {environment} with your environment):**
    ```bash
    git revert <commit-hash>
    aws s3 cp scripts/beauty_products_etl.py \
-     s3://very-great-products-glue-scripts-us-east-1-poc/scripts/
+     s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/
    ```
 
 2. **Revert Glue Catalog:**

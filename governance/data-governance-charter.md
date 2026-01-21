@@ -111,11 +111,19 @@ This Data Governance Charter establishes the framework, roles, responsibilities,
 
 **Policy Statement:** All data in the curated zone must meet minimum quality standards before being made available for business consumption.
 
+**Quality Tiers:**
+The ETL pipeline implements a three-tier quality routing system:
+
+- **PASS (Score >= 0.95):** High-quality records routed to curated zone, production-ready for analytics
+- **WARN (Score 0.70 - 0.95):** Acceptable quality records routed to curated zone but flagged with quality_flags for review
+- **FAIL (Score < 0.70):** Low-quality records routed to quarantine zone, require investigation before use
+
 **Standards:**
-- Data quality score >= 0.70 for inclusion in curated zone
-- Quality scores calculated based on defined validation rules
+- Quality scores calculated based on defined validation rules (see Section 6.2)
 - Quality reports generated for every ETL job run
-- Quarantine process for records scoring < 0.70
+- Records with score >= 0.70 are included in curated zone (with appropriate flags)
+- Records with score < 0.70 are quarantined for manual review
+- Average quality score target: >= 0.95 across all records
 
 **Enforcement:**
 - Automated quality checks in Glue ETL job
@@ -133,12 +141,14 @@ This Data Governance Charter establishes the framework, roles, responsibilities,
 
 | Data Zone | Retention Period | Storage Class | Rationale |
 |-----------|-----------------|---------------|-----------|
-| Raw (Landing) | 90 days standard, then Glacier | S3 Standard → Glacier | Source fidelity, audit trail |
-| Raw (Archive) | 1 year, then delete | Glacier | Reprocessing capability |
-| Curated | 7 years | S3 Standard (6mo) → IA | Business analytics, compliance |
-| Error/Quarantine | 30 days, then delete | S3 Standard | Issue resolution window |
-| Quality Reports | 2 years | S3 Standard | Trend analysis |
-| Metadata/Lineage | 5 years | S3 Standard | Audit and compliance |
+| Raw (Landing) | 90 days standard, then Glacier; delete after 365 days | S3 Standard → Glacier → Delete | Source fidelity, audit trail |
+| Raw (Archive) | 1 year, then delete | Glacier → Delete | Reprocessing capability |
+| Curated | Indefinite (transition to IA after 180 days) | S3 Standard (180 days) → Standard-IA | Business analytics, compliance (no expiration configured) |
+| Error/Quarantine | 30 days, then delete | S3 Standard → Delete | Issue resolution window |
+| Quality Reports | Indefinite (no lifecycle policy) | S3 Standard | Trend analysis (currently no expiration) |
+| Metadata/Lineage | Indefinite (no lifecycle policy) | S3 Standard | Audit and compliance (currently no expiration) |
+
+**Note:** Curated, Quality Reports, and Metadata zones currently have no expiration configured in Terraform, meaning data is retained indefinitely. For compliance with 7-year retention requirements, consider adding expiration policies or document that indefinite retention exceeds minimum requirements.
 
 **Enforcement:**
 - S3 lifecycle policies configured in Terraform

@@ -49,7 +49,7 @@ CSV Source → S3 Raw → Glue ETL → S3 Curated → Athena Queries
 
 ### 1. Ingestion
 
-- CSV files uploaded to `s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/`
+- CSV files uploaded to `s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/` (where `{environment}` is `dev`, `staging`, `prod`, or `poc`)
 - EventBridge triggers Glue job at 2 AM UTC daily
 
 ### 2. Transformation
@@ -123,7 +123,8 @@ Full schema: [`schemas/curated_beauty_products_v1.json`](schemas/curated_beauty_
 | INVALID_AVG_PRICE    | -0.10   | Avg price not parseable        |
 | MISSING_ITEMS        | -0.10   | Item sold count invalid        |
 | SUSPICIOUS_GROWTH    | -0.05   | Growth outside -100% to +1000% |
-| DUPLICATE_RECORD     | -0.10   | Duplicate natural key          |
+
+**Note:** DUPLICATE_RECORD is handled separately in the deduplication step (Step 4) and does not affect quality score. Duplicate records are routed to the error bucket.
 
 **Thresholds:**
 
@@ -167,8 +168,9 @@ Full schema: [`schemas/curated_beauty_products_v1.json`](schemas/curated_beauty_
 4. **Upload Test Data**
 
    ```bash
+   # Replace {environment} with your environment (dev, staging, prod, poc)
    aws s3 cp tests/sample-data/valid_input.csv \
-     s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/$(date +%Y/%m/%d)/
+     s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/$(date +%Y/%m/%d)/
    ```
 5. **Trigger Job**
 
@@ -235,8 +237,8 @@ More examples: [`athena-views.sql`](athena-views.sql)
 **Quality Reports:**
 
 ```bash
-# Latest report
-aws s3 ls s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/ \
+# Latest report (replace {environment} with your environment)
+aws s3 ls s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/ \
   --recursive | sort | tail -1
 ```
 
@@ -327,7 +329,7 @@ Set via Terraform variables or Glue job parameters:
 
 | Variable                | Description                         | Default                   |
 | ----------------------- | ----------------------------------- | ------------------------- |
-| `environment`         | Environment name (dev/staging/prod) | `poc`                   |
+| `environment`         | Environment name (dev/staging/prod/poc) | `poc`                   |
 | `aws_region`          | AWS region for resources            | `us-east-1`             |
 | `alert_email`         | Email for CloudWatch alerts         | `data-team@example.com` |
 | `DQ_PASS_THRESHOLD`   | Quality score pass threshold        | `0.95`                  |
@@ -355,9 +357,9 @@ pytest integration_test.py -v
 ### Test with Sample Data
 
 ```bash
-# Upload sample file
+# Upload sample file (replace {environment} with your environment)
 aws s3 cp tests/sample-data/valid_input.csv \
-  s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/test/
+  s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/test/
 
 # Run job
 aws glue start-job-run --job-name beauty-products-etl-job

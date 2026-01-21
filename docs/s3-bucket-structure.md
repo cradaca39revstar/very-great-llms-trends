@@ -14,9 +14,11 @@ The Beauty Products Data Lake uses three primary S3 buckets following the **Meda
 
 ## Bucket 1: Raw Zone
 
-**Bucket Name:** `very-great-products-raw-us-east-1-poc`
+**Bucket Name:** `very-great-products-raw-us-east-1-{environment}` (where `{environment}` is `dev`, `staging`, `prod`, or `poc`)
 
 **Purpose:** Immutable storage of source CSV files
+
+**Note:** The environment suffix is configured via Terraform variable `environment` in `terraform.tfvars`. Examples in this document use `dev` as the default environment.
 
 **Characteristics:**
 - Data format: CSV (as received from source)
@@ -28,7 +30,7 @@ The Beauty Products Data Lake uses three primary S3 buckets following the **Meda
 ### Directory Structure
 
 ```
-very-great-products-raw-us-east-1-poc/
+very-great-products-raw-us-east-1-dev/
 ├── landing/
 │   └── beauty-products/
 │       └── YYYY/
@@ -72,7 +74,7 @@ very-great-products-raw-us-east-1-poc/
 
 ## Bucket 2: Curated Zone
 
-**Bucket Name:** `very-great-products-processed-us-east-1-poc`
+**Bucket Name:** `very-great-products-processed-us-east-1-{environment}` (where `{environment}` is `dev`, `staging`, `prod`, or `poc`)
 
 **Purpose:** Cleaned, validated, and transformed data for analytics
 
@@ -86,7 +88,7 @@ very-great-products-raw-us-east-1-poc/
 ### Directory Structure
 
 ```
-very-great-products-processed-us-east-1-poc/
+very-great-products-processed-us-east-1-dev/
 ├── curated/
 │   └── beauty-products/
 │       └── year=YYYY/
@@ -154,7 +156,7 @@ very-great-products-processed-us-east-1-poc/
 
 ## Bucket 3: Metadata Zone
 
-**Bucket Name:** `very-great-products-metadata-us-east-1-poc`
+**Bucket Name:** `very-great-products-metadata-us-east-1-{environment}` (where `{environment}` is `dev`, `staging`, `prod`, or `poc`)
 
 **Purpose:** Lineage, audit logs, and governance metadata
 
@@ -168,7 +170,7 @@ very-great-products-processed-us-east-1-poc/
 ### Directory Structure
 
 ```
-very-great-products-metadata-us-east-1-poc/
+very-great-products-metadata-us-east-1-dev/
 ├── lineage/
 │   ├── part-00000-{uuid}.parquet
 │   └── part-NNNNN-{uuid}.parquet
@@ -204,7 +206,7 @@ very-great-products-metadata-us-east-1-poc/
 
 ## Bucket 4: Glue Scripts (Supporting)
 
-**Bucket Name:** `very-great-products-glue-scripts-us-east-1-poc`
+**Bucket Name:** `very-great-products-glue-scripts-us-east-1-{environment}` (where `{environment}` is `dev`, `staging`, `prod`, or `poc`)
 
 **Purpose:** Storage for Glue ETL scripts and dependencies
 
@@ -216,7 +218,7 @@ very-great-products-metadata-us-east-1-poc/
 ### Directory Structure
 
 ```
-very-great-products-glue-scripts-us-east-1-poc/
+very-great-products-glue-scripts-us-east-1-dev/
 ├── scripts/
 │   ├── beauty_products_etl.py
 │   └── backup/
@@ -255,7 +257,7 @@ very-great-products-glue-scripts-us-east-1-poc/
 
 ### Buckets
 - Format: `{project}-{zone}-{region}-{environment}`
-- Example: `very-great-products-raw-us-east-1-poc`
+- Example: `very-great-products-raw-us-east-1-dev` (for dev environment)
 
 ### Prefixes
 - Format: `{zone}/{data-domain}/YYYY/MM/DD/` (for time-based data)
@@ -375,9 +377,11 @@ aws s3api copy-object \
 ### Storage Optimization
 
 **Lifecycle Transitions:**
-- Raw data: Standard (90 days) → Glacier → Delete (1 year)
-- Curated data: Standard (6 months) → Standard-IA (permanent)
+- Raw data: Standard (90 days) → Glacier → Delete (365 days)
+- Curated data: Standard (180 days) → Standard-IA (no expiration configured)
 - Error/quarantine: Delete after 30 days
+- Quality reports: No lifecycle policy configured (indefinite retention)
+- Metadata/Lineage: No lifecycle policy configured (indefinite retention)
 
 **Compression:**
 - Parquet with Snappy: ~80% compression ratio vs. CSV

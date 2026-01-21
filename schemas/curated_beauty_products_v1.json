@@ -2,7 +2,7 @@
   "schema_name": "curated_beauty_products",
   "version": "1.0.0",
   "description": "Curated schema for beauty products sales data with data quality metadata",
-  "last_updated": "2024-01-17",
+  "last_updated": "2026-01-17",
   "fields": [
     {
       "name": "month",
@@ -260,9 +260,9 @@
       "INVALID_REVENUE": 0.15,
       "INVALID_AVG_PRICE": 0.10,
       "MISSING_ITEMS": 0.10,
-      "SUSPICIOUS_GROWTH": 0.05,
-      "DUPLICATE_RECORD": 0.10
+      "SUSPICIOUS_GROWTH": 0.05
     },
+    "note": "DUPLICATE_RECORD is handled separately in Step 4 (deduplication) and does not affect quality score. Duplicates are routed to error bucket."
     "thresholds": {
       "pass": 0.95,
       "warn": 0.70,
@@ -276,6 +276,7 @@
   "storage": {
     "format": "Parquet",
     "compression": "Snappy",
-    "location": "s3://very-great-products-processed-us-east-1-poc/curated/beauty-products/"
+    "location": "s3://very-great-products-processed-us-east-1-{environment}/curated/beauty-products/",
+    "note": "Replace {environment} with dev, staging, prod, or poc based on deployment"
   }
 }

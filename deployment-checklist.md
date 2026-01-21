@@ -158,12 +158,12 @@ terraform apply -target=aws_glue_catalog_database.beauty_products \
 #### Step 4: Upload Glue ETL Script
 
 ```bash
-# Upload ETL script to S3
+# Upload ETL script to S3 (replace {environment} with your environment)
 aws s3 cp scripts/beauty_products_etl.py \
-  s3://very-great-products-glue-scripts-us-east-1-poc/scripts/beauty_products_etl.py
+  s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/beauty_products_etl.py
 
 # Verify upload
-aws s3 ls s3://very-great-products-glue-scripts-us-east-1-poc/scripts/
+aws s3 ls s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/
 ```
 
 - [ ] Script uploaded successfully
@@ -285,9 +285,9 @@ Month,Product Id,Product Name,Shop Name,L1 category,L2 category,L3 category,Item
 4/01/2024,1.72938E+18,Test Product,TestShop,Beauty & Personal Care,Haircare,Brushes,100,$1000.00,$10.00,5%
 EOF
 
-# Upload to landing zone
+# Upload to landing zone (replace {environment} with your environment)
 aws s3 cp /tmp/test-beauty-products.csv \
-  s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/$(date +%Y/%m/%d)/test-$(date +%s).csv
+  s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/$(date +%Y/%m/%d)/test-$(date +%s).csv
 ```
 
 - [ ] Test file uploaded successfully
@@ -348,11 +348,11 @@ ORDER BY year DESC, month_num DESC;
 #### Step 13: Verify Quality Report
 
 ```bash
-# Download quality report
-aws s3 ls s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/$(date +%Y/%m/%d)/ \
+# Download quality report (replace {environment} with your environment)
+aws s3 ls s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/$(date +%Y/%m/%d)/ \
   | grep $JOB_RUN_ID
 
-aws s3 cp s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/$(date +%Y/%m/%d)/report_${JOB_RUN_ID}.json /tmp/
+aws s3 cp s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/$(date +%Y/%m/%d)/report_${JOB_RUN_ID}.json /tmp/
 
 cat /tmp/report_${JOB_RUN_ID}.json | jq '.'
 ```
@@ -399,7 +399,8 @@ aws cloudwatch describe-alarms --alarm-names beauty-products-job-failure \
 
 ```bash
 # Coordinate with data provider to upload first production file
-# Example path: s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/2024/04/17/production-data.csv
+# Example path (replace {environment} with your environment): 
+# s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/2024/04/17/production-data.csv
 ```
 
 - [ ] Production file uploaded to landing/
@@ -460,10 +461,10 @@ GROUP BY
 #### Step 19: Review Quality Report
 
 ```bash
-# Get latest quality report
-LATEST_REPORT=$(aws s3 ls s3://very-great-products-processed-us-east-1-poc/quality-reports/beauty-products/ --recursive | sort | tail -1 | awk '{print $NF}')
+# Get latest quality report (replace {environment} with your environment)
+LATEST_REPORT=$(aws s3 ls s3://very-great-products-processed-us-east-1-{environment}/quality-reports/beauty-products/ --recursive | sort | tail -1 | awk '{print $NF}')
 
-aws s3 cp s3://very-great-products-processed-us-east-1-poc/$LATEST_REPORT /tmp/latest-quality-report.json
+aws s3 cp s3://very-great-products-processed-us-east-1-{environment}/$LATEST_REPORT /tmp/latest-quality-report.json
 
 cat /tmp/latest-quality-report.json | jq '.pass_rate, .avg_quality_score, .quality_issues'
 ```
@@ -537,9 +538,9 @@ aws events disable-rule --name beauty-products-daily-etl
 ### Rollback Step 2: Revert Glue Job Script
 
 ```bash
-# Re-upload previous version from backup
-aws s3 cp s3://very-great-products-glue-scripts-us-east-1-poc/scripts/backup/beauty_products_etl_v0.9.0.py \
-          s3://very-great-products-glue-scripts-us-east-1-poc/scripts/beauty_products_etl.py
+# Re-upload previous version from backup (replace {environment} with your environment)
+aws s3 cp s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/backup/beauty_products_etl_v0.9.0.py \
+          s3://very-great-products-glue-scripts-us-east-1-{environment}/scripts/beauty_products_etl.py
 ```
 
 ### Rollback Step 3: Revert Terraform Changes

@@ -100,12 +100,14 @@ aws logs filter-log-events \
 
 **Verify source file exists:**
 ```bash
-aws s3 ls s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/$(date +%Y/%m/%d)/
+# Replace {environment} with your environment (dev, staging, prod, poc)
+aws s3 ls s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/$(date +%Y/%m/%d)/
 ```
 
 **Download and inspect file:**
 ```bash
-aws s3 cp s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/file.csv /tmp/
+# Replace {environment} with your environment
+aws s3 cp s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/file.csv /tmp/
 
 # Check file size
 ls -lh /tmp/file.csv
@@ -142,12 +144,12 @@ Verify:
 
 **S3 Buckets Accessibility:**
 ```bash
-# Test read from raw bucket
-aws s3 ls s3://very-great-products-raw-us-east-1-poc/landing/
+# Test read from raw bucket (replace {environment} with your environment)
+aws s3 ls s3://very-great-products-raw-us-east-1-{environment}/landing/
 
 # Test write to curated bucket
-echo "test" | aws s3 cp - s3://very-great-products-processed-us-east-1-poc/test.txt
-aws s3 rm s3://very-great-products-processed-us-east-1-poc/test.txt
+echo "test" | aws s3 cp - s3://very-great-products-processed-us-east-1-{environment}/test.txt
+aws s3 rm s3://very-great-products-processed-us-east-1-{environment}/test.txt
 ```
 
 ---
@@ -191,32 +193,32 @@ aws s3 rm s3://very-great-products-processed-us-east-1-poc/test.txt
 
 **Option A: Fix source file**
 1. Contact data provider to fix and re-upload file
-2. Move bad file to error prefix:
+2. Move bad file to error prefix (replace {environment} with your environment):
    ```bash
-   aws s3 mv s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/bad-file.csv \
-              s3://very-great-products-raw-us-east-1-poc/error/beauty-products/YYYY/MM/DD/
+   aws s3 mv s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/bad-file.csv \
+              s3://very-great-products-raw-us-east-1-{environment}/error/beauty-products/YYYY/MM/DD/
    ```
 3. Wait for corrected file upload
 4. Job will process automatically (if scheduled) or trigger manually
 
 **Option B: Skip bad file**
-1. Archive bad file:
+1. Archive bad file (replace {environment} with your environment):
    ```bash
-   aws s3 mv s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/bad-file.csv \
-              s3://very-great-products-raw-us-east-1-poc/archive/beauty-products/YYYY/MM/DD/skipped_$(date +%s).csv
+   aws s3 mv s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/bad-file.csv \
+              s3://very-great-products-raw-us-east-1-{environment}/archive/beauty-products/YYYY/MM/DD/skipped_$(date +%s).csv
    ```
 2. Document skipped file in incident log
 3. Notify data steward for follow-up
 
 **Option C: Manually clean data**
-1. Download file:
+1. Download file (replace {environment} with your environment):
    ```bash
-   aws s3 cp s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/file.csv /tmp/
+   aws s3 cp s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/file.csv /tmp/
    ```
 2. Fix issues locally (add missing columns, fix encoding, etc.)
 3. Upload corrected file:
    ```bash
-   aws s3 cp /tmp/file-corrected.csv s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/YYYY/MM/DD/file.csv
+   aws s3 cp /tmp/file-corrected.csv s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/YYYY/MM/DD/file.csv
    ```
 4. Rerun job
 
@@ -291,10 +293,10 @@ aws s3 rm s3://very-great-products-processed-us-east-1-poc/test.txt
    aws iam list-role-policies --role-name GlueETLRole-BeautyProducts
    ```
 
-2. **Check S3 Bucket Policies:**
+2. **Check S3 Bucket Policies (replace {environment} with your environment):**
    ```bash
-   aws s3api get-bucket-policy --bucket very-great-products-raw-us-east-1-poc
-   aws s3api get-bucket-policy --bucket very-great-products-processed-us-east-1-poc
+   aws s3api get-bucket-policy --bucket very-great-products-raw-us-east-1-{environment}
+   aws s3api get-bucket-policy --bucket very-great-products-processed-us-east-1-{environment}
    ```
 
 3. **Fix Permissions (via Terraform):**
@@ -383,20 +385,20 @@ ORDER BY year DESC, month_num DESC;
 ### Step 2: Locate Source Files
 
 ```bash
-# List files in archive (if auto-archived)
-aws s3 ls s3://very-great-products-raw-us-east-1-poc/archive/beauty-products/2024/04/ --recursive
+# List files in archive (if auto-archived) - replace {environment} with your environment
+aws s3 ls s3://very-great-products-raw-us-east-1-{environment}/archive/beauty-products/2024/04/ --recursive
 
 # Or check landing if still there
-aws s3 ls s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/2024/04/ --recursive
+aws s3 ls s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/2024/04/ --recursive
 ```
 
 ### Step 3: Restore and Reprocess
 
 **Option A: Restore from archive**
 ```bash
-# Copy back to landing
-aws s3 cp s3://very-great-products-raw-us-east-1-poc/archive/beauty-products/2024/04/17/file.csv \
-           s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/2024/04/17/file.csv
+# Copy back to landing (replace {environment} with your environment)
+aws s3 cp s3://very-great-products-raw-us-east-1-{environment}/archive/beauty-products/2024/04/17/file.csv \
+           s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/2024/04/17/file.csv
 
 # Disable job bookmark to reprocess
 aws glue start-job-run \
@@ -478,8 +480,8 @@ aws glue start-job-run --job-name beauty-products-etl-job
 # Check CloudWatch logs
 aws logs tail /aws-glue/jobs/beauty-products-etl-job --follow
 
-# List source files
-aws s3 ls s3://very-great-products-raw-us-east-1-poc/landing/beauty-products/ --recursive
+# List source files (replace {environment} with your environment)
+aws s3 ls s3://very-great-products-raw-us-east-1-{environment}/landing/beauty-products/ --recursive
 
 # Check curated data freshness
 # (Run in Athena)
