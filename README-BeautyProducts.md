@@ -327,15 +327,15 @@ FROM beauty_products_db.curated_beauty_products;
 
 Set via Terraform variables or Glue job parameters:
 
-| Variable                | Description                         | Default                   |
-| ----------------------- | ----------------------------------- | ------------------------- |
+| Variable                | Description                             | Default                   |
+| ----------------------- | --------------------------------------- | ------------------------- |
 | `environment`         | Environment name (dev/staging/prod/poc) | `poc`                   |
-| `aws_region`          | AWS region for resources            | `us-east-1`             |
-| `alert_email`         | Email for CloudWatch alerts         | `data-team@example.com` |
-| `DQ_PASS_THRESHOLD`   | Quality score pass threshold        | `0.95`                  |
-| `DQ_WARN_THRESHOLD`   | Quality score warning threshold     | `0.70`                  |
-| `ANOMALY_REVENUE_MAX` | Revenue anomaly threshold           | `10000000`              |
-| `ANOMALY_ITEMS_MAX`   | Items sold anomaly threshold        | `1000000`               |
+| `aws_region`          | AWS region for resources                | `us-east-1`             |
+| `alert_email`         | Email for CloudWatch alerts             | `data-team@example.com` |
+| `DQ_PASS_THRESHOLD`   | Quality score pass threshold            | `0.95`                  |
+| `DQ_WARN_THRESHOLD`   | Quality score warning threshold         | `0.70`                  |
+| `ANOMALY_REVENUE_MAX` | Revenue anomaly threshold               | `10000000`              |
+| `ANOMALY_ITEMS_MAX`   | Items sold anomaly threshold            | `1000000`               |
 
 ---
 
@@ -386,22 +386,6 @@ aws glue start-job-run --job-name beauty-products-etl-job
 - Use G.2X workers for complex transformations
 - Add partition pruning to queries (filter by year/month)
 - Use views for common query patterns
-
----
-
-## Cost Estimation
-
-**Monthly Costs (10K records/day):**
-
-- S3 Storage: ~ $5
-- Glue Job Runs: ~ $30 (30 runs × $0.44/DPU-hour × 2 DPUs × 0.15 hours)
-- Athena Queries: ~ $10 (100 queries × 100MB scanned)
-- CloudWatch Logs: ~ $2
-- **Total:** ~ $50/month
-
-_Costs will vary based on data volume and query frequency_
-
----
 
 ## Security
 
@@ -475,12 +459,6 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 ---
 
 ## Support
-
-### Contacts
-
-- **Data Engineering Team:** #data-engineering (Slack)
-- **Data Steward:** data-steward@company.com
-- **On-Call:** PagerDuty or #data-oncall (Slack)
 
 ### Resources
 
