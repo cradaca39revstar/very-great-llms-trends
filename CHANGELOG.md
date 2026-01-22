@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-01-17
+
+### Added - Lake Formation Integration
+
+#### Infrastructure
+
+- AWS Lake Formation data lake settings with administrator configuration
+- Lake Formation service role for S3 resource registration
+- S3 bucket registration in Lake Formation (raw, curated, metadata)
+- Fine-grained permissions for Glue ETL and Athena roles
+- Database-level permissions (CREATE_TABLE, ALTER, DROP for Glue ETL)
+- Table-level permissions (SELECT, INSERT, DELETE, ALTER, DROP for Glue ETL; SELECT for Athena)
+- Data location access permissions for S3 paths
+
+#### Security & Governance
+
+- Centralized access control through Lake Formation
+- Least privilege permissions for Glue ETL and Athena roles
+- Explicit dependency management in Terraform to prevent race conditions
+- Trusted resource owners configuration
+
+#### Documentation
+
+- Lake Formation deployment risks analysis guide
+- Lake Formation functional testing guide
+- Automated validation script (`test-lake-formation.ps1`)
+- Troubleshooting guide for common deployment errors
+
+#### Fixed
+
+- Resolved `InvalidInputException: Create Database Default not supported for principal` error
+- Added explicit `depends_on` blocks to prevent resource creation order issues
+- Fixed Terraform resource dependencies for Lake Formation permissions
+
+#### Technical Details
+
+- All Lake Formation resources include proper dependency chains
+- Permissions configured for both database and table levels
+- S3 resources registered with Lake Formation service role
+- Data lake settings configured with current account as admin
+
+---
+
 ## [1.0.0] - 2026-01-17
 
 ### Added - Initial Production Release

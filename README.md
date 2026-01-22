@@ -45,6 +45,16 @@ CSV Source → S3 Raw → Glue ETL → S3 Curated → Athena Queries
 
 ---
 
+## Lake Formation Governance
+
+Lake Formation provides centralized governance over the data lake, enforcing
+database/table permissions for Glue and Athena while enabling audit-ready access.
+It sits between S3/Glue Catalog and the consumers (Athena and AI orchestration).
+
+See `docs/lake-formation.md` for the full governance model and standards alignment.
+
+---
+
 ## Data Flow
 
 ### 1. Ingestion
