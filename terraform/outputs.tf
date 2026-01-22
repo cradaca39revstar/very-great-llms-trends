@@ -59,3 +59,13 @@ output "glue_workflow_url" {
   value       = "https://console.aws.amazon.com/glue/home?region=${data.aws_region.current.name}#/v2/etl-configuration/workflows/view/${aws_glue_workflow.beauty_products_pipeline.name}"
   description = "URL to Glue workflow in AWS Console"
 }
+
+output "lake_formation_service_role_arn" {
+  value       = aws_iam_role.lake_formation_service.arn
+  description = "ARN of the Lake Formation service role"
+}
+
+output "lake_formation_console_url" {
+  value       = "https://console.aws.amazon.com/lakeformation/home?region=${data.aws_region.current.name}#"
+  description = "URL to Lake Formation console"
+}

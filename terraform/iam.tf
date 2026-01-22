@@ -219,5 +219,58 @@ resource "aws_iam_role_policy" "lambda_glue_invoke" {
   })
 }
 
+# Lake Formation service role
+resource "aws_iam_role" "lake_formation_service" {
+  name = "LakeFormationServiceRole-BeautyProducts-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lakeformation.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "Lake Formation Service Role"
+    Environment = var.environment
+    Project     = "BeautyProductsDataLake"
+  }
+}
+
+resource "aws_iam_role_policy" "lake_formation_s3_access" {
+  name = "LakeFormationS3AccessPolicy"
+  role = aws_iam_role.lake_formation_service.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          aws_s3_bucket.raw.arn,
+          "${aws_s3_bucket.raw.arn}/*",
+          aws_s3_bucket.curated.arn,
+          "${aws_s3_bucket.curated.arn}/*",
+          aws_s3_bucket.metadata.arn,
+          "${aws_s3_bucket.metadata.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Get current AWS account ID
 data "aws_caller_identity" "current" {}
