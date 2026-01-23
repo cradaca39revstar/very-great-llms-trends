@@ -15,6 +15,7 @@ This document defines the mandatory structure for all API responses in the Core 
 4. **ALWAYS use proper decorators** - `@log_handler` for Lambda entry, `@log()` for internal functions
 5. **ALWAYS validate pagination parameters** - Use `BasePaginatedRequestModel`
 6. **ALWAYS serialize with aliases** - Use `model_dump_json(by_alias=True)`
+7. **ALWAYS Documentation and comments in english**
 
 ## 🔍 **PATTERN RECOGNITION**
 When you see these patterns, apply these rules:
