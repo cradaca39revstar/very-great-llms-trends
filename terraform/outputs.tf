@@ -40,6 +40,16 @@ output "athena_query_role_arn" {
   description = "ARN of the Athena query IAM role"
 }
 
+output "athena_workgroup_name" {
+  value       = aws_athena_workgroup.main.name
+  description = "Name of the Athena workgroup for querying (use in Console or CLI --work-group)"
+}
+
+output "athena_workgroup_result_location" {
+  value       = aws_athena_workgroup.main.configuration[0].result_configuration[0].output_location
+  description = "S3 path where Athena query results are stored"
+}
+
 output "cloudwatch_dashboard_url" {
   value       = "https://console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${aws_cloudwatch_dashboard.pipeline_metrics.dashboard_name}"
   description = "URL to CloudWatch dashboard"

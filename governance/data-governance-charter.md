@@ -67,4 +67,19 @@ This Data Governance Charter establishes the framework, roles, responsibilities,
   - Monitor job performance and failures
   - Version control and deployment
   - Incident response for pipeline failures
-    -  - ---
+
+---
+
+## 4. Iterate Lake Formation Security
+
+Establish a recurring process to review and validate Lake Formation security configuration.
+
+**Scope:**
+
+- Permissions by role (Glue ETL, Athena), Data Lake admins, `trusted_resource_owners`, and drift vs Terraform
+
+**Frequency:** Quarterly (or as defined by the team).
+
+**Responsibilities:** Data Engineer or Data Steward leads the review; document findings and any corrective actions.
+
+**Procedure:** See [runbooks/lake-formation-security-review.md](../runbooks/lake-formation-security-review.md) for the step-by-step process.

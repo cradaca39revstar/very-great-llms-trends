@@ -192,6 +192,10 @@ Full deployment guide: [`deployment-checklist.md`](deployment-checklist.md)
 
 ### Querying Data with Athena
 
+**Workgroup:** Use workgroup `beauty-products-athena-{environment}` (e.g. `beauty-products-athena-poc` for default). Get it via `terraform output -raw athena_workgroup_name`.
+
+**Result location:** Query results are written to `s3://<metadata-bucket>/athena-results/`. The exact path is in `terraform output athena_workgroup_result_location`. Set the workgroup in the Athena Query Editor (workgroup selector) or use `--work-group` with the AWS CLI before running queries.
+
 **Basic Query:**
 
 ```sql

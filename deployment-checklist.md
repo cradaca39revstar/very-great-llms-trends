@@ -59,6 +59,9 @@
 - [ ] PII handling reviewed (if applicable)
 - [ ] Compliance requirements met (GDPR, SOX, etc.)
 - [ ] Encryption keys managed properly
+- [ ] Lake Formation admins and trusted_resource_owners reviewed
+- [ ] Lake Formation permissions (DB/table/location) follow least privilege
+- [ ] No Lake Formation permissions created manually outside Terraform
 
 ### 6. Rollback Plan
 
@@ -116,11 +119,15 @@ terraform apply -target=aws_s3_bucket.raw \
 ```bash
 terraform plan -target=aws_iam_role.glue_etl \
                -target=aws_iam_role.athena_query \
-               -target=aws_iam_role.lambda_trigger
+               -target=aws_iam_role.lambda_trigger \
+               -target=aws_iam_role.lake_formation_service \
+               -target=aws_iam_role_policy.lake_formation_s3_access
 
 terraform apply -target=aws_iam_role.glue_etl \
                 -target=aws_iam_role.athena_query \
-                -target=aws_iam_role.lambda_trigger
+                -target=aws_iam_role.lambda_trigger \
+                -target=aws_iam_role.lake_formation_service \
+                -target=aws_iam_role_policy.lake_formation_s3_access
 ```
 
 - [ ] IAM roles created
@@ -154,6 +161,58 @@ terraform apply -target=aws_glue_catalog_database.beauty_products \
 - [ ] Tables defined
 - [ ] Partitions configured (for curated table)
 - [ ] Schema matches documentation
+
+#### Step 3b: Deploy Lake Formation
+
+Deploy or validate Lake Formation configuration (Data Lake Settings, S3 resources, DB/table/location permissions).
+
+```bash
+terraform plan -target=aws_lakeformation_data_lake_settings.main \
+               -target=aws_lakeformation_resource.raw_bucket \
+               -target=aws_lakeformation_resource.curated_bucket \
+               -target=aws_lakeformation_resource.metadata_bucket \
+               -target=aws_lakeformation_permissions.glue_etl_beauty_products_db \
+               -target=aws_lakeformation_permissions.glue_etl_metadata_db \
+               -target=aws_lakeformation_permissions.athena_beauty_products_db \
+               -target=aws_lakeformation_permissions.athena_metadata_db \
+               -target=aws_lakeformation_permissions.glue_etl_raw_table \
+               -target=aws_lakeformation_permissions.glue_etl_curated_table \
+               -target=aws_lakeformation_permissions.athena_curated_table \
+               -target=aws_lakeformation_permissions.glue_etl_error_table \
+               -target=aws_lakeformation_permissions.glue_etl_quarantine_table \
+               -target=aws_lakeformation_permissions.glue_etl_quality_metrics_table \
+               -target=aws_lakeformation_permissions.athena_quality_metrics_table \
+               -target=aws_lakeformation_permissions.glue_etl_lineage_table \
+               -target=aws_lakeformation_permissions.athena_lineage_table \
+               -target=aws_lakeformation_permissions.glue_etl_raw_location \
+               -target=aws_lakeformation_permissions.glue_etl_curated_location \
+               -target=aws_lakeformation_permissions.glue_etl_metadata_location
+
+terraform apply -target=aws_lakeformation_data_lake_settings.main \
+                -target=aws_lakeformation_resource.raw_bucket \
+                -target=aws_lakeformation_resource.curated_bucket \
+                -target=aws_lakeformation_resource.metadata_bucket \
+                -target=aws_lakeformation_permissions.glue_etl_beauty_products_db \
+                -target=aws_lakeformation_permissions.glue_etl_metadata_db \
+                -target=aws_lakeformation_permissions.athena_beauty_products_db \
+                -target=aws_lakeformation_permissions.athena_metadata_db \
+                -target=aws_lakeformation_permissions.glue_etl_raw_table \
+                -target=aws_lakeformation_permissions.glue_etl_curated_table \
+                -target=aws_lakeformation_permissions.athena_curated_table \
+                -target=aws_lakeformation_permissions.glue_etl_error_table \
+                -target=aws_lakeformation_permissions.glue_etl_quarantine_table \
+                -target=aws_lakeformation_permissions.glue_etl_quality_metrics_table \
+                -target=aws_lakeformation_permissions.athena_quality_metrics_table \
+                -target=aws_lakeformation_permissions.glue_etl_lineage_table \
+                -target=aws_lakeformation_permissions.athena_lineage_table \
+                -target=aws_lakeformation_permissions.glue_etl_raw_location \
+                -target=aws_lakeformation_permissions.glue_etl_curated_location \
+                -target=aws_lakeformation_permissions.glue_etl_metadata_location
+```
+
+- [ ] Lake Formation deployed successfully
+- [ ] Permissions validated (Glue ETL, Athena)
+- [ ] No errors on terraform apply
 
 #### Step 4: Upload Glue ETL Script
 
@@ -243,10 +302,28 @@ terraform apply -target=aws_glue_crawler.raw_crawler \
 **Estimated Duration:** 10 minutes  
 **Downtime:** None
 
+#### Step 8b: Deploy Athena Workgroup
+
+Deploy the Athena workgroup so views and tests use a dedicated result location and engine.
+
+```bash
+terraform plan -target=aws_athena_workgroup.main
+
+terraform apply -target=aws_athena_workgroup.main
+```
+
+- [ ] Athena workgroup created successfully
+- [ ] Output `athena_workgroup_name` matches `beauty-products-athena-{environment}` (e.g. `terraform output -raw athena_workgroup_name`)
+
 #### Step 9: Create Athena Views
 
+**Requirement:** Run all Athena view creation and subsequent queries **in the configured workgroup.**
+
+- **Console:** Athena Query Editor → Workgroup selector → choose `beauty-products-athena-{environment}` (or run `terraform output -raw athena_workgroup_name`).
+- **CLI:** `aws athena start-query-execution ... --work-group <workgroup name>`.
+
 ```sql
--- Execute in Athena Query Editor
+-- Execute in Athena Query Editor (ensure workgroup is selected)
 -- Copy from athena-views.sql
 
 -- View 1: High Quality Products
@@ -312,8 +389,10 @@ aws glue get-job-run --job-name beauty-products-etl-job --run-id $JOB_RUN_ID --q
 
 #### Step 12: Validate Curated Output
 
+Use the same Athena workgroup (Console workgroup selector or CLI `--work-group`) when running these queries.
+
 ```sql
--- Run in Athena
+-- Run in Athena (workgroup: beauty-products-athena-{environment})
 
 -- Check record count
 SELECT COUNT(*) as record_count
@@ -363,8 +442,10 @@ cat /tmp/report_${JOB_RUN_ID}.json | jq '.'
 
 #### Step 14: Test Athena Views
 
+Use the same workgroup (Console or `--work-group`) when running the validation and view-test queries.
+
 ```sql
--- Test each view
+-- Test each view (workgroup: beauty-products-athena-{environment})
 SELECT * FROM beauty_products_db.vw_high_quality_products LIMIT 10;
 SELECT * FROM beauty_products_db.vw_sales_by_category_month LIMIT 10;
 SELECT * FROM beauty_products_db.vw_quality_trends LIMIT 10;
