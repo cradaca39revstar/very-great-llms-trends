@@ -48,6 +48,7 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+.venv311/
 pip-log.txt
 pip-delete-this-directory.txt
 .pytest_cache/

@@ -1,8 +1,38 @@
 # Beauty Products Data Lake
 
-**Version:** 1.0.0
-**Status:** Production Ready
-**Framework:** DAMA-DMBOK Aligned
+**Version:** 1.0.0  
+**Status:** Production Ready  
+**Framework:** DAMA-DMBOK Aligned  
+**Handoff Date:** _______________
+
+---
+
+## For Clients
+
+**Welcome to the Beauty Products Data Lake!** This system is ready for production use and includes comprehensive documentation for deployment, operations, and support.
+
+### Quick Links
+
+- 📦 **[Client Handoff Package](CLIENT-HANDOFF-PACKAGE.md)** - Executive summary and handoff information
+- 🏗️ **[Architecture Overview](docs/ARCHITECTURE.md)** - System architecture and components
+- 🚀 **[Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md)** - Step-by-step deployment instructions
+- ⚙️ **[Operations Guide](docs/CLIENT-OPERATIONS-GUIDE.md)** - Daily operations and support procedures
+- 📋 **[Handoff Checklist](docs/CLIENT-HANDOFF-CHECKLIST.md)** - Knowledge transfer tracking
+- 📚 **[Documentation Index](docs/INDEX.md)** - Complete documentation catalog
+
+### Getting Started
+
+1. **New to the system?** Start with the [Client Handoff Package](CLIENT-HANDOFF-PACKAGE.md)
+2. **Deploying?** Follow the [Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md)
+3. **Operating?** Review the [Operations Guide](docs/CLIENT-OPERATIONS-GUIDE.md)
+4. **Need help?** Check the [Documentation Index](docs/INDEX.md) or [Operations Guide Support section](docs/CLIENT-OPERATIONS-GUIDE.md#support-contacts)
+
+### Support
+
+For questions or issues:
+- Review the [Operations Guide](docs/CLIENT-OPERATIONS-GUIDE.md) troubleshooting section
+- Check [Runbooks](runbooks/) for specific scenarios
+- Contact your system administrator
 
 ---
 
@@ -184,7 +214,9 @@ Full schema: [`schemas/curated_beauty_products_v1.json`](schemas/curated_beauty_
    SELECT * FROM beauty_products_db.curated_beauty_products LIMIT 10;
    ```
 
-Full deployment guide: [`deployment-checklist.md`](deployment-checklist.md)
+**Detailed Guides:**
+- [Client Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Step-by-step deployment instructions
+- [Deployment Checklist](deployment-checklist.md) - Detailed pre-deployment checklist
 
 ---
 
@@ -318,8 +350,18 @@ FROM beauty_products_db.curated_beauty_products;
 │   ├── schema-evolution.md
 │   └── data-quality-investigation.md
 │
+├── docs/                      # Documentation
+│   ├── ARCHITECTURE.md        # System architecture
+│   ├── CLIENT-DEPLOYMENT-GUIDE.md  # Deployment guide
+│   ├── CLIENT-OPERATIONS-GUIDE.md  # Operations guide
+│   ├── CLIENT-HANDOFF-CHECKLIST.md # Handoff checklist
+│   ├── INDEX.md               # Documentation index
+│   ├── diagrams/              # Architecture diagrams
+│   └── ...                    # Additional documentation
+│
 ├── athena-views.sql           # Athena view definitions
-├── deployment-checklist.md    # Deployment guide
+├── CLIENT-HANDOFF-PACKAGE.md  # Executive handoff summary
+├── deployment-checklist.md    # Detailed deployment checklist
 └── README.md                  # This file
 ```
 
@@ -446,8 +488,8 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 ### Development Workflow
 
 1. Create feature branch: `git checkout -b feature/my-feature`
-2. Make changes and test locally
-3. Run linters and tests: `pytest tests/`
+2. Make changes and test locally using Docker (see `docs/testing-with-docker.md`)
+3. Run integration tests: `pytest tests/integration_test.py -v`
 4. Commit with descriptive message
 5. Push and create pull request
 6. Get 2+ approvals
@@ -460,11 +502,19 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 - Documentation: Markdown with clear headings
 - Tests: Unit tests for all transformations
 
+**Note:** For client deployments, refer to [Client Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md) instead of development procedures.
+
 ---
 
 ## Support
 
-### Resources
+### Client Support
+
+- **Operations Guide**: [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md) - Daily operations and troubleshooting
+- **Documentation Index**: [docs/INDEX.md](docs/INDEX.md) - Complete documentation catalog
+- **Runbooks**: [runbooks/](runbooks/) - Detailed operational procedures
+
+### External Resources
 
 - [DAMA-DMBOK Framework](https://www.dama.org/cpages/body-of-knowledge)
 - [AWS Glue Documentation](https://docs.aws.amazon.com/glue/)
