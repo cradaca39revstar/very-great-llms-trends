@@ -1,0 +1,61 @@
+{
+  "description": "Sample Athena query response for testing LLM integration",
+  "products": [
+    {
+      "product_id": 1729384085369491712,
+      "product_name": "Summer Fridays Lip Butter Balm in Cherry",
+      "shop_name": "Revolve",
+      "l2_category": "Skincare",
+      "revenue_usd": 52380.72,
+      "mom_growth_pct": 10.0,
+      "item_sold": 2183,
+      "revenue_rank": 1
+    },
+    {
+      "product_id": 1729384248290152687,
+      "product_name": "Skin Deva Vitamin C E Ferulic acid serum, All Skin Types Skincare Comfort Brighter Plumper",
+      "shop_name": "Skin Deva",
+      "l2_category": "Skincare",
+      "revenue_usd": 131957.67,
+      "mom_growth_pct": -24.0,
+      "item_sold": 6675,
+      "revenue_rank": 2
+    },
+    {
+      "product_id": 1729384280600776954,
+      "product_name": "Banish Kit 3.0 - with Vitamin C, E, Ferulic acid Serum & 2 Replaceable Heads for Acne Scars, Dark Spot, Collagen Building, Fine Lines",
+      "shop_name": "BANISH",
+      "l2_category": "Skincare",
+      "revenue_usd": 66063.20,
+      "mom_growth_pct": 67.0,
+      "item_sold": 796,
+      "revenue_rank": 3
+    },
+    {
+      "product_id": 1234567890123456789,
+      "product_name": "Collagen Peptides Advanced Powder Drink Mix",
+      "shop_name": "Vital Proteins Official Store",
+      "l2_category": "Skincare",
+      "revenue_usd": 1250000.00,
+      "mom_growth_pct": 45.5,
+      "item_sold": 25000,
+      "revenue_rank": 4
+    },
+    {
+      "product_id": 9876543210987654321,
+      "product_name": "Retinol Serum with Hyaluronic Acid",
+      "shop_name": "The Ordinary Skincare",
+      "l2_category": "Skincare",
+      "revenue_usd": 875000.00,
+      "mom_growth_pct": 32.8,
+      "item_sold": 18500,
+      "revenue_rank": 5
+    }
+  ],
+  "metadata": {
+    "query_execution_time_ms": 3500,
+    "data_scanned_bytes": 12500000,
+    "records_returned": 5,
+    "timestamp": "2026-01-26T10:00:00Z"
+  }
+}

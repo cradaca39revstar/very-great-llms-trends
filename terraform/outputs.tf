@@ -79,3 +79,52 @@ output "lake_formation_console_url" {
   value       = "https://console.aws.amazon.com/lakeformation/home?region=${data.aws_region.current.name}#"
   description = "URL to Lake Formation console"
 }
+
+# =============================================================================
+# LLM TRENDING PRODUCTS SYSTEM OUTPUTS
+# =============================================================================
+
+output "api_gateway_url" {
+  description = "API Gateway endpoint URL for LLM system"
+  value       = var.enable_llm_system ? "${aws_api_gateway_deployment.llm[0].invoke_url}${aws_api_gateway_stage.llm[0].stage_name}/trending-products/query" : null
+}
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID for authentication"
+  value       = var.enable_llm_system ? aws_cognito_user_pool.llm[0].id : null
+}
+
+output "cognito_client_id" {
+  description = "Cognito App Client ID for chatbot integration"
+  value       = var.enable_llm_system ? aws_cognito_user_pool_client.llm[0].id : null
+}
+
+output "cognito_user_pool_domain" {
+  description = "Cognito User Pool domain for hosted UI"
+  value       = var.enable_llm_system ? aws_cognito_user_pool_domain.llm[0].domain : null
+}
+
+output "pdf_bucket_name" {
+  description = "S3 bucket name for PDF reports"
+  value       = var.enable_llm_system ? aws_s3_bucket.pdfs[0].id : null
+}
+
+output "lambda_function_name" {
+  description = "Lambda orchestrator function name"
+  value       = var.enable_llm_system ? aws_lambda_function.orchestrator[0].function_name : null
+}
+
+output "lambda_function_arn" {
+  description = "Lambda orchestrator function ARN"
+  value       = var.enable_llm_system ? aws_lambda_function.orchestrator[0].arn : null
+}
+
+output "dynamodb_logs_table_name" {
+  description = "DynamoDB table for prompt audit logs"
+  value       = var.enable_llm_system ? aws_dynamodb_table.prompt_logs[0].name : null
+}
+
+output "cloudwatch_llm_dashboard_url" {
+  description = "URL to CloudWatch LLM metrics dashboard"
+  value       = var.enable_llm_system ? "https://console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${aws_cloudwatch_dashboard.llm_metrics[0].dashboard_name}" : null
+}

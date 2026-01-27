@@ -14,7 +14,8 @@
 ### Quick Links
 
 - 📦 **[Client Handoff Package](CLIENT-HANDOFF-PACKAGE.md)** - Executive summary and handoff information
-- 🏗️ **[Architecture Overview](docs/ARCHITECTURE.md)** - System architecture and components
+- 🏗️ **[Data Lake Architecture](docs/ARCHITECTURE.md)** - Data lake system architecture and components
+- 🤖 **[LLM Trending Products Architecture](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)** - AI-powered trending products report generator
 - 🚀 **[Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md)** - Step-by-step deployment instructions
 - ⚙️ **[Operations Guide](docs/CLIENT-OPERATIONS-GUIDE.md)** - Daily operations and support procedures
 - 📋 **[Handoff Checklist](docs/CLIENT-HANDOFF-CHECKLIST.md)** - Knowledge transfer tracking
@@ -39,6 +40,40 @@ For questions or issues:
 ## Overview
 
 The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transforms, and curates beauty product sales data using S3, AWS Glue, and Athena. The solution implements comprehensive data quality checks, governance controls, and metadata management aligned with DAMA-DMBOK best practices.
+
+### LLM Trending Products System
+
+**NEW**: AI-powered trending products report generator that integrates with the existing data lake to deliver intelligent, data-driven insights.
+
+**Key Features**:
+- Natural language queries (English/Spanish)
+- AI-generated market trend analysis using AWS Bedrock
+- Professional PDF reports in 20-25 seconds
+- Secure authentication via AWS Cognito
+- Integration with existing curated data
+
+**Documentation**:
+- Architecture: [`docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)
+- Deployment: [`terraform/README-LLM.md`](terraform/README-LLM.md)
+- User Guide: See [LLM Architecture Doc - User Guide Section](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md#user-guide)
+
+**Quick Start**:
+```bash
+# 1. Enable Bedrock models in AWS Console
+# 2. Configure terraform.tfvars
+enable_llm_system = true
+
+# 3. Deploy infrastructure
+cd terraform/
+terraform apply
+
+# 4. Deploy Lambda code
+cd ../lambda/
+zip -r function.zip .
+aws lambda update-function-code \
+  --function-name $(terraform output -raw lambda_function_name) \
+  --zip-file fileb://function.zip
+```
 
 ### Key Features
 

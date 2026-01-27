@@ -37,7 +37,8 @@ Essential documents for understanding and deploying the system.
 |----------|-------------|----------|
 | [README.md](../README.md) | Main project overview, features, and quick start | All users |
 | [CLIENT-HANDOFF-PACKAGE.md](../CLIENT-HANDOFF-PACKAGE.md) | Executive summary and handoff information | Management, Project Leads |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, components, and data flow | Technical teams |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Data Lake system architecture, components, and data flow | Technical teams |
+| [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) | LLM Trending Products Report Generator architecture | Technical teams, Stakeholders |
 | [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md) | Step-by-step deployment instructions | DevOps, Engineers |
 | [CLIENT-HANDOFF-CHECKLIST.md](CLIENT-HANDOFF-CHECKLIST.md) | Knowledge transfer tracking checklist | Project managers |
 
@@ -120,7 +121,8 @@ Project history, changes, and planning documents.
 → [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md)
 
 **Understand the architecture:**
-→ [ARCHITECTURE.md](ARCHITECTURE.md)
+→ [ARCHITECTURE.md](ARCHITECTURE.md) (Data Lake)
+→ [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) (AI/LLM System)
 
 **Upload data files:**
 → [CLIENT-OPERATIONS-GUIDE.md](CLIENT-OPERATIONS-GUIDE.md#data-upload-procedures)
@@ -195,7 +197,8 @@ To update documentation:
 
 ### Internal Resources
 
-- Architecture Diagram: [diagrams/DataLake-Architecture.png](diagrams/DataLake-Architecture.png)
+- Data Lake Architecture Diagram: [diagrams/DataLake-Architecture.png](diagrams/DataLake-Architecture.png)
+- LLM Architecture Diagram: [diagrams/arquitectura_llm.png](diagrams/arquitectura_llm.png)
 - Sample Data: [tests/sample-data/](../tests/sample-data/)
 - Schema Definitions: [schemas/](../schemas/)
 
