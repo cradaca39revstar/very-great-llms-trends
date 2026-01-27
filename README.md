@@ -57,6 +57,8 @@ The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transf
 - Deployment: [`terraform/README-LLM.md`](terraform/README-LLM.md)
 - User Guide: See [LLM Architecture Doc - User Guide Section](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md#user-guide)
 
+**How to test the agent**: Prerequisites: Terraform applied, Lambda deployed (`.\scripts\deploy-lambda-llm.ps1`), and a Cognito test user created once (see [Testing in terraform/README-LLM.md](terraform/README-LLM.md#testing)). Then run `.\scripts\call-api-llm.ps1` from the project root.
+
 **Quick Start**:
 ```bash
 # 1. Enable Bedrock models in AWS Console
@@ -67,12 +69,11 @@ enable_llm_system = true
 cd terraform/
 terraform apply
 
-# 4. Deploy Lambda code
-cd ../lambda/
-zip -r function.zip .
-aws lambda update-function-code \
-  --function-name $(terraform output -raw lambda_function_name) \
-  --zip-file fileb://function.zip
+# 4. Deploy Lambda code (PowerShell)
+.\scripts\deploy-lambda-llm.ps1
+
+# 5. Create Cognito test user once, then test the agent
+.\scripts\call-api-llm.ps1
 ```
 
 ### Key Features

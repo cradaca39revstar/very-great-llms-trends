@@ -295,75 +295,74 @@ aws lambda get-function --function-name $FUNCTION_NAME
 
 ## Testing
 
-### Step 1: Create Test User
+Prerequisites: Terraform applied, Lambda deployed (`.\scripts\deploy-lambda-llm.ps1`), and a Cognito test user created (see below). The agent uses Athena (with Lake Formation–protected `curated_beauty_products`), dedicated Athena results bucket, and Bedrock.
 
-```bash
-# Get Cognito User Pool ID
-$USER_POOL_ID = terraform output -raw cognito_user_pool_id
+### Quick test (recommended)
 
-# Create test user
-aws cognito-idp admin-create-user \
-  --user-pool-id $USER_POOL_ID \
-  --username testuser@example.com \
-  --user-attributes Name=email,Value=testuser@example.com \
-  --temporary-password "TempPass123!" \
-  --message-action SUPPRESS
+From the project root, after creating the test user once:
+
+```powershell
+.\scripts\call-api-llm.ps1
 ```
 
-### Step 2: Set Permanent Password
+The script uses user `verygreat@test.com` / `VeryGreat123!`, obtains a Cognito IdToken, and POSTs to `/trending-products/query` with *"What are the top trending products in Skincare?"*. Expect JSON with `status: success`, `report`, and `product_count` (typically ~2–8 seconds).
 
-```bash
-aws cognito-idp admin-set-user-password \
-  --user-pool-id $USER_POOL_ID \
-  --username testuser@example.com \
-  --password "YourSecurePassword123!" \
+### Step 1: Create Test User (required once)
+
+Create the user that `call-api-llm.ps1` uses. From the `terraform` directory:
+
+```powershell
+$USER_POOL_ID = terraform output -raw cognito_user_pool_id
+
+# Create user verygreat@test.com (matches call-api-llm.ps1)
+aws cognito-idp admin-create-user `
+  --user-pool-id $USER_POOL_ID `
+  --username verygreat@test.com `
+  --user-attributes Name=email,Value=verygreat@test.com `
+  --temporary-password "VeryGreat123!" `
+  --message-action SUPPRESS
+
+# Set permanent password so USER_PASSWORD_AUTH works
+aws cognito-idp admin-set-user-password `
+  --user-pool-id $USER_POOL_ID `
+  --username verygreat@test.com `
+  --password "VeryGreat123!" `
   --permanent
 ```
 
-### Step 3: Get Authentication Token
+### Step 2: Test API Gateway (manual alternative)
 
-```bash
-# Get client ID
-$CLIENT_ID = terraform output -raw cognito_client_id
+If you prefer to call the API manually:
 
-# Authenticate
-aws cognito-idp initiate-auth \
-  --auth-flow USER_PASSWORD_AUTH \
-  --client-id $CLIENT_ID \
-  --auth-parameters USERNAME=testuser@example.com,PASSWORD=YourSecurePassword123!
+```powershell
+$COGNITO_CLIENT_ID = terraform output -raw cognito_client_id
+$API_URL            = terraform output -raw api_gateway_url
+
+$authJson = aws cognito-idp initiate-auth `
+  --auth-flow USER_PASSWORD_AUTH `
+  --client-id $COGNITO_CLIENT_ID `
+  --auth-parameters "USERNAME=verygreat@test.com,PASSWORD=VeryGreat123!" `
+  --query 'AuthenticationResult' --output json
+$token = ($authJson | ConvertFrom-Json).IdToken
+
+Invoke-RestMethod -Uri $API_URL -Method POST `
+  -Headers @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" } `
+  -Body '{"query": "What are the top trending products in Skincare?"}'
 ```
 
-**Save the `IdToken` from the response.**
+Expected: JSON with `status`, `report`, `product_count`, and `execution_time_ms`.
 
-### Step 4: Test API Gateway Endpoint
+### Step 3: Run integration tests (optional)
 
-```bash
-# Get API URL
-$API_URL = terraform output -raw api_gateway_url
+From the project root, with the Lambda path on `PYTHONPATH`:
 
-# Test request
-curl -X POST $API_URL \
-  -H "Authorization: Bearer YOUR_ID_TOKEN_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What are the trending products in Skincare?"}'
-```
-
-**Expected response**: JSON with report and PDF URL (in ~20-25 seconds)
-
-### Step 5: Run Integration Tests
-
-```bash
-cd ../tests
-
-# Set environment for testing
-export RUN_INTEGRATION_TESTS=1
-export AWS_REGION=us-east-1
-
-# Run tests
+```powershell
+cd tests
+$env:PYTHONPATH = (Resolve-Path "..\lambda").Path
 python test_llm_integration.py
 ```
 
-**Expected**: All tests pass
+For the E2E test against real AWS, set `RUN_INTEGRATION_TESTS=1` and ensure AWS credentials and region are configured.
 
 ---
 
