@@ -2224,6 +2224,9 @@ Models enabled:
   - amazon.nova-pro-v1:0
   - cohere.command-r-plus-v1:0
 
+Note: Models are automatically enabled when first invoked (as of January 2026).
+For Anthropic models, first-time users may need to submit use case details.
+
 Access control:
   - IAM role-based
   - No model fine-tuning

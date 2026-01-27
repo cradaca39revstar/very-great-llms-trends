@@ -50,36 +50,58 @@ This guide provides step-by-step instructions for deploying the LLM Trending Pro
 
 ## Bedrock Model Access Setup
 
-**CRITICAL**: Bedrock models must be enabled before Terraform deployment.
+**UPDATE (January 2026)**: The "Model access" page has been retired. Models are now automatically enabled.
 
-### Steps to Enable Bedrock Models
+### Automatic Model Activation
 
-1. **Log into AWS Console**
-   ```
-   Navigate to: https://console.aws.amazon.com/bedrock/
-   ```
+**Good News**: Serverless foundation models are now **automatically enabled** when first invoked in your account. You no longer need to manually activate model access.
 
-2. **Request Model Access**
-   - Click "Model access" in left navigation
-   - Click "Request model access" or "Manage model access"
+### First-Time Access for Anthropic Models
 
-3. **Enable Required Models**
-   Select and enable:
-   - ✅ **Anthropic Claude 3.7 Sonnet** (Primary model)
-   - ✅ **Amazon Nova Pro** (Fallback model)
-   - ✅ **Cohere Command R+** (Alternative model)
+**Important**: For **Anthropic models** (including Claude 3.7 Sonnet, our primary model), first-time users may need to submit use case details before accessing the model.
 
-4. **Wait for Approval**
-   - Amazon Nova: Usually instant
-   - Claude 3.7: May require AWS account approval (typically 1-2 business days)
-   - Cohere: May require approval
+**How to Enable Anthropic Models**:
 
-5. **Verify Access**
-   ```bash
-   aws bedrock list-foundation-models --region us-east-1
-   ```
+1. **Option 1: Via Bedrock Playground (Recommended)**
+   - Navigate to: https://console.aws.amazon.com/bedrock/
+   - Click "Playground" in left navigation
+   - Select "Text" or "Chat" playground
+   - Choose "Claude 3.7 Sonnet" from model dropdown
+   - If prompted, fill out the use case form:
+     - Use case: "Business Intelligence / Analytics"
+     - Description: "Generating trending product reports with AI-enhanced insights"
+   - Submit and wait for approval (usually instant to a few minutes)
+
+2. **Option 2: Via API (Automatic)**
+   - When Lambda first invokes the model, if access is needed, you'll see an error
+   - Check CloudWatch logs for specific instructions
+   - Complete the use case form in Bedrock Console if prompted
+
+### Verify Model Access
+
+After enabling (or to check if already enabled):
+
+```bash
+# List available models
+aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?contains(modelId, 'claude-3-7') || contains(modelId, 'nova-pro') || contains(modelId, 'command-r-plus')]"
+
+# Test model invocation (will auto-enable if needed)
+aws bedrock-runtime invoke-model \
+  --model-id anthropic.claude-3-7-sonnet-20240229-v1:0 \
+  --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":10,"messages":[{"role":"user","content":"test"}]}' \
+  --region us-east-1 \
+  response.json
+```
 
 **Note**: Model availability varies by AWS region. Use `us-east-1` for maximum model selection.
+
+### Access Control
+
+Account administrators can control model access via:
+- **IAM Policies**: Restrict which users/roles can invoke specific models
+- **Service Control Policies (SCPs)**: Organization-level restrictions
+
+See AWS documentation for details on access control.
 
 ---
 
@@ -364,9 +386,11 @@ python test_llm_integration.py
 **Error**: `AccessDeniedException: User is not authorized to perform: bedrock:InvokeModel`
 
 **Solution**: 
-1. Enable Bedrock models in AWS Console (see "Bedrock Model Access Setup" above)
-2. Verify IAM role has Bedrock permissions
+1. For Anthropic models: Complete use case form in Bedrock Playground (see "Bedrock Model Access Setup" above)
+2. Verify IAM role has Bedrock permissions (`bedrock:InvokeModel` action)
 3. Check model IDs are correct in variables
+4. Verify model is available in your region: `aws bedrock list-foundation-models --region us-east-1`
+5. Models auto-enable on first invocation, but Anthropic models may require use case approval first
 
 ---
 
