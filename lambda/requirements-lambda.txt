@@ -1,0 +1,7 @@
+# Lambda-only dependencies (use with deploy script).
+# boto3/botocore are provided by the Lambda runtime; do NOT bundle them.
+# See lambda/requirements.txt for full deps (local dev, tests).
+
+fpdf2>=2.7.0
+python-dateutil>=2.8.2
+requests>=2.31.0

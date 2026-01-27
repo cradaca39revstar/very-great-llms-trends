@@ -63,6 +63,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "pdfs" {
     id     = "delete-old-pdfs"
     status = "Enabled"
 
+    filter {}
+
     expiration {
       days = var.pdf_expiration_days
     }

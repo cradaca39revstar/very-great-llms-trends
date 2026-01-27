@@ -198,6 +198,97 @@ resource "aws_s3_bucket_public_access_block" "metadata" {
   restrict_public_buckets = true
 }
 
+# Allow Athena to write query results to athena-results/ (required for "Unable to verify/create output bucket")
+resource "aws_s3_bucket_policy" "metadata_athena" {
+  bucket = aws_s3_bucket.metadata.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AthenaQueryResults"
+        Effect    = "Allow"
+        Principal = { Service = "athena.amazonaws.com" }
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:AbortMultipartUpload",
+          "s3:PutObject"
+        ]
+        Resource = [
+          aws_s3_bucket.metadata.arn,
+          "${aws_s3_bucket.metadata.arn}/athena-results/*"
+        ]
+        Condition = {
+          StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        }
+      }
+    ]
+  })
+}
+
+# Dedicated Athena query results bucket (NOT in Lake Formation).
+# metadata bucket is LF-managed; Athena "Unable to verify/create output bucket" can persist.
+# This bucket uses only IAM + bucket policy; workgroup points here.
+resource "aws_s3_bucket" "athena_results" {
+  bucket = "very-great-products-athena-results-us-east-1-${var.environment}"
+
+  tags = {
+    Name        = "Beauty Products Athena Results"
+    Environment = var.environment
+    Project     = "BeautyProductsDataLake"
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "athena_results" {
+  bucket = aws_s3_bucket.athena_results.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "athena_results" {
+  bucket = aws_s3_bucket.athena_results.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_policy" "athena_results" {
+  bucket = aws_s3_bucket.athena_results.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AthenaQueryResults"
+        Effect    = "Allow"
+        Principal = { Service = "athena.amazonaws.com" }
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
+          "s3:AbortMultipartUpload",
+          "s3:PutObject"
+        ]
+        Resource = [
+          aws_s3_bucket.athena_results.arn,
+          "${aws_s3_bucket.athena_results.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 # S3 Bucket for Glue scripts
 resource "aws_s3_bucket" "glue_scripts" {
   bucket = "very-great-products-glue-scripts-us-east-1-dev"

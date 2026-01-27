@@ -1,6 +1,49 @@
 # AWS API Gateway for LLM Trending Products System
 # REST API with Cognito authorization
 
+# IAM role for API Gateway to push logs to CloudWatch (required for access/execution logging)
+resource "aws_iam_role" "api_gateway_cloudwatch" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name = "ApiGatewayCloudWatchRole-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "ApiGateway-CloudWatch-${var.environment}"
+    Component   = "LLM-TrendingProducts"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
+  count = var.enable_llm_system ? 1 : 0
+
+  role       = aws_iam_role.api_gateway_cloudwatch[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+# Account-level setting: API Gateway can use this role to write to CloudWatch Logs.
+# Must be set before any stage enables access_log_settings or execution logging.
+resource "aws_api_gateway_account" "llm" {
+  count = var.enable_llm_system ? 1 : 0
+
+  cloudwatch_role_arn = aws_iam_role.api_gateway_cloudwatch[0].arn
+
+  depends_on = [aws_iam_role_policy_attachment.api_gateway_cloudwatch]
+}
+
 # API Gateway REST API
 resource "aws_api_gateway_rest_api" "llm" {
   count = var.enable_llm_system ? 1 : 0
@@ -198,6 +241,9 @@ resource "aws_api_gateway_stage" "llm" {
   deployment_id = aws_api_gateway_deployment.llm[0].id
   rest_api_id   = aws_api_gateway_rest_api.llm[0].id
   stage_name    = var.environment
+
+  # Ensure account CloudWatch role is set before enabling stage logging
+  depends_on = [aws_api_gateway_account.llm]
 
   # Enable CloudWatch logs
   access_log_settings {

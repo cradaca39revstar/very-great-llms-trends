@@ -55,38 +55,35 @@ def query_athena_top_products(
 
 def build_top_products_query(l2_category: str, database: str, limit: int = 5) -> str:
     """
-    Build SQL query for top products by L2 category
-    
-    Args:
-        l2_category: L2 category to filter by
-        database: Database name
-        limit: Number of products to return
-        
-    Returns:
-        SQL query string
+    Build SQL query for top products by L2 category.
+    For poc, uses the only (year, month_num) present in the table; later can be
+    extended to validate specific date ranges.
     """
     # Escape single quotes in category name
     safe_category = l2_category.replace("'", "''")
-    
+    table = f"{database}.curated_beauty_products"
+    # Use the only partition(s) that exist in the table (poc: one date; later: validate specific dates)
     query = f"""
-    WITH ranked_products AS (
+    WITH latest_partition AS (
+      SELECT DISTINCT year, month_num FROM {table}
+    ),
+    ranked_products AS (
       SELECT 
-        product_id,
-        product_name,
-        shop_name,
-        l2_category,
-        revenue_usd,
-        mom_growth_pct,
-        item_sold,
+        p.product_id,
+        p.product_name,
+        p.shop_name,
+        p.l2_category,
+        p.revenue_usd,
+        p.mom_growth_pct,
+        p.item_sold,
         ROW_NUMBER() OVER (
-          PARTITION BY l2_category 
-          ORDER BY revenue_usd DESC, mom_growth_pct DESC
+          PARTITION BY p.l2_category 
+          ORDER BY p.revenue_usd DESC, p.mom_growth_pct DESC
         ) as revenue_rank
-      FROM {database}.curated_beauty_products
-      WHERE l2_category = '{safe_category}'
-        AND data_quality_score >= 0.95
-        AND year = YEAR(CURRENT_DATE)
-        AND month_num >= MONTH(CURRENT_DATE) - 1
+      FROM {table} p
+      INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
+      WHERE p.l2_category = '{safe_category}'
+        AND p.data_quality_score >= 0.95
     )
     SELECT 
       product_id,
@@ -101,7 +98,6 @@ def build_top_products_query(l2_category: str, database: str, limit: int = 5) ->
     WHERE revenue_rank <= {limit}
     ORDER BY revenue_rank
     """
-    
     return query.strip()
 
 
@@ -120,12 +116,13 @@ def execute_query(sql: str, workgroup: str) -> str:
         ClientError: If query submission fails
     """
     try:
+        bucket = os.environ.get("ATHENA_RESULT_BUCKET")
+        if not bucket:
+            raise Exception("ATHENA_RESULT_BUCKET not set")
         response = athena_client.start_query_execution(
             QueryString=sql,
             WorkGroup=workgroup,
-            ResultConfiguration={
-                'OutputLocation': f"s3://{os.environ.get('ATHENA_RESULT_BUCKET')}/athena-results/"
-            }
+            ResultConfiguration={"OutputLocation": f"s3://{bucket}/"},
         )
         execution_id = response['QueryExecutionId']
         print(f"Athena query started: {execution_id}")

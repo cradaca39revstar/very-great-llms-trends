@@ -157,6 +157,25 @@ resource "aws_lakeformation_permissions" "athena_curated_table" {
   ]
 }
 
+# Lambda LLM orchestrator: SELECT on curated_beauty_products for Athena queries
+resource "aws_lakeformation_permissions" "lambda_llm_curated_table" {
+  count = var.enable_llm_system ? 1 : 0
+
+  principal   = aws_iam_role.lambda_orchestrator[0].arn
+  permissions = ["SELECT"]
+
+  table {
+    database_name = aws_glue_catalog_database.beauty_products.name
+    name          = aws_glue_catalog_table.curated_beauty_products.name
+  }
+
+  depends_on = [
+    aws_glue_catalog_table.curated_beauty_products,
+    aws_glue_catalog_database.beauty_products,
+    aws_lakeformation_data_lake_settings.main
+  ]
+}
+
 resource "aws_lakeformation_permissions" "glue_etl_error_table" {
   principal   = aws_iam_role.glue_etl.arn
   permissions = ["SELECT", "INSERT", "DELETE", "ALTER", "DROP"]
@@ -287,8 +306,43 @@ resource "aws_lakeformation_permissions" "glue_etl_curated_location" {
   ]
 }
 
+# Lambda LLM orchestrator: read curated data for Athena queries (curated_beauty_products)
+resource "aws_lakeformation_permissions" "lambda_llm_curated_location" {
+  count = var.enable_llm_system ? 1 : 0
+
+  principal   = aws_iam_role.lambda_orchestrator[0].arn
+  permissions = ["DATA_LOCATION_ACCESS"]
+
+  data_location {
+    arn = aws_s3_bucket.curated.arn
+  }
+
+  depends_on = [
+    aws_lakeformation_resource.curated_bucket,
+    aws_lakeformation_data_lake_settings.main
+  ]
+}
+
 resource "aws_lakeformation_permissions" "glue_etl_metadata_location" {
   principal   = aws_iam_role.glue_etl.arn
+  permissions = ["DATA_LOCATION_ACCESS"]
+
+  data_location {
+    arn = aws_s3_bucket.metadata.arn
+  }
+
+  depends_on = [
+    aws_lakeformation_resource.metadata_bucket,
+    aws_lakeformation_data_lake_settings.main
+  ]
+}
+
+# Lambda LLM orchestrator needs DATA_LOCATION_ACCESS on metadata bucket for Athena
+# query results (athena-results/). Athena writes using caller credentials (Lambda role).
+resource "aws_lakeformation_permissions" "lambda_llm_metadata_location" {
+  count = var.enable_llm_system ? 1 : 0
+
+  principal   = aws_iam_role.lambda_orchestrator[0].arn
   permissions = ["DATA_LOCATION_ACCESS"]
 
   data_location {

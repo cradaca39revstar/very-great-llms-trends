@@ -348,17 +348,18 @@ def extract_text_from_response(response: Dict, model_id: str) -> str:
 def parse_trends_from_text(trends_text: str) -> List[str]:
     """
     Parse trends from AI-generated text into list
+    Handles both numbered (1. Title\nExplanation) and unnumbered (Title\nExplanation) formats
     
     Args:
-        trends_text: Raw text with numbered trends
+        trends_text: Raw text with trends
         
     Returns:
         List of trend strings (each with title and explanation)
     """
     trends = []
-    
-    # Split by trend numbers (1., 2., 3., etc.)
     import re
+    
+    # Method 1: Try parsing with numbers (1., 2., 3., etc.)
     pattern = r'\d+\.\s+(.+?)(?=\d+\.\s+|\Z)'
     matches = re.findall(pattern, trends_text, re.DOTALL)
     
@@ -366,6 +367,33 @@ def parse_trends_from_text(trends_text: str) -> List[str]:
         trend = match.strip()
         if trend:
             trends.append(trend)
+    
+    # Method 2: If no numbered trends found, parse unnumbered format
+    # Look for title patterns: short lines (2-5 words) followed by longer paragraphs
+    if len(trends) < 3:
+        # Split by double newlines or patterns that indicate new trends
+        # Titles are typically short lines (less than 100 chars) followed by longer text
+        sections = re.split(r'\n\n+', trends_text.strip())
+        
+        for section in sections:
+            section = section.strip()
+            if not section:
+                continue
+                
+            # Check if this looks like a trend (has title + explanation)
+            lines = section.split('\n')
+            if len(lines) >= 2:
+                # First line is likely the title, rest is explanation
+                title = lines[0].strip()
+                explanation = '\n'.join(lines[1:]).strip()
+                
+                # Validate: title should be relatively short (2-10 words)
+                title_words = len(title.split())
+                if 2 <= title_words <= 15 and len(explanation) > 20:
+                    trend = f"{title}\n{explanation}"
+                    trends.append(trend)
+            elif len(section) > 50:  # Single paragraph trend
+                trends.append(section)
     
     # Ensure we have 5 trends
     while len(trends) < 5:

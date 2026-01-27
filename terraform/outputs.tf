@@ -86,7 +86,7 @@ output "lake_formation_console_url" {
 
 output "api_gateway_url" {
   description = "API Gateway endpoint URL for LLM system"
-  value       = var.enable_llm_system ? "${aws_api_gateway_deployment.llm[0].invoke_url}${aws_api_gateway_stage.llm[0].stage_name}/trending-products/query" : null
+  value       = var.enable_llm_system ? "https://${aws_api_gateway_rest_api.llm[0].id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.llm[0].stage_name}/trending-products/query" : null
 }
 
 output "cognito_user_pool_id" {

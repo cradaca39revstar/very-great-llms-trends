@@ -12,6 +12,7 @@ rulescore.mdc
 .terraform.lock.hcl
 terraform.tfstate.d/
 *.tfplan
+terraform/tfplan
 crash.log
 override.tf
 override.tf.json

@@ -8,7 +8,7 @@ resource "aws_athena_workgroup" "main" {
 
   configuration {
     result_configuration {
-      output_location = "s3://${aws_s3_bucket.metadata.id}/athena-results/"
+      output_location = "s3://${aws_s3_bucket.athena_results.id}/"
 
       encryption_configuration {
         encryption_option = "SSE_S3"

@@ -26,7 +26,7 @@ resource "aws_lambda_function" "orchestrator" {
     variables = {
       ATHENA_WORKGROUP        = "beauty-products-athena-${var.environment}"
       ATHENA_DATABASE         = "beauty_products_db"
-      ATHENA_RESULT_BUCKET    = "very-great-products-metadata-us-east-1-${var.environment}"
+      ATHENA_RESULT_BUCKET    = aws_s3_bucket.athena_results.id
       BEDROCK_PRIMARY_MODEL   = var.bedrock_primary_model
       BEDROCK_FALLBACK_MODEL  = var.bedrock_fallback_model
       DYNAMODB_LOGS_TABLE     = aws_dynamodb_table.prompt_logs[0].name
@@ -154,16 +154,17 @@ resource "aws_iam_policy" "lambda_s3_read" {
         ]
       },
       {
-        Sid    = "S3AthenaResultsReadOnly"
+        Sid    = "S3AthenaResults"
         Effect = "Allow"
         Action = [
+          "s3:GetBucketLocation",
           "s3:GetObject",
           "s3:ListBucket",
           "s3:PutObject"
         ]
         Resource = [
-          "arn:aws:s3:::very-great-products-metadata-us-east-1-${var.environment}",
-          "arn:aws:s3:::very-great-products-metadata-us-east-1-${var.environment}/athena-results/*"
+          aws_s3_bucket.athena_results.arn,
+          "${aws_s3_bucket.athena_results.arn}/*"
         ]
       }
     ]
@@ -322,6 +323,28 @@ resource "aws_iam_policy" "lambda_xray" {
   })
 }
 
+# IAM Policy: Lake Formation GetDataAccess (required for Athena queries on LF-protected tables)
+resource "aws_iam_policy" "lambda_lakeformation" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name        = "beauty-products-llm-lakeformation-${var.environment}"
+  description = "Lake Formation GetDataAccess for Athena queries on curated_beauty_products"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "LakeFormationGetDataAccess"
+        Effect = "Allow"
+        Action = [
+          "lakeformation:GetDataAccess"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # Attach all policies to Lambda role
 resource "aws_iam_role_policy_attachment" "lambda_athena" {
   count = var.enable_llm_system ? 1 : 0
@@ -377,6 +400,13 @@ resource "aws_iam_role_policy_attachment" "lambda_xray" {
 
   role       = aws_iam_role.lambda_orchestrator[0].name
   policy_arn = aws_iam_policy.lambda_xray[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
+  count = var.enable_llm_system ? 1 : 0
+
+  role       = aws_iam_role.lambda_orchestrator[0].name
+  policy_arn = aws_iam_policy.lambda_lakeformation[0].arn
 }
 
 # CloudWatch Log Group for Lambda

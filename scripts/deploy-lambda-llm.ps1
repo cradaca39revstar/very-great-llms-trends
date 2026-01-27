@@ -48,9 +48,15 @@ try {
         Write-Host "Warning: Python not found in PATH. Skipping dependency installation." -ForegroundColor Yellow
         Write-Host "Make sure dependencies are installed in lambda/ directory before packaging." -ForegroundColor Yellow
     } else {
-        # Install dependencies to current directory
-        Write-Host "Installing packages to lambda/ directory..." -ForegroundColor Yellow
-        python -m pip install -r requirements.txt -t . --quiet
+        # Use requirements-lambda.txt (excludes boto3/botocore; Lambda runtime provides them).
+        # Bundling them can cause "ast.NodeVisitor" errors from stdlib shadowing.
+        $reqFile = "requirements-lambda.txt"
+        if (-not (Test-Path $reqFile)) {
+            Write-Host "Error: $reqFile not found. Use requirements.txt fallback only if needed." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Installing packages from $reqFile to lambda/ ..." -ForegroundColor Yellow
+        python -m pip install -r $reqFile -t . --quiet
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
             exit 1
@@ -66,7 +72,8 @@ try {
         Write-Host "Removed existing $ZipFile" -ForegroundColor Yellow
     }
     
-    # Create zip excluding unnecessary files
+    # Create zip excluding unnecessary files.
+    # Exclude boto3/botocore/jmespath/s3transfer (Lambda runtime provides them; bundling can cause ast.NodeVisitor errors).
     $ExcludePatterns = @(
         "*.pyc",
         "__pycache__",
@@ -76,7 +83,11 @@ try {
         ".pytest_cache",
         "*.pytest_cache",
         "tests",
-        "test_*"
+        "test_*",
+        "boto3",
+        "botocore",
+        "jmespath",
+        "s3transfer"
     )
     
     $FilesToZip = Get-ChildItem -Recurse -File | Where-Object {
@@ -90,7 +101,20 @@ try {
         -not $exclude
     }
     
-    Compress-Archive -Path $FilesToZip.FullName -DestinationPath $ZipFile -Force
+    # Build zip with relative paths so Lambda gets fontTools/, fpdf/, utils/, etc. (Compress-Archive flattens)
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $baseDir = (Get-Location).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $zipPath = (Join-Path (Get-Location) $ZipFile)
+    $archive = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($f in $FilesToZip) {
+            $rel = $f.FullName.Substring($baseDir.Length).Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $f.FullName, $rel, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    } finally {
+        $archive.Dispose()
+    }
     $ZipSize = (Get-Item $ZipFile).Length / 1MB
     
     Write-Host "Created $ZipFile ($([math]::Round($ZipSize, 2)) MB)" -ForegroundColor Green
