@@ -160,6 +160,18 @@ resource "aws_iam_role_policy" "athena_s3_access" {
           "glue:GetPartitions"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.metadata.arn,
+          "${aws_s3_bucket.metadata.arn}/athena-results/*"
+        ]
       }
     ]
   })
