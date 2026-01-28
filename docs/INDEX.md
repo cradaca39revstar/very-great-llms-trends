@@ -55,7 +55,7 @@ Daily operations, maintenance, and support procedures.
 | [runbooks/etl-job-failure.md](../runbooks/etl-job-failure.md) | ETL job failure recovery procedures | Operations, Engineers |
 | [runbooks/data-quality-investigation.md](../runbooks/data-quality-investigation.md) | Data quality issue investigation | Data stewards, Analysts |
 | [runbooks/schema-evolution.md](../runbooks/schema-evolution.md) | Schema change procedures | Engineers, Data architects |
-| [runbooks/validation-and-testing.md](../runbooks/validation-and-testing.md) | Testing and validation procedures | QA, Engineers |
+| [runbooks/validation-and-testing.md](../runbooks/validation-and-testing.md) | Testing and validation (data quality, crawlers, Athena, dashboard, LLM API) | QA, Engineers |
 
 ---
 
@@ -119,6 +119,11 @@ Project history, changes, and planning documents.
 
 **Deploy the system:**
 → [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md)
+
+**Test the system after deployment / Test the LLM API:**
+→ [README.md](../README.md) (see "How to test the agent" and Quick Start)
+→ [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md#testing-the-api-with-postman-or-api-clients) (Testing the API with Postman)
+→ [terraform/README-LLM.md](../terraform/README-LLM.md#testing) (LLM deployment and testing)
 
 **Understand the architecture:**
 → [ARCHITECTURE.md](ARCHITECTURE.md) (Data Lake)
