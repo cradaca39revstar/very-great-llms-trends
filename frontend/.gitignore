@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Local env (use .env.example as template)
+.env.local
+.env.*.local
+
+# Build
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
