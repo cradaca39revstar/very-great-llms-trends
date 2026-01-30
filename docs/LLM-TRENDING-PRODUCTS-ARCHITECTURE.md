@@ -111,9 +111,9 @@ The LLM Trending Products Report Generator follows a serverless, event-driven ar
 
 ### Architecture Diagram
 
-![1769764781139](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764781139.png)
+![Arquitectura completa](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/full_arquitecture.png)
 
-![1769764838264](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764838264.png)
+![Arquitectura LLM](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/llm_arquitecture.png)
 
 
 ```mermaid
