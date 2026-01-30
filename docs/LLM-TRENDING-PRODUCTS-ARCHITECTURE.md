@@ -55,7 +55,7 @@ The system enables users to ask natural language questions about trending produc
 | ---------------------------------- | -------------------------------------------------------------------------- |
 | **Natural Language Queries** | Users ask questions in plain English                                       |
 | **L2 Category Focus**        | Analyzes specific product subcategories (Skincare, Haircare, Makeup, etc.) |
-| **AI-Powered Insights**      | Leverages AWS Bedrock (Amazon Nova Pro, us-east-1 only)                     |
+| **AI-Powered Insights**      | Leverages AWS Bedrock (Amazon Nova Pro, us-east-1 only)                    |
 | **Data-Driven**              | Uses real sales data from the existing Beauty Products Data Lake           |
 | **Fast Response**            | Delivers complete reports in 20-25 seconds                                 |
 | **Secure Access**            | Protected by AWS Cognito authentication and authorization                  |
@@ -97,6 +97,10 @@ User Query → API Gateway → Lambda Orchestrator → Athena + Bedrock → AI-G
            Cognito Auth                         Data Lake   Foundation Models
 ```
 
+
+
+
+
 The system combines the reliability of structured data lake analytics with the intelligence of large language models to deliver unprecedented insights into beauty product trends.
 
 ---
@@ -106,6 +110,11 @@ The system combines the reliability of structured data lake analytics with the i
 The LLM Trending Products Report Generator follows a serverless, event-driven architecture on AWS. The system is organized into five distinct layers that work together to transform user queries into comprehensive AI-powered reports.
 
 ### Architecture Diagram
+
+![1769764781139](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764781139.png)
+
+![1769764838264](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764838264.png)
+
 
 ```mermaid
 flowchart TB
@@ -2893,9 +2902,9 @@ WHERE l2_category = 'Skincare' AND rank <= 5;
 
 **Model Performance**:
 
-| Model             | Avg Latency | Quality   | Cost per 1K tokens |
-| ----------------- | ----------- | --------- | ------------------ |
-| Amazon Nova Pro   | 1-2s        | Good      | $0.008             |
+| Model           | Avg Latency | Quality | Cost per 1K tokens |
+| --------------- | ----------- | ------- | ------------------ |
+| Amazon Nova Pro | 1-2s        | Good    | $0.008             |
 
 **Strategy**: Amazon Nova Pro is used for all AI generation (brand names, trends, product search) in us-east-1. No fallback to other models in current configuration.
 
