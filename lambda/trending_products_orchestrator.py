@@ -463,21 +463,32 @@ def clean_product_name(product_name: str) -> str:
 
 def format_revenue_trend(mom_growth_pct: float) -> str:
     """Format revenue trend as percentage with +/- sign"""
-    if mom_growth_pct >= 0:
-        return f"+{mom_growth_pct:.1f}% Last 30 Days"
+    try:
+        val = float(mom_growth_pct) if mom_growth_pct not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    if val >= 0:
+        return f"+{val:.1f}% Last 30 Days"
     else:
-        return f"{mom_growth_pct:.1f}% Last 30 Days"
+        return f"{val:.1f}% Last 30 Days"
 
 
 def format_revenue_scale(revenue_usd: float) -> str:
     """Format revenue as USD currency"""
-    return f"${revenue_usd:,.0f} Last 30 Days"
+    try:
+        val = float(revenue_usd) if revenue_usd not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    return f"${val:,.0f} Last 30 Days"
 
 
 def format_category_rank(rank: int) -> str:
     """Format category rank with change indicator"""
-    # For now, assume +0 change (would need historical data for actual change)
-    return f"[{rank}], +0 in Last 30 Days"
+    try:
+        val = int(rank) if rank not in (None, '') else 0
+    except (TypeError, ValueError):
+        val = 0
+    return f"[{val}], +0 in Last 30 Days"
 
 
 def log_to_dynamodb(log_data: Dict):

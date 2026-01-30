@@ -241,12 +241,17 @@ def convert_numeric_fields(product: Dict) -> Dict:
     }
     
     for field, field_type in numeric_fields.items():
-        if field in product and product[field]:
-            try:
-                product[field] = field_type(product[field])
-            except (ValueError, TypeError):
-                print(f"Warning: Failed to convert {field} to {field_type.__name__}")
+        if field in product:
+            raw = product[field]
+            # Treat empty string, None, or whitespace as missing -> use 0
+            if raw is None or (isinstance(raw, str) and str(raw).strip() == ''):
                 product[field] = 0 if field_type in (int, float) else product[field]
+            else:
+                try:
+                    product[field] = field_type(product[field])
+                except (ValueError, TypeError):
+                    print(f"Warning: Failed to convert {field} to {field_type.__name__}")
+                    product[field] = 0 if field_type in (int, float) else product[field]
     
     return product
 
