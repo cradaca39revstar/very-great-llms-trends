@@ -1,10 +1,11 @@
 # LLM Trending Products Report Generator
+
 ## System Architecture
 
-**Version:** 1.0.0  
-**Last Updated:** January 26, 2026  
-**Target Audience:** Client Stakeholders  
-**Status:** Planning Phase
+**Version:** 1.0.0
+**Last Updated:** January 26, 2026
+**Target Audience:** Client Stakeholders
+**Status:** Implemented
 
 ---
 
@@ -25,10 +26,10 @@
 4. [Data Flow](#data-flow)
 5. [Report Output Format](#report-output-format)
 6. [Integration with Existing Datalake](#integration-with-existing-datalake)
-7. [Security & Authentication](#security--authentication)
+7. [Security &amp; Authentication](#security--authentication)
 8. [Performance Characteristics](#performance-characteristics)
 9. [User Guide](#user-guide)
-10. [Monitoring & Support](#monitoring--support)
+10. [Monitoring &amp; Support](#monitoring--support)
 11. [Future Enhancements](#future-enhancements)
 
 ---
@@ -50,15 +51,15 @@ The system enables users to ask natural language questions about trending produc
 
 ### Key Capabilities
 
-| Capability | Description |
-|------------|-------------|
-| **Natural Language Queries** | Users ask questions in plain English or Spanish |
-| **L2 Category Focus** | Analyzes specific product subcategories (Skincare, Haircare, Makeup, etc.) |
-| **AI-Powered Insights** | Leverages AWS Bedrock foundation models (Claude 3.7 Sonnet, Nova, Cohere) |
-| **Data-Driven** | Uses real sales data from the existing Beauty Products Data Lake |
-| **Fast Response** | Delivers complete reports in 20-25 seconds |
-| **Secure Access** | Protected by AWS Cognito authentication and authorization |
-| **PDF Generation** | Creates downloadable, professional reports |
+| Capability                         | Description                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------- |
+| **Natural Language Queries** | Users ask questions in plain English                                       |
+| **L2 Category Focus**        | Analyzes specific product subcategories (Skincare, Haircare, Makeup, etc.) |
+| **AI-Powered Insights**      | Leverages AWS Bedrock foundation models (Claude 3.7 Sonnet, Nova, Cohere)  |
+| **Data-Driven**              | Uses real sales data from the existing Beauty Products Data Lake           |
+| **Fast Response**            | Delivers complete reports in 20-25 seconds                                 |
+| **Secure Access**            | Protected by AWS Cognito authentication and authorization                  |
+| **PDF Generation**           | Creates downloadable, professional reports                                 |
 
 ### Integration with Existing Infrastructure
 
@@ -147,24 +148,24 @@ flowchart TB
     apigw -->|Authenticate| cognito
     cognito -->|JWT Token| apigw
     apigw -->|Authorized Request| lambda
-    
+  
     lambda -->|Query TOP 5 Products| athena
     athena -->|Read Schema| glue
     athena -->|Scan Parquet| s3curated
     s3curated -->|Product Data| athena
     athena -->|Results| lambda
-    
+  
     lambda -->|Generate Brand Name| bedrock
     lambda -->|Generate Trends| bedrock
     lambda -->|Web Search| websearch
     bedrock -->|Use Model| claude
     bedrock -->|Fallback| nova
     bedrock -->|Alternative| cohere
-    
+  
     lambda -->|Log Prompts| dynamodb
     lambda -->|Publish Metrics| cloudwatch
     lambda -->|Store PDF| s3pdf
-    
+  
     lambda -->|Report + PDF URL| chatbot
     chatbot -->|Display Report| user
     chatbot -->|Download Link| user
@@ -188,15 +189,18 @@ For a detailed visual representation of the system architecture, refer to the ar
 ### Layer Descriptions
 
 #### 1. User Interface Layer
+
 - **Chatbot UI**: Web-based conversational interface where users enter L2 category queries
 - **User Experience**: Simple text input, visual report display, PDF download button
 
 #### 2. Security Layer
+
 - **AWS Cognito**: Manages user authentication, login/password protection
 - **API Gateway**: REST API endpoint with request validation and authorization
 - **IAM Roles**: Least privilege access control for all AWS services
 
 #### 3. Orchestration Layer
+
 - **Lambda Function**: Central orchestrator that coordinates all operations
   - Parses natural language queries to extract L2 categories
   - Queries Athena for product data
@@ -206,12 +210,14 @@ For a detailed visual representation of the system architecture, refer to the ar
   - Handles errors gracefully
 
 #### 4. Data Layer (Existing Infrastructure)
+
 - **Amazon Athena**: SQL query engine for data lake
 - **AWS Glue Catalog**: Metadata repository with table schemas
 - **S3 Curated Zone**: High-quality Parquet data partitioned by year/month
 - **Quality Filters**: Only uses data with quality score >= 0.95
 
 #### 5. AI/ML Layer
+
 - **Amazon Bedrock**: Managed service for foundation models
   - **Claude 3.7 Sonnet**: Primary model for brand names and trend generation
   - **Amazon Nova**: Fallback model for reliability
@@ -219,6 +225,7 @@ For a detailed visual representation of the system architecture, refer to the ar
 - **Web Search API**: Retrieves brand URLs, product descriptions, and images
 
 #### 6. Logging & Monitoring Layer
+
 - **DynamoDB**: Stores prompt/response pairs for audit and improvement
 - **CloudWatch**: Metrics, logs, and alarms for system health monitoring
 - **S3 PDF Storage**: Stores generated PDF reports with signed URLs
@@ -247,6 +254,7 @@ This section provides detailed descriptions of each component in the LLM Trendin
 **Purpose**: Manages user authentication and authorization for the chatbot interface.
 
 **Key Features**:
+
 - User registration and login/password protection
 - Multi-factor authentication (MFA) support
 - JWT token generation for API authentication
@@ -254,12 +262,14 @@ This section provides detailed descriptions of each component in the LLM Trendin
 - Password policies and security controls
 
 **Configuration**:
+
 - User pool name: `beauty-products-trending-chatbot-users`
 - Token expiration: Configurable (typically 1 hour)
 - Password requirements: Minimum 8 characters, complexity rules
 - Integration: API Gateway uses Cognito as authorizer
 
 **Benefits**:
+
 - Industry-standard OAuth 2.0 / OpenID Connect
 - Secure credential storage (never exposed to application)
 - Built-in protection against common attacks
@@ -270,6 +280,7 @@ This section provides detailed descriptions of each component in the LLM Trendin
 **Purpose**: Provides a secure, managed REST API endpoint for the chatbot interface.
 
 **Key Features**:
+
 - Request validation and throttling
 - CORS configuration for web clients
 - Integration with Cognito for authentication
@@ -277,14 +288,26 @@ This section provides detailed descriptions of each component in the LLM Trendin
 - API versioning support
 
 **Endpoints**:
+
 ```
 POST /trending-products/query
-  - Body: { "category": "Skincare" }
-  - Headers: Authorization: Bearer <JWT-token>
-  - Response: { "report": {...}, "pdf_url": "..." }
+  - URL: https://{api-id}.execute-api.{region}.amazonaws.com/{stage}/trending-products/query
+  - Body: { "query": "What are the top trending products in Skincare?" }   (required; natural language)
+  - Headers: Authorization: Bearer <JWT-token>, Content-Type: application/json
+  - Response (200): {
+      "status": "success",
+      "request_id": "<uuid>",
+      "query": "<user query>",
+      "category": "<extracted L2 category>",
+      "report": { ... },
+      "pdf_url": "<signed URL or null>",
+      "execution_time_ms": <int>,
+      "product_count": <int>
+    }
 ```
 
 **Security**:
+
 - Cognito authorizer validates JWT tokens
 - Request size limits (max 10MB)
 - Rate limiting (e.g., 10 requests/second per user)
@@ -299,6 +322,7 @@ POST /trending-products/query
 **Purpose**: Central coordinator that executes the entire workflow from query to report generation.
 
 **Function Details**:
+
 - **Runtime**: Python 3.10
 - **Memory**: 1024 MB (adjustable based on workload)
 - **Timeout**: 60 seconds (to accommodate AI processing)
@@ -307,45 +331,47 @@ POST /trending-products/query
 **Core Responsibilities**:
 
 1. **Query Parsing**
+
    - Extract L2 category from natural language query
    - Validate category against known categories
-   - Handle multiple languages (English, Spanish)
+   - Handle English natural language queries
    - Example: "What are trending products in Skincare?" → Extract "Skincare"
-
 2. **Data Retrieval**
+
    - Build Athena SQL query for TOP 5 products
    - Execute query using boto3 Athena client
    - Wait for query completion (typically 3-5 seconds)
    - Parse results into structured format
-
 3. **AI Coordination**
+
    - Call Bedrock API for each product (can be parallelized)
    - Generate brand name from product_name + shop_name
    - Invoke web search for URLs and descriptions
    - Generate 5 supporting trends per product
    - Handle model fallbacks if primary model fails
-
 4. **Report Formatting**
+
    - Apply exact output structure from specifications
    - Format revenue numbers as currency
    - Format percentages with proper precision
    - Clean product names and descriptions
    - Build complete report JSON
-
 5. **PDF Generation**
+
    - Convert formatted report to HTML
    - Render HTML to PDF using library (e.g., ReportLab, WeasyPrint)
    - Include product images from URLs
    - Upload PDF to S3 with unique filename
    - Generate signed URL for download (valid for 1 hour)
-
 6. **Logging & Metrics**
+
    - Log all prompts sent to Bedrock
    - Store responses for audit trail
    - Publish CloudWatch metrics
    - Track execution time for each phase
 
 **Error Handling**:
+
 - Invalid L2 category → Return friendly error with suggestions
 - No products found → Return "No trending products" message
 - Bedrock timeout → Retry with fallback model
@@ -353,6 +379,7 @@ POST /trending-products/query
 - Web search failure → Use LLM-generated descriptions only
 
 **Environment Variables**:
+
 ```
 ATHENA_WORKGROUP=beauty-products-athena-poc
 ATHENA_DATABASE=beauty_products_db
@@ -372,12 +399,14 @@ PDF_BUCKET=beauty-products-pdfs
 **Purpose**: SQL query engine that reads data from the existing S3 data lake.
 
 **Configuration**:
+
 - **Workgroup**: `beauty-products-athena-{environment}`
 - **Database**: `beauty_products_db`
 - **Primary Table**: `curated_beauty_products`
 - **Result Location**: `s3://very-great-products-metadata-us-east-1-{environment}/athena-results/`
 
 **Query Pattern**:
+
 ```sql
 WITH ranked_products AS (
   SELECT 
@@ -404,6 +433,7 @@ ORDER BY revenue_rank;
 ```
 
 **Performance**:
+
 - Typical query time: 3-5 seconds
 - Uses partitioned data (year/month) for optimization
 - Results cached for 5 minutes to reduce costs
@@ -413,11 +443,13 @@ ORDER BY revenue_rank;
 **Purpose**: Metadata repository that stores table schemas and partition information.
 
 **Tables Used**:
+
 - `curated_beauty_products`: Main product sales data (21 columns)
 - Partitioned by: `year` and `month_num`
 - Format: Parquet with Snappy compression
 
 **Views Used**:
+
 - `vw_high_quality_products`: Pre-filters for quality score >= 0.95
 - `vw_sales_by_category_month`: Aggregated sales by L2 category
 
@@ -430,6 +462,7 @@ ORDER BY revenue_rank;
 **Data Path**: `curated/beauty-products/year=YYYY/month_num=MM/`
 
 **Data Characteristics**:
+
 - Format: Parquet with Snappy compression
 - Partitioning: Year and month for query optimization
 - Quality: All records have quality_score >= 0.95 (for production use)
@@ -444,6 +477,7 @@ ORDER BY revenue_rank;
 **Purpose**: Managed service providing access to foundation models for AI text generation.
 
 **Service Benefits**:
+
 - No infrastructure management required
 - Multiple models available (Claude, Nova, Cohere)
 - Built-in prompt management and versioning
@@ -451,6 +485,7 @@ ORDER BY revenue_rank;
 - Automatic scaling and high availability
 
 **API Configuration**:
+
 - **Region**: us-east-1
 - **Endpoint**: `bedrock-runtime.us-east-1.amazonaws.com`
 - **Authentication**: IAM role with bedrock:InvokeModel permission
@@ -458,41 +493,45 @@ ORDER BY revenue_rank;
 #### Foundation Models
 
 **1. Claude 3.7 Sonnet (Primary)**
+
 - **Model ID**: `anthropic.claude-3-7-sonnet-20240229-v1:0`
-- **Use Cases**: 
+- **Use Cases**:
   - Brand name generation
   - Supporting trends generation
   - Product description enhancement
-- **Strengths**: 
+- **Strengths**:
   - Superior reasoning and context understanding
   - Excellent at creative writing
   - Handles nuanced queries well
 - **Token Limits**: 200k context, 4k output
 
 **2. Amazon Nova (Fallback)**
+
 - **Model ID**: `amazon.nova-pro-v1:0`
-- **Use Cases**: 
+- **Use Cases**:
   - Fallback when Claude is unavailable
   - Cost optimization for simple queries
-- **Strengths**: 
+- **Strengths**:
   - Fast response times
   - Cost-effective
   - Good for structured outputs
 - **Token Limits**: 128k context, 4k output
 
 **3. Cohere (Alternative)**
+
 - **Model ID**: `cohere.command-r-plus-v1:0`
-- **Use Cases**: 
+- **Use Cases**:
   - Alternative for specific formatting needs
   - Search-augmented generation
-- **Strengths**: 
+- **Strengths**:
   - Strong at summarization
-  - Good multilingual support
+  - Good for structured outputs
 - **Token Limits**: 128k context, 4k output
 
 #### Prompt Templates
 
 **Brand Name Generation Prompt**:
+
 ```
 Based on the following product information, generate the brand name:
 Product Name: {product_name}
@@ -503,6 +542,7 @@ Do not include product name, just the brand.
 ```
 
 **Trends Generation Prompt**:
+
 ```
 Generate 5 macro trends that are driving the success of {product_name} with {key_ingredient}.
 
@@ -524,16 +564,19 @@ Focus on market trends, consumer behavior, and industry insights.
 **Purpose**: Retrieve brand URLs, product descriptions, and images from the web.
 
 **Implementation Options**:
+
 1. AWS Bedrock Knowledge Bases with web search connector
 2. Google Custom Search API
 3. Bing Search API
 
 **Search Queries**:
+
 - Brand URL: `"{brand_name} {product_name} official website"`
 - Description: `"{product_name} description ingredients"`
 - Image: `"{product_name} {brand_name} product image"`
 
 **Response Processing**:
+
 - Extract top result URL
 - Parse product description from snippet
 - Download and store product image
@@ -548,12 +591,13 @@ Focus on market trends, consumer behavior, and industry insights.
 **Purpose**: Store all prompts and responses for audit trail and model improvement.
 
 **Table Schema**:
+
 ```
 {
   "request_id": "uuid",                     // Primary Key
   "timestamp": "2026-01-26T10:00:00Z",      // Sort Key
   "user_id": "user@example.com",
-  "user_query": "¿Cuáles son los trending products en Skincare?",
+  "user_query": "What are the top trending products in Skincare?",
   "l2_category": "Skincare",
   "products_queried": ["product_id_1", "product_id_2", ...],
   "prompts": [
@@ -574,6 +618,7 @@ Focus on market trends, consumer behavior, and industry insights.
 ```
 
 **Benefits**:
+
 - Complete audit trail for compliance
 - Identify prompt patterns for optimization
 - Track model performance and costs
@@ -583,6 +628,7 @@ Focus on market trends, consumer behavior, and industry insights.
 #### CloudWatch Metrics & Alarms
 
 **Custom Metrics Published**:
+
 - `TrendingReportRequests`: Count of user queries
 - `AthenaQueryDuration`: Time to execute Athena queries
 - `BedrockCallDuration`: Time for Bedrock API calls
@@ -591,11 +637,13 @@ Focus on market trends, consumer behavior, and industry insights.
 - `ErrorRate`: Percentage of failed requests
 
 **CloudWatch Alarms**:
+
 - `LLM-HighLatency`: Alert if avg latency > 30 seconds
 - `LLM-HighErrorRate`: Alert if error rate > 5%
 - `LLM-BedrockThrottling`: Alert on Bedrock throttle errors
 
 **Dashboard Widgets**:
+
 - Request volume over time
 - Average latency by component
 - Error rate trends
@@ -611,11 +659,13 @@ Focus on market trends, consumer behavior, and industry insights.
 **Structure**: `reports/YYYY/MM/DD/{request_id}.pdf`
 
 **Access**:
+
 - Signed URLs with 1-hour expiration
 - Lifecycle policy: Delete after 7 days
 - Encryption: AES-256 (SSE-S3)
 
 **PDF Naming Convention**:
+
 ```
 trending-products-{l2_category}-{timestamp}.pdf
 Example: trending-products-skincare-20260126-100530.pdf
@@ -648,17 +698,17 @@ sequenceDiagram
     APIGateway->>Cognito: Validate JWT token
     Cognito-->>APIGateway: Token valid ✓
     APIGateway->>Lambda: Forward authenticated request
-    
+  
     Note over Lambda: Step 1: Parse Query (100ms)
     Lambda->>Lambda: Extract L2 category: "Skincare"
     Lambda->>Lambda: Validate category exists
-    
+  
     Note over Lambda,S3: Step 2: Query Data Lake (3-5s)
     Lambda->>Athena: Query TOP 5 products in Skincare
     Athena->>S3: Scan partitioned Parquet data
     S3-->>Athena: Return matching records
     Athena-->>Lambda: 5 products with revenue data
-    
+  
     Note over Lambda,Bedrock: Step 3: AI Enhancement (10-15s parallel)
     par For each product
         Lambda->>Bedrock: Generate brand name
@@ -668,25 +718,25 @@ sequenceDiagram
         Lambda->>Bedrock: Generate 5 market trends
         Bedrock-->>Lambda: Trends response
     end
-    
+  
     Note over Lambda: Step 4: Format Report (500ms)
     Lambda->>Lambda: Apply output structure
     Lambda->>Lambda: Format revenue metrics
     Lambda->>Lambda: Clean product names
-    
+  
     Note over Lambda,PDFStorage: Step 5: Generate & Store PDF (2-3s)
     Lambda->>Lambda: Convert report to HTML
     Lambda->>Lambda: Render HTML to PDF
     Lambda->>PDFStorage: Upload PDF
     PDFStorage-->>Lambda: PDF URL with signed access
-    
+  
     Note over Lambda,DynamoDB: Step 6: Logging (200ms)
     Lambda->>DynamoDB: Store prompts + responses
-    
+  
     Lambda-->>APIGateway: Return report + PDF URL
     APIGateway-->>Chatbot: Report response
     Chatbot-->>User: Display report + download button
-    
+  
     User->>Chatbot: Click download PDF
     Chatbot->>PDFStorage: Request PDF (signed URL)
     PDFStorage-->>User: Download PDF file
@@ -697,13 +747,15 @@ sequenceDiagram
 #### Step 1: User Input & Authentication (~ 500ms)
 
 **User Action**:
+
 - User enters a natural language query in the chatbot interface
 - Example queries:
-  - "¿Cuáles son los trending products en Skincare?"
+  - "What are the top trending products in Skincare?"
   - "What are the trending products in Haircare & Styling?"
   - "Show me trending Makeup products"
 
 **Authentication Flow**:
+
 1. Chatbot sends HTTPS POST request to API Gateway
 2. Request includes JWT token in Authorization header
 3. API Gateway calls Cognito to validate token
@@ -711,11 +763,10 @@ sequenceDiagram
 5. Validated request forwarded to Lambda orchestrator
 
 **Request Payload**:
+
 ```json
 {
-  "query": "¿Cuáles son los trending products en Skincare?",
-  "language": "es",
-  "max_products": 5
+  "query": "What are the top trending products in Skincare?"
 }
 ```
 
@@ -724,17 +775,20 @@ sequenceDiagram
 #### Step 2: Query Parsing & Validation (~ 100ms)
 
 **Lambda Processing**:
-1. Extract L2 category from natural language query
-   - Uses regex patterns or simple NLP
-   - Handles multiple languages (English, Spanish)
-   - Example: "Skincare", "Haircare & Styling", "Makeup"
 
+1. Extract L2 category from natural language query
+
+   - Uses regex patterns or simple NLP
+   - Handles English natural language
+   - Example: "Skincare", "Haircare & Styling", "Makeup"
 2. Validate L2 category
+
    - Check against known categories in data lake
    - If invalid, return error with suggestions
    - If valid, proceed to data retrieval
 
 **Category Extraction Logic**:
+
 ```python
 def extract_l2_category(user_query: str) -> str:
     """Extract L2 category from user query."""
@@ -747,13 +801,13 @@ def extract_l2_category(user_query: str) -> str:
         "Fragrance",
         "Tools & Accessories"
     ]
-    
+  
     # Simple keyword matching (can be enhanced with NLP)
     query_lower = user_query.lower()
     for category in known_categories:
         if category.lower() in query_lower:
             return category
-    
+  
     # If no match, return error
     raise ValueError(f"Category not found in query: {user_query}")
 ```
@@ -765,6 +819,7 @@ def extract_l2_category(user_query: str) -> str:
 **Athena Query Execution**:
 
 1. **Build SQL Query**:
+
 ```sql
 WITH ranked_products AS (
   SELECT 
@@ -791,17 +846,19 @@ ORDER BY revenue_rank;
 ```
 
 2. **Execute Query**:
+
    - Lambda calls `athena.start_query_execution()`
    - Query runs against partitioned Parquet data in S3
    - Results written to metadata bucket
    - Lambda polls for completion
-
 3. **Parse Results**:
+
    - Lambda calls `athena.get_query_results()`
    - Parse CSV/JSON results into Python dict
    - Extract key fields: product_name, shop_name, revenue_usd, mom_growth_pct, item_sold
 
 **Sample Data Retrieved**:
+
 ```python
 [
   {
@@ -825,29 +882,32 @@ ORDER BY revenue_rank;
 **For Each Product** (can be parallelized):
 
 1. **Generate Brand Name** (~ 2-3 seconds per product)
+
    - Send prompt to Claude 3.7 Sonnet
    - Input: product_name + shop_name
    - Output: Clean brand name (e.g., "Vital Proteins")
 
    **Prompt**:
+
    ```
    Based on the following product information, generate the brand name:
    Product Name: Collagen Peptides Advanced Powder Drink Mix
    Shop Name: Vital Proteins Official Store
-   
+
    Generate only the brand name (e.g., "Vital Proteins", "The Ordinary").
    Do not include product name, just the brand.
    ```
 
    **Response**: `"Vital Proteins"`
-
 2. **Web Search for URL & Description** (~ 3-5 seconds per product)
+
    - Query: "Vital Proteins Collagen Peptides Advanced official website"
    - Extract top result URL
    - Parse product description from search snippet or page content
    - Download product image URL
 
    **Response**:
+
    ```json
    {
      "url": "https://www.vitalproteins.com/products/collagen-peptides-advanced",
@@ -855,42 +915,44 @@ ORDER BY revenue_rank;
      "image_url": "https://cdn.vitalproteins.com/images/collagen-peptides-advanced.jpg"
    }
    ```
-
 3. **Generate 5 Supporting Trends** (~ 5-8 seconds per product)
+
    - Send comprehensive prompt to Bedrock
    - Include product data, category, revenue growth
    - Request 5 macro trends with explanations
 
    **Prompt**:
+
    ```
    Generate 5 macro trends that are driving the success of Collagen Peptides Advanced 
    with Hyaluronic Acid.
-   
+
    Product: Collagen Peptides Advanced Powder Drink Mix
    Brand: Vital Proteins
    Category: Skincare
    Revenue Growth: +45.5%
    Revenue: $1,250,000
-   
+
    Generate 5 trends, each with:
    - A descriptive title (2-4 words)
    - 2-3 lines of explanation
-   
+
    Focus on market trends, consumer behavior, and industry insights.
    ```
 
    **Response**:
+
    ```
    1. The Mainstreaming of Collagen as a Wellness Staple
    Collagen has shifted from niche to mainstream, becoming a daily staple for 
    a broad demographic—especially women 25-45 focused on skin, joints, and 
    overall vitality. Vital Proteins led this adoption by educating consumers 
    and making collagen accessible (e.g., scoopable powders, stick packs, etc.).
-   
+
    2. Scientific-Backed Ingredient Recognition
    Vital Proteins' inclusion of hyaluronic acid alongside collagen aligns with 
    growing consumer awareness around clinically validated ingredients...
-   
+
    [3 more trends]
    ```
 
@@ -903,6 +965,7 @@ ORDER BY revenue_rank;
 **Lambda Processing**:
 
 1. **Structure Report**:
+
    - Apply exact output format from specifications
    - For each product, create section with:
      - Image URL
@@ -914,18 +977,19 @@ ORDER BY revenue_rank;
      - Revenue Scale: "$1,250,000 Last 30 Days"
      - Product Rank: "[1], +1 in Last 30 Days"
      - 5 Supporting Trends (from Bedrock)
-
 2. **Format Numbers**:
+
    - Revenue: Format as USD currency with commas
    - Growth: Format as percentage with + or - sign
    - Rank: Show current rank and change
-
 3. **Clean Text**:
+
    - Remove special characters from product names
    - Truncate descriptions to reasonable length
-   - Ensure proper encoding for Spanish characters
+   - Ensure proper character encoding
 
 **Formatted Report Structure**:
+
 ```json
 {
   "query": "Trending products in Skincare",
@@ -962,23 +1026,24 @@ ORDER BY revenue_rank;
 **PDF Creation Process**:
 
 1. **Convert to HTML**:
+
    - Use HTML template with CSS styling
    - Embed product images
    - Format revenue metrics as tables
    - Include trends as numbered list
-
 2. **Render PDF**:
+
    - Use library: ReportLab or WeasyPrint
    - Set page size: Letter (8.5" x 11")
    - Include header with logo and timestamp
    - Add footer with page numbers
-
 3. **Upload to S3**:
+
    - Generate unique filename: `trending-products-skincare-20260126-100530.pdf`
    - Upload to: `s3://beauty-products-pdfs-us-east-1-poc/reports/2026/01/26/`
    - Set metadata: content-type, user-id, query
-
 4. **Generate Signed URL**:
+
    - Create pre-signed URL valid for 1 hour
    - Return URL to chatbot for download
 
@@ -987,12 +1052,14 @@ ORDER BY revenue_rank;
 #### Step 7: Logging & Metrics (~ 200ms)
 
 **DynamoDB Logging**:
+
 - Store complete request/response for audit trail
 - Log all prompts sent to Bedrock
 - Track tokens used and costs
 - Record execution time for each phase
 
 **CloudWatch Metrics**:
+
 - Publish custom metrics:
   - `TrendingReportRequests`: 1
   - `TotalReportDuration`: 23000ms
@@ -1007,6 +1074,7 @@ ORDER BY revenue_rank;
 **Response to User**:
 
 1. Lambda returns response to API Gateway:
+
 ```json
 {
   "status": "success",
@@ -1018,30 +1086,29 @@ ORDER BY revenue_rank;
 ```
 
 2. API Gateway forwards to chatbot
-
 3. Chatbot renders report in UI:
+
    - Display products with images
    - Show revenue metrics
    - List supporting trends
    - Provide "Download PDF" button
-
 4. User clicks download → PDF opens/downloads
 
 ---
 
 ### Total Latency Breakdown
 
-| Phase | Duration | Percentage |
-|-------|----------|------------|
-| Authentication & Routing | 500ms | 2% |
-| Query Parsing | 100ms | < 1% |
-| Athena Data Retrieval | 3-5s | 15-20% |
-| Bedrock AI Enhancement | 10-15s | 45-60% |
-| Report Formatting | 500ms | 2% |
-| PDF Generation | 2-3s | 10-12% |
-| Logging & Metrics | 200ms | 1% |
-| Response Delivery | 500ms | 2% |
-| **Total** | **20-25s** | **100%** |
+| Phase                    | Duration         | Percentage     |
+| ------------------------ | ---------------- | -------------- |
+| Authentication & Routing | 500ms            | 2%             |
+| Query Parsing            | 100ms            | < 1%           |
+| Athena Data Retrieval    | 3-5s             | 15-20%         |
+| Bedrock AI Enhancement   | 10-15s           | 45-60%         |
+| Report Formatting        | 500ms            | 2%             |
+| PDF Generation           | 2-3s             | 10-12%         |
+| Logging & Metrics        | 200ms            | 1%             |
+| Response Delivery        | 500ms            | 2%             |
+| **Total**          | **20-25s** | **100%** |
 
 **Target Met**: System delivers complete reports within the 20-25 second target latency, comparable to ChatGPT response times.
 
@@ -1054,6 +1121,7 @@ The system generates reports following an exact, standardized format to ensure c
 ### Report Structure Overview
 
 Each report contains:
+
 - Header with query information
 - **Top 1-5 Trending Products** (configurable, default 5)
 - For each product:
@@ -1119,6 +1187,7 @@ Description: [Product description from web search or LLM]
 ```
 
 **Example**:
+
 ```
 Trending Product:
 
@@ -1145,11 +1214,13 @@ Product Rank in Category: [X], +[X] in Last 30 Days
 ```
 
 **Data Sources**:
+
 - Revenue Trend: `mom_growth_pct` from curated data (formatted as percentage)
 - Revenue Scale: `revenue_usd` from curated data (formatted as USD currency)
 - Product Rank: Calculated rank within L2 category by revenue (from Athena query)
 
 **Example**:
+
 ```
 Revenue Trend: +45.5% Last 30 Days
 Revenue Scale: $1,250,000 Last 30 Days
@@ -1157,6 +1228,7 @@ Product Rank in Category: [1], +1 in Last 30 Days
 ```
 
 **Formatting Rules**:
+
 - Revenue Trend: Always include + or - sign, one decimal place
 - Revenue Scale: USD currency with commas, no decimals for large numbers
 - Product Rank: Show current rank in brackets, then rank change with + or -
@@ -1189,6 +1261,7 @@ dominant [PRODUCT_TYPE] in the market:
 ```
 
 **Example**:
+
 ```
 Supporting Trends:
 
@@ -1231,6 +1304,7 @@ drives massive reach and impulse purchases.
 ```
 
 **Trend Generation Guidelines** (for AI prompts):
+
 - Each trend should be 2-4 words for the title
 - Explanation should be 2-3 lines (approximately 40-80 words)
 - Focus on macro market trends, not just product features
@@ -1245,31 +1319,31 @@ drives massive reach and impulse purchases.
 
 This table shows how each field in the report is generated:
 
-| Field | Data Source | Processing Method | Example Output |
-|-------|-------------|-------------------|----------------|
-| **Brand Name** | product_name + shop_name | LLM extraction via Bedrock | "Vital Proteins" |
-| **Product Name** | product_name (from data) | Clean formatting, remove promotional text | "Collagen Peptides Advanced Powder Drink Mix" |
-| **Product Image** | Web search | Search by brand + product, download image | `<image URL>` |
-| **Brand URL** | Web search | Query: "{brand} {product} official website" | https://www.vitalproteins.com/... |
-| **Description** | Web search or LLM | Extract from search results or generate | "Vital Proteins Collagen Peptides Advanced is a well-regarded supplement..." |
-| **Revenue Trend** | mom_growth_pct | Format as percentage with +/- sign | "+45.5% Last 30 Days" |
-| **Revenue Scale** | revenue_usd | Format as USD currency | "$1,250,000 Last 30 Days" |
-| **Product Rank** | Calculated from query | ROW_NUMBER() in Athena query | "[1], +1 in Last 30 Days" |
-| **Supporting Trends** | LLM generation via Bedrock | Prompt with product data + market context | 5 trends with titles and explanations |
+| Field                       | Data Source                | Processing Method                           | Example Output                                                               |
+| --------------------------- | -------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Brand Name**        | product_name + shop_name   | LLM extraction via Bedrock                  | "Vital Proteins"                                                             |
+| **Product Name**      | product_name (from data)   | Clean formatting, remove promotional text   | "Collagen Peptides Advanced Powder Drink Mix"                                |
+| **Product Image**     | Web search                 | Search by brand + product, download image   | `<image URL>`                                                              |
+| **Brand URL**         | Web search                 | Query: "{brand} {product} official website" | https://www.vitalproteins.com/...                                            |
+| **Description**       | Web search or LLM          | Extract from search results or generate     | "Vital Proteins Collagen Peptides Advanced is a well-regarded supplement..." |
+| **Revenue Trend**     | mom_growth_pct             | Format as percentage with +/- sign          | "+45.5% Last 30 Days"                                                        |
+| **Revenue Scale**     | revenue_usd                | Format as USD currency                      | "$1,250,000 Last 30 Days"                                                    |
+| **Product Rank**      | Calculated from query      | ROW_NUMBER() in Athena query                | "[1], +1 in Last 30 Days"                                                    |
+| **Supporting Trends** | LLM generation via Bedrock | Prompt with product data + market context   | 5 trends with titles and explanations                                        |
 
 ---
 
 ### Complete Report Example
 
-**Query**: "¿Cuáles son los trending products en Skincare?"
+**Query**: "What are the top trending products in Skincare?"
 
 **Report Output**:
 
 ---
 
-**Trending Products Report**  
-**Category**: Skincare  
-**Generated**: January 26, 2026 at 10:05 AM  
+**Trending Products Report**
+**Category**: Skincare
+**Generated**: January 26, 2026 at 10:05 AM
 **Data Period**: Last 30 Days
 
 ---
@@ -1280,36 +1354,28 @@ This table shows how each field in the report is generated:
 
 ![Vital Proteins Collagen](https://cdn.vitalproteins.com/collagen-peptides-advanced.jpg)
 
-**Brand Name:** Vital Proteins  
+**Brand Name:** Vital Proteins
 **Product:** Collagen Peptides Advanced Powder Drink Mix
 
-**URL to brand website**  
+**URL to brand website**
 [https://www.vitalproteins.com/products/collagen-peptides-advanced](https://www.vitalproteins.com/products/collagen-peptides-advanced)
 
 **Description:** Vital Proteins Collagen Peptides Advanced is a well-regarded supplement for enhancing skin hydration, joint comfort, and overall vitality.
 
-**Revenue Trend:** +45.5% Last 30 Days  
-**Revenue Scale:** $1,250,000 Last 30 Days  
+**Revenue Trend:** +45.5% Last 30 Days
+**Revenue Scale:** $1,250,000 Last 30 Days
 **Product Rank in Category:** [1], +1 in Last 30 Days
 
 **Supporting Trends:**
 
 Here are 5 macro trends that are driving the success of Vital Proteins Collagen Peptides Advanced with Hyaluronic Acid, and which have helped make it one of the most dominant ingestible supplements in the market:
 
-1. **The Mainstreaming of Collagen as a Wellness Staple**  
-Collagen has shifted from niche to mainstream, becoming a daily staple for a broad demographic—especially women 25-45 focused on skin, joints, and overall vitality. Vital Proteins led this adoption by educating consumers and making collagen accessible and versatile.
-
-2. **Scientific-Backed Ingredient Recognition**  
-Vital Proteins' inclusion of hyaluronic acid alongside collagen aligns with growing consumer awareness around clinically validated ingredients that promote skin hydration, elasticity, and wrinkle reduction. Consumers seek functional synergies that deliver visible results.
-
-3. **Wellness Lifestyle Integration**  
-With partnerships (e.g., Jennifer Aniston as Chief Creative Officer), Vital Proteins successfully tapped into the lifestyle and aspirational wellness narrative. The product fits seamlessly into smoothie routines, gym bags, and daily health rituals.
-
-4. **Clean Label & Transparency Demands**  
-Consumers increasingly demand clean-label, simple ingredient lists with no fillers or artificial sweeteners. Vital Proteins has benefited from pushing "Grass-Fed," "Non-GMO," "No Sugar," and "Made in the USA" claims.
-
-5. **E-Commerce & Subscription Model Success**  
-Vital Proteins leveraged direct-to-consumer channels and subscription models, making collagen convenient and habitual. The "subscribe and save" approach ensures consistent usage and builds brand loyalty.
+1. **The Mainstreaming of Collagen as a Wellness Staple**Collagen has shifted from niche to mainstream, becoming a daily staple for a broad demographic—especially women 25-45 focused on skin, joints, and overall vitality. Vital Proteins led this adoption by educating consumers and making collagen accessible and versatile.
+2. **Scientific-Backed Ingredient Recognition**Vital Proteins' inclusion of hyaluronic acid alongside collagen aligns with growing consumer awareness around clinically validated ingredients that promote skin hydration, elasticity, and wrinkle reduction. Consumers seek functional synergies that deliver visible results.
+3. **Wellness Lifestyle Integration**With partnerships (e.g., Jennifer Aniston as Chief Creative Officer), Vital Proteins successfully tapped into the lifestyle and aspirational wellness narrative. The product fits seamlessly into smoothie routines, gym bags, and daily health rituals.
+4. **Clean Label & Transparency Demands**Consumers increasingly demand clean-label, simple ingredient lists with no fillers or artificial sweeteners. Vital Proteins has benefited from pushing "Grass-Fed," "Non-GMO," "No Sugar," and "Made in the USA" claims.
+5. **E-Commerce & Subscription Model Success**
+   Vital Proteins leveraged direct-to-consumer channels and subscription models, making collagen convenient and habitual. The "subscribe and save" approach ensures consistent usage and builds brand loyalty.
 
 ---
 
@@ -1317,7 +1383,7 @@ Vital Proteins leveraged direct-to-consumer channels and subscription models, ma
 
 ---
 
-**Download PDF Report**  
+**Download PDF Report**
 [Download Button] → `trending-products-skincare-20260126-100530.pdf`
 
 ---
@@ -1327,16 +1393,18 @@ Vital Proteins leveraged direct-to-consumer channels and subscription models, ma
 The generated PDF includes:
 
 **Page Layout**:
+
 - Paper size: Letter (8.5" × 11")
 - Margins: 1 inch on all sides
 - Font: Arial or Helvetica
-- Font sizes: 
+- Font sizes:
   - Title: 18pt bold
   - Section headers: 14pt bold
   - Body text: 11pt regular
   - Trend titles: 12pt bold
 
 **Content Structure**:
+
 1. Cover page with query and generation date
 2. Table of contents (optional for multi-product reports)
 3. One product per page (or 1-2 pages for long trend descriptions)
@@ -1346,6 +1414,7 @@ The generated PDF includes:
 7. Footer with page numbers and generation timestamp
 
 **File Properties**:
+
 - Format: PDF 1.7 (Adobe Acrobat compatible)
 - Compression: Medium quality
 - Security: No restrictions (open for printing and copying)
@@ -1357,6 +1426,7 @@ The generated PDF includes:
 ### Error Handling in Output
 
 **Scenario: Missing Product Image**
+
 ```
 Trending Product:
 
@@ -1368,6 +1438,7 @@ Product: [Product Name]
 ```
 
 **Scenario: Web Search Fails**
+
 ```
 URL to brand website
 [URL not available - contact support]
@@ -1376,6 +1447,7 @@ Description: [LLM-generated description based on product name and category]
 ```
 
 **Scenario: No Products Found**
+
 ```
 Trending Products Report
 Category: [Invalid Category]
@@ -1393,10 +1465,11 @@ Suggestions:
 ### Customization Options (Future)
 
 While the current format is standardized, future versions may support:
+
 - Number of products: TOP 1, 3, 5, or 10
 - Time period: Last 7, 14, 30, or 90 days
 - Ranking criteria: Revenue, growth, or combined score
-- Language: English, Spanish, or multi-language reports
+- Language: English
 - Brand vs. report style: Different templates for internal vs. client use
 
 ---
@@ -1417,27 +1490,27 @@ flowchart LR
         gluecatalog[Glue Catalog<br/>beauty_products_db]
         athena[Athena Queries]
     end
-    
+  
     subgraph new [New LLM Layer - Added Components]
         apigw[API Gateway]
         lambda[Lambda Orchestrator]
         bedrock[AWS Bedrock]
         pdf[PDF Storage]
     end
-    
+  
     csv --> s3raw
     s3raw --> glue
     glue --> s3curated
     s3curated --> gluecatalog
     gluecatalog --> athena
-    
+  
     lambda -.->|Read Only| athena
     athena -.->|Query Results| lambda
-    
+  
     apigw --> lambda
     lambda --> bedrock
     lambda --> pdf
-    
+  
     style existing fill:#e1ffe1
     style new fill:#f5e1ff
 ```
@@ -1453,6 +1526,7 @@ The LLM system reads from and utilizes the following existing infrastructure:
 **Bucket**: `very-great-products-processed-us-east-1-{environment}`
 
 **Data Used**:
+
 - Path: `curated/beauty-products/year=YYYY/month_num=MM/`
 - Format: Parquet with Snappy compression
 - Quality: Pre-filtered data with quality_score >= 0.95
@@ -1461,6 +1535,7 @@ The LLM system reads from and utilizes the following existing infrastructure:
 **Read-Only Access**: The LLM system only reads from curated data, never writes or modifies it.
 
 **Benefits**:
+
 - Leverages existing ETL pipeline
 - Uses high-quality, validated data
 - Benefits from existing partitioning strategy
@@ -1471,6 +1546,7 @@ The LLM system reads from and utilizes the following existing infrastructure:
 **Database**: `beauty_products_db`
 
 **Tables Used**:
+
 ```
 curated_beauty_products
   - 21 columns including product_name, shop_name, l2_category, revenue_usd, mom_growth_pct
@@ -1480,6 +1556,7 @@ curated_beauty_products
 ```
 
 **Views Used**:
+
 ```sql
 -- High-quality products only
 vw_high_quality_products
@@ -1491,6 +1568,7 @@ vw_sales_by_category_month
 ```
 
 **Integration Benefits**:
+
 - Uses existing schema definitions
 - Leverages existing views for common queries
 - Automatic schema evolution support
@@ -1503,6 +1581,7 @@ vw_sales_by_category_month
 **Query Pattern**: Same as existing analytics queries, just with different filters
 
 **Existing Query Example** (from athena-views.sql):
+
 ```sql
 -- Existing analytics query
 SELECT product_name, SUM(revenue_usd) as total_revenue
@@ -1514,6 +1593,7 @@ LIMIT 10;
 ```
 
 **LLM System Query** (similar pattern):
+
 ```sql
 -- LLM trending products query
 SELECT product_name, shop_name, revenue_usd, mom_growth_pct, item_sold
@@ -1527,27 +1607,32 @@ LIMIT 5;
 ```
 
 **Query Results Location**: Same metadata bucket used by existing system
+
 - `s3://very-great-products-metadata-us-east-1-{environment}/athena-results/`
 
 #### 4. Data Quality Framework
 
 **Quality Score Usage**:
+
 - **Threshold**: `data_quality_score >= 0.95` (same as existing production analytics)
 - **Quality Tiers**: PASS (>= 0.95), WARN (0.70-0.95), FAIL (< 0.70)
 - **Filtering**: LLM queries only use PASS-tier data
 
 **Benefits**:
+
 - Consistent quality standards across all use cases
 - Automatic exclusion of low-quality records
 - Aligned with existing governance policies
 
 #### 5. Partitioning Strategy
 
-**Existing Partitions**: 
-- `year=YYYY` 
+**Existing Partitions**:
+
+- `year=YYYY`
 - `month_num=MM`
 
 **LLM Query Optimization**:
+
 ```sql
 -- Uses partitions for performance
 WHERE year = YEAR(CURRENT_DATE)
@@ -1555,6 +1640,7 @@ WHERE year = YEAR(CURRENT_DATE)
 ```
 
 **Performance Impact**:
+
 - Partition pruning reduces scan size by ~95%
 - Query time: 3-5 seconds vs 30+ seconds full scan
 - Cost reduction: Only scans 1-2 partitions instead of entire table
@@ -1572,6 +1658,7 @@ The LLM system adds the following new components that do not affect existing inf
 **New Resource**: `POST /trending-products/query`
 
 **No Impact On**:
+
 - Existing data ingestion pipeline
 - Existing Athena workgroup
 - Existing S3 buckets
@@ -1583,6 +1670,7 @@ The LLM system adds the following new components that do not affect existing inf
 **Isolation**: Separate from existing IAM roles and data lake access
 
 **No Impact On**:
+
 - Existing Glue job permissions
 - Existing Athena user access
 - Existing S3 bucket policies
@@ -1592,6 +1680,7 @@ The LLM system adds the following new components that do not affect existing inf
 **Purpose**: Coordinate queries and AI generation
 
 **IAM Permissions** (Read-Only on existing resources):
+
 ```json
 {
   "Effect": "Allow",
@@ -1622,6 +1711,7 @@ The LLM system adds the following new components that do not affect existing inf
 **Completely Separate**: No interaction with existing data lake components
 
 **Models Used**:
+
 - Claude 3.7 Sonnet
 - Amazon Nova
 - Cohere
@@ -1640,7 +1730,8 @@ The LLM system adds the following new components that do not affect existing inf
 
 **New Bucket**: `beauty-products-pdfs-us-east-1-{environment}`
 
-**Separate From**: 
+**Separate From**:
+
 - Raw data bucket
 - Curated data bucket
 - Metadata bucket
@@ -1661,7 +1752,7 @@ sequenceDiagram
     Note over ETL: Daily at 2 AM UTC
     ETL->>S3: Write curated data
     ETL->>Glue: Update catalog
-    
+  
     Note over User,LLM: User Query (20-25s later)
     User->>LLM: "Trending products in Skincare?"
     LLM->>Athena: SQL query
@@ -1676,6 +1767,7 @@ sequenceDiagram
 ```
 
 **Key Points**:
+
 1. Existing ETL job runs independently (daily at 2 AM UTC)
 2. LLM system queries data at user request time
 3. No circular dependencies
@@ -1688,15 +1780,16 @@ sequenceDiagram
 
 Both systems use the same quality standards:
 
-| Quality Aspect | Existing Data Lake | LLM System |
-|----------------|-------------------|------------|
-| **Quality Score Threshold** | >= 0.95 for production | >= 0.95 for trending reports |
-| **Data Source** | curated_beauty_products | curated_beauty_products |
-| **Quality Tiers** | PASS/WARN/FAIL routing | Only uses PASS tier |
-| **Validation Rules** | 20+ rules in ETL | Inherits all validations |
-| **Quality Reports** | JSON in S3 quality-reports/ | Uses same quality metadata |
+| Quality Aspect                    | Existing Data Lake          | LLM System                   |
+| --------------------------------- | --------------------------- | ---------------------------- |
+| **Quality Score Threshold** | >= 0.95 for production      | >= 0.95 for trending reports |
+| **Data Source**             | curated_beauty_products     | curated_beauty_products      |
+| **Quality Tiers**           | PASS/WARN/FAIL routing      | Only uses PASS tier          |
+| **Validation Rules**        | 20+ rules in ETL            | Inherits all validations     |
+| **Quality Reports**         | JSON in S3 quality-reports/ | Uses same quality metadata   |
 
 **Benefits**:
+
 - Consistent quality standards
 - Single source of truth
 - No conflicting definitions
@@ -1711,27 +1804,32 @@ The LLM system extends existing monitoring without conflicts:
 #### CloudWatch Dashboards
 
 **Existing Dashboard**: `beauty-products-pipeline-metrics`
+
 - ETL job metrics
 - Data quality metrics
 - Glue crawler metrics
 
 **Potential Extension** (Optional): Add LLM metrics panel
+
 - Trending report requests
 - Bedrock call latency
 - Error rates
 
 **Or New Dashboard**: `beauty-products-llm-metrics`
+
 - Keeps LLM metrics separate
 - No cluttering of existing dashboard
 
 #### CloudWatch Alarms
 
 **Existing Alarms**:
+
 - `beauty-products-job-failure`
 - `beauty-products-low-quality`
 - `beauty-products-high-error-rate`
 
 **New Alarms**:
+
 - `beauty-products-llm-high-latency`
 - `beauty-products-llm-error-rate`
 - `beauty-products-bedrock-throttling`
@@ -1747,11 +1845,13 @@ The LLM system maintains security boundaries:
 #### IAM Role Separation
 
 **Existing Glue ETL Role**:
+
 - Write access to curated bucket
 - Read access to raw bucket
 - Full Athena execution permissions
 
 **New Lambda Role**:
+
 - READ-ONLY access to curated bucket
 - READ-ONLY access to Athena
 - NO access to raw bucket or ETL job
@@ -1762,10 +1862,12 @@ The LLM system maintains security boundaries:
 If Lake Formation is enabled on the existing data lake:
 
 **Existing Permissions**:
+
 - Analytics users: SELECT on curated tables
 - ETL role: Full table permissions
 
 **New LLM Permission**:
+
 - Lambda role: SELECT on curated_beauty_products table
 - Column-level: All columns except internal audit fields (optional)
 - Row-level: No filters needed (uses SQL WHERE clauses)
@@ -1775,36 +1877,42 @@ If Lake Formation is enabled on the existing data lake:
 ### Benefits of This Integration Approach
 
 #### 1. Zero Risk to Existing System
+
 - Read-only access prevents accidental modifications
 - Separate IAM roles prevent permission conflicts
 - No changes to existing data pipeline
 - Existing analytics queries unaffected
 
 #### 2. Consistency & Quality
+
 - Uses same quality-validated data
 - Applies same business rules
 - Maintains data governance standards
 - Single source of truth
 
 #### 3. Performance Optimization
+
 - Leverages existing partitioning
 - Uses existing Athena workgroup
 - Benefits from query result caching
 - No additional data processing load
 
 #### 4. Cost Efficiency
+
 - No data duplication
 - Shared Athena infrastructure
 - Parquet compression reduces scan costs
 - Query result caching reduces redundant queries
 
 #### 5. Operational Simplicity
+
 - No new data pipelines to maintain
 - Uses existing backup/recovery procedures
 - Inherits existing monitoring
 - Unified governance framework
 
 #### 6. Scalability
+
 - Data lake scales independently
 - LLM system scales independently
 - No tight coupling
@@ -1828,12 +1936,14 @@ This loose coupling ensures the LLM system is an additive enhancement, not a fun
 ### Related Documentation
 
 For more details on the existing data lake:
+
 - [Data Lake Architecture](ARCHITECTURE.md) - Complete data lake documentation
 - [S3 Bucket Structure](s3-bucket-structure.md) - Storage organization
 - [Athena Views](../athena-views.sql) - SQL view definitions
 - [Data Quality Framework](../README.md#data-quality) - Quality rules and scoring
 
 For LLM implementation details:
+
 - [Implementation Plan](../plan.md) - Complete technical implementation plan
 - [Requirements Notes](../notes.md) - Business requirements and constraints
 
@@ -1851,37 +1961,37 @@ flowchart TB
         enduser[End User]
         browser[Web Browser]
     end
-    
+  
     subgraph auth [Authentication Layer]
         cognito[AWS Cognito<br/>User Pool]
         jwt[JWT Tokens]
     end
-    
+  
     subgraph api [API Layer]
         apigw[API Gateway]
         authorizer[Cognito Authorizer]
         waf[WAF - Optional]
     end
-    
+  
     subgraph app [Application Layer]
         lambda[Lambda Function]
         role[IAM Execution Role]
     end
-    
+  
     subgraph data [Data Access Layer]
         athena[Athena]
         s3[S3 Buckets]
         bedrock[Bedrock]
         dynamodb[DynamoDB]
     end
-    
+  
     subgraph security [Security Services]
         kms[AWS KMS]
         secrets[Secrets Manager]
         cloudtrail[CloudTrail]
         guardduty[GuardDuty - Optional]
     end
-    
+  
     enduser --> browser
     browser -->|HTTPS/TLS 1.2+| apigw
     browser --> cognito
@@ -1895,7 +2005,7 @@ flowchart TB
     role --> s3
     role --> bedrock
     role --> dynamodb
-    
+  
     kms -.->|Encryption| s3
     kms -.->|Encryption| dynamodb
     secrets -.->|API Keys| lambda
@@ -1916,6 +2026,7 @@ flowchart TB
 **Purpose**: Centralized user authentication and management
 
 **Configuration**:
+
 ```
 User Pool Name: beauty-products-trending-chatbot-users-{environment}
 Region: us-east-1
@@ -1928,12 +2039,14 @@ MFA: Optional (can be enabled for production)
 ```
 
 **User Registration Flow**:
+
 1. User creates account via chatbot interface
 2. Email verification sent automatically
 3. User confirms email
 4. Account activated for chatbot access
 
 **Login Flow**:
+
 1. User enters email/username and password
 2. Cognito validates credentials
 3. On success, Cognito issues JWT tokens:
@@ -1944,6 +2057,7 @@ MFA: Optional (can be enabled for production)
 5. Tokens included in all API requests
 
 **Token Configuration**:
+
 ```
 ID Token expiration: 1 hour
 Access Token expiration: 1 hour
@@ -1952,6 +2066,7 @@ Token rotation: Enabled
 ```
 
 **Password Reset**:
+
 - Self-service via email verification code
 - Forgot password flow built into chatbot
 - Secure reset links expire after 1 hour
@@ -1963,6 +2078,7 @@ Token rotation: Enabled
 **Authorizer Type**: Cognito User Pool Authorizer
 
 **Authorization Flow**:
+
 ```
 1. API Gateway receives request with Authorization header
 2. Header format: "Authorization: Bearer <JWT-token>"
@@ -1975,12 +2091,14 @@ Token rotation: Enabled
 ```
 
 **Authorization Caching**:
+
 - Token validation results cached for 5 minutes
 - Reduces Cognito API calls
 - Improves response time
 - Cache key: JWT token signature
 
 **Request Validation**:
+
 ```json
 {
   "required_headers": ["Authorization", "Content-Type"],
@@ -2003,6 +2121,7 @@ Token rotation: Enabled
 **Role Name**: `beauty-products-llm-lambda-execution-role`
 
 **Trust Policy**:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -2019,6 +2138,7 @@ Token rotation: Enabled
 ```
 
 **Permissions Policy** (Least Privilege):
+
 ```json
 {
   "Version": "2012-10-17",
@@ -2136,6 +2256,7 @@ Token rotation: Enabled
 ```
 
 **Key Security Features**:
+
 - **Read-Only on Curated Data**: Cannot modify or delete existing data
 - **No Raw Data Access**: Cannot access raw ingestion bucket
 - **Specific Resource ARNs**: Not using wildcard "*" where possible
@@ -2148,6 +2269,7 @@ Token rotation: Enabled
 #### Encryption at Rest
 
 **S3 Buckets**:
+
 ```
 Curated Data Bucket:
   - Encryption: SSE-S3 (AES-256)
@@ -2164,6 +2286,7 @@ Optional: SSE-KMS for enhanced control
 ```
 
 **DynamoDB**:
+
 ```
 Prompt Logs Table:
   - Encryption: AWS-managed DMS keys (default)
@@ -2173,6 +2296,7 @@ Prompt Logs Table:
 ```
 
 **Lambda Environment Variables**:
+
 ```
 Sensitive values stored in AWS Secrets Manager:
   - Web search API keys
@@ -2187,6 +2311,7 @@ Non-sensitive configuration:
 #### Encryption in Transit
 
 **HTTPS/TLS Everywhere**:
+
 ```
 User → API Gateway: TLS 1.2 or higher
 API Gateway → Lambda: AWS internal encryption
@@ -2197,12 +2322,14 @@ Lambda → DynamoDB: HTTPS (TLS 1.2+)
 ```
 
 **TLS Configuration**:
+
 - Minimum version: TLS 1.2
 - Preferred version: TLS 1.3
 - Cipher suites: AWS-recommended strong ciphers only
 - Certificate: AWS Certificate Manager (ACM) managed
 
 **API Gateway Security**:
+
 ```
 Custom domain: trending-api.example.com
 Certificate: ACM-issued SSL/TLS certificate
@@ -2217,6 +2344,7 @@ CORS policy: Restricted to chatbot domain only
 #### Model Access Control
 
 **Bedrock Model Access**:
+
 ```
 Region: us-east-1
 Models enabled:
@@ -2237,6 +2365,7 @@ Access control:
 #### Guardrails Configuration
 
 **Bedrock Guardrails** (Optional but recommended):
+
 ```yaml
 Guardrail Name: beauty-products-content-filter
 Version: 1.0
@@ -2265,6 +2394,7 @@ Word Filters:
 ```
 
 **Prompt Safety**:
+
 - All user queries sanitized before sending to Bedrock
 - SQL injection prevention in L2 category extraction
 - Output validation to prevent prompt injection attacks
@@ -2301,6 +2431,7 @@ VPC Endpoints:
 ```
 
 **Benefits of VPC Deployment**:
+
 - Traffic never traverses public internet
 - Enhanced compliance posture
 - Network-level isolation
@@ -2311,6 +2442,7 @@ VPC Endpoints:
 #### WAF (Web Application Firewall) - Optional
 
 **AWS WAF on API Gateway**:
+
 ```yaml
 WAF Rules:
   1. Rate limiting:
@@ -2342,6 +2474,7 @@ WAF Rules:
 #### CloudTrail Logging
 
 **API Calls Logged**:
+
 ```
 Service: cloudtrail.amazonaws.com
 
@@ -2360,6 +2493,7 @@ Log file validation: Enabled
 ```
 
 **CloudTrail Log Example**:
+
 ```json
 {
   "eventName": "InvokeModel",
@@ -2380,6 +2514,7 @@ Log file validation: Enabled
 #### Prompt Logging for Audit
 
 **DynamoDB Audit Table**:
+
 ```
 Table: beauty-products-prompt-logs
 Purpose: Complete audit trail of all LLM interactions
@@ -2406,6 +2541,7 @@ Encryption: DynamoDB encryption at rest
 ```
 
 **Benefits**:
+
 - Complete audit trail for compliance
 - Track all AI-generated content
 - Cost attribution by user
@@ -2415,18 +2551,21 @@ Encryption: DynamoDB encryption at rest
 #### Compliance Considerations
 
 **GDPR (if applicable)**:
+
 - User data minimization: Only store necessary fields
 - Right to erasure: Implement user data deletion
 - Data portability: Export user's prompt history
 - Consent management: Track user consent for data processing
 
 **SOC 2 / ISO 27001**:
+
 - Access controls: IAM roles with least privilege
 - Audit logging: CloudTrail + DynamoDB logs
 - Encryption: At rest and in transit
 - Incident response: CloudWatch alarms + runbooks
 
 **Data Residency**:
+
 - All data stored in us-east-1 region
 - Bedrock models run in us-east-1
 - No data transferred outside AWS region
@@ -2437,30 +2576,35 @@ Encryption: DynamoDB encryption at rest
 ### Security Best Practices
 
 #### 1. Principle of Least Privilege
+
 - Lambda has read-only access to curated data
 - No access to raw data or ETL infrastructure
 - Specific resource ARNs, not wildcards
 - Time-bound access tokens (1 hour expiration)
 
 #### 2. Defense in Depth
+
 - Multiple layers: Cognito → API Gateway → Lambda → IAM
 - Encryption at rest and in transit
 - Network isolation (optional VPC)
 - Input validation at every layer
 
 #### 3. Monitoring & Alerting
+
 - CloudTrail for all API calls
 - CloudWatch alarms for security events
 - GuardDuty for threat detection (optional)
 - Real-time alerts to security team
 
 #### 4. Regular Security Reviews
+
 - Quarterly IAM policy reviews
 - Monthly CloudTrail log analysis
 - Automated vulnerability scanning
 - Penetration testing (annually)
 
 #### 5. Incident Response
+
 - Automated alarm triggers
 - Runbook for security incidents
 - Contact: security@example.com
@@ -2471,6 +2615,7 @@ Encryption: DynamoDB encryption at rest
 ### Security Checklist for Deployment
 
 **Pre-Deployment**:
+
 - [ ] Cognito User Pool created with strong password policy
 - [ ] API Gateway Cognito authorizer configured
 - [ ] Lambda IAM role follows least privilege
@@ -2481,6 +2626,7 @@ Encryption: DynamoDB encryption at rest
 - [ ] VPC endpoints created (if using VPC)
 
 **Post-Deployment**:
+
 - [ ] Test authentication flow end-to-end
 - [ ] Verify IAM permissions (no over-privileged access)
 - [ ] Confirm CloudTrail logs are being generated
@@ -2491,6 +2637,7 @@ Encryption: DynamoDB encryption at rest
 - [ ] Document security contacts and escalation
 
 **Ongoing**:
+
 - [ ] Monthly review of CloudTrail logs
 - [ ] Quarterly IAM policy audit
 - [ ] Regular security patching (Lambda runtimes)
@@ -2505,14 +2652,14 @@ The LLM Trending Products Report Generator is designed to deliver fast, consiste
 
 ### Performance Targets
 
-| Metric | Target | Acceptable Range | Maximum |
-|--------|--------|------------------|---------|
-| **Total Report Generation** | 20-25s | 15-30s | 35s |
-| Athena Query Execution | 3-5s | 2-8s | 10s |
-| Bedrock AI Generation | 10-15s | 8-20s | 25s |
-| PDF Generation | 2-3s | 1-5s | 7s |
-| API Gateway + Lambda Cold Start | 500ms | 200ms-2s | 3s |
-| **User-Perceived Latency** | < 25s | < 30s | < 40s |
+| Metric                            | Target | Acceptable Range | Maximum |
+| --------------------------------- | ------ | ---------------- | ------- |
+| **Total Report Generation** | 20-25s | 15-30s           | 35s     |
+| Athena Query Execution            | 3-5s   | 2-8s             | 10s     |
+| Bedrock AI Generation             | 10-15s | 8-20s            | 25s     |
+| PDF Generation                    | 2-3s   | 1-5s             | 7s      |
+| API Gateway + Lambda Cold Start   | 500ms  | 200ms-2s         | 3s      |
+| **User-Perceived Latency**  | < 25s  | < 30s            | < 40s   |
 
 **Target Achievement**: System consistently meets the 20-25 second target for standard queries with 5 products.
 
@@ -2527,47 +2674,50 @@ gantt
     title Report Generation Timeline (Typical 23-Second Execution)
     dateFormat X
     axisFormat %S
-    
+  
     section Authentication
     JWT Validation           :0, 500ms
-    
+  
     section Query Processing
     Parse L2 Category        :500ms, 100ms
-    
+  
     section Data Retrieval
     Build Athena Query       :600ms, 200ms
     Execute Query            :800ms, 3500ms
     Parse Results            :4300ms, 300ms
-    
+  
     section AI Generation
     Brand Name (parallel)    :4600ms, 2500ms
     Web Search (parallel)    :4600ms, 4000ms
     Trends Gen (parallel)    :4600ms, 8000ms
-    
+  
     section Report Assembly
     Format Report            :12600ms, 500ms
     Generate PDF             :13100ms, 2500ms
     Upload PDF to S3         :15600ms, 700ms
-    
+  
     section Logging
     Store Prompt Logs        :16300ms, 200ms
     Publish Metrics          :16500ms, 100ms
-    
+  
     section Response
     Return to Client         :16600ms, 400ms
 ```
 
 **Phase 1: Authentication & Routing (500ms)**
+
 - API Gateway receives request: 50ms
 - Cognito JWT validation: 300ms (cached after first request)
 - API Gateway to Lambda routing: 150ms
 
 **Phase 2: Query Parsing (100ms)**
+
 - Extract L2 category from natural language: 50ms
 - Validate category exists: 25ms
 - Build SQL query template: 25ms
 
 **Phase 3: Data Retrieval from Athena (3-5 seconds)**
+
 - Submit query to Athena: 200ms
 - Query execution time: 3000-4500ms
   - Partition pruning: 100ms
@@ -2579,6 +2729,7 @@ gantt
 **Phase 4: AI Enhancement with Bedrock (10-15 seconds)**
 
 **Sequential (worst case): 50-75 seconds**
+
 ```
 For each of 5 products:
   - Brand name: 2-3s
@@ -2588,6 +2739,7 @@ For each of 5 products:
 ```
 
 **Parallel (optimized): 10-15 seconds**
+
 ```python
 # Use asyncio to parallelize Bedrock calls
 async def process_all_products(products):
@@ -2602,6 +2754,7 @@ async def process_all_products(products):
 ```
 
 **Per-Product Breakdown** (parallel within product):
+
 - Brand name generation: 2-3s
 - Web search for URL/description: 3-5s (can overlap with brand name)
 - Generate 5 trends: 5-8s
@@ -2609,22 +2762,26 @@ async def process_all_products(products):
 - **Total for 5 products**: ~12-15s (all in parallel)
 
 **Phase 5: Report Formatting (500ms)**
+
 - Apply output template: 100ms
 - Format revenue numbers: 50ms
 - Clean product names: 50ms
 - Structure JSON response: 300ms
 
 **Phase 6: PDF Generation (2-3 seconds)**
+
 - Convert report to HTML: 500ms
 - Render HTML to PDF: 1500ms
 - Upload PDF to S3: 700ms
 - Generate signed URL: 100ms
 
 **Phase 7: Logging & Metrics (200ms)**
+
 - Write to DynamoDB: 150ms
 - Publish CloudWatch metrics: 50ms
 
 **Phase 8: Response Delivery (400ms)**
+
 - Lambda to API Gateway: 200ms
 - API Gateway to client: 200ms
 
@@ -2635,6 +2792,7 @@ async def process_all_products(products):
 #### 1. Parallel Processing
 
 **Without Parallelization**:
+
 ```
 Athena: 4s
 Product 1: 10s → Product 2: 10s → Product 3: 10s → Product 4: 10s → Product 5: 10s
@@ -2643,6 +2801,7 @@ Total: 67 seconds ❌
 ```
 
 **With Parallelization**:
+
 ```
 Athena: 4s
 Products 1-5 (parallel): 12s
@@ -2651,6 +2810,7 @@ Total: 19 seconds ✅
 ```
 
 **Implementation**:
+
 ```python
 import asyncio
 import aioboto3
@@ -2660,7 +2820,7 @@ async def process_product_parallel(product, bedrock_client):
     brand_task = bedrock_client.invoke_model(brand_prompt)
     search_task = web_search(product_name, brand_name)
     trends_task = bedrock_client.invoke_model(trends_prompt)
-    
+  
     brand, urls, trends = await asyncio.gather(
         brand_task, search_task, trends_task
     )
@@ -2680,10 +2840,12 @@ async def process_all_products(products):
 #### 2. Lambda Provisioned Concurrency
 
 **Cold Start Impact**:
+
 - Cold start time: 2-3 seconds
 - Warm invocation: 50-200ms
 
 **Solution**:
+
 ```
 Configure provisioned concurrency:
   - Minimum: 2 instances always warm
@@ -2695,6 +2857,7 @@ Benefit: Eliminate 2-3s cold start latency
 ```
 
 **When to Use**:
+
 - Production environment with regular traffic
 - User experience critical
 - Cost vs. latency trade-off acceptable
@@ -2706,6 +2869,7 @@ Benefit: Eliminate 2-3s cold start latency
 **Optimization Techniques**:
 
 **a) Partition Pruning**:
+
 ```sql
 -- Good: Uses partitions
 WHERE year = 2026 AND month_num = 1
@@ -2713,9 +2877,11 @@ WHERE year = 2026 AND month_num = 1
 -- Bad: Full table scan
 WHERE month = DATE '2026-01-01'
 ```
+
 **Impact**: 95% reduction in data scanned
 
 **b) Columnar Access** (Parquet benefit):
+
 ```sql
 -- Only reads needed columns
 SELECT product_name, shop_name, revenue_usd, mom_growth_pct
@@ -2723,14 +2889,17 @@ SELECT product_name, shop_name, revenue_usd, mom_growth_pct
 -- Instead of
 SELECT *
 ```
+
 **Impact**: 80% reduction in I/O
 
 **c) Query Result Caching**:
+
 - Athena caches query results for 24 hours
 - Subsequent identical queries: < 1 second
 - Useful for popular categories (e.g., "Skincare")
 
 **d) Pre-aggregated Views** (future optimization):
+
 ```sql
 -- Materialized view with pre-computed rankings
 CREATE VIEW vw_trending_products_ranked AS
@@ -2748,34 +2917,38 @@ WHERE data_quality_score >= 0.95;
 SELECT * FROM vw_trending_products_ranked
 WHERE l2_category = 'Skincare' AND rank <= 5;
 ```
+
 **Impact**: 50% reduction in query time (5s → 2.5s)
 
 #### 4. Bedrock Model Selection
 
 **Model Performance Comparison**:
 
-| Model | Avg Latency | Quality | Cost per 1K tokens |
-|-------|-------------|---------|-------------------|
-| Claude 3.7 Sonnet | 2-3s | Excellent | $0.015 |
-| Amazon Nova | 1-2s | Good | $0.008 |
-| Cohere Command R+ | 2-3s | Good | $0.010 |
+| Model             | Avg Latency | Quality   | Cost per 1K tokens |
+| ----------------- | ----------- | --------- | ------------------ |
+| Claude 3.7 Sonnet | 2-3s        | Excellent | $0.015             |
+| Amazon Nova       | 1-2s        | Good      | $0.008             |
+| Cohere Command R+ | 2-3s        | Good      | $0.010             |
 
 **Strategy**:
+
 - Use Claude 3.7 for primary generation (best quality)
 - Use Nova for simple brand name extraction (50% faster)
 - Reserve Cohere as fallback
 
 **Hybrid Approach**:
+
 ```python
 def generate_report(product):
     # Fast model for simple task
     brand_name = invoke_model("amazon.nova", brand_prompt)
-    
+  
     # High-quality model for complex task
     trends = invoke_model("claude-3.7-sonnet", trends_prompt)
-    
+  
     return format_report(brand_name, trends)
 ```
+
 **Impact**: 20% latency reduction without quality loss
 
 #### 5. Response Streaming (Future Enhancement)
@@ -2783,6 +2956,7 @@ def generate_report(product):
 **Current**: Wait for complete report before returning
 
 **Future**: Stream results as they're generated
+
 ```
 Second 5: "Found 5 products in Skincare..."
 Second 8: "Product 1: Vital Proteins Collagen..."
@@ -2793,6 +2967,7 @@ Second 26: "PDF ready for download."
 ```
 
 **Benefits**:
+
 - User engagement (progressive disclosure)
 - Perceived latency reduction
 - Early feedback on progress
@@ -2806,6 +2981,7 @@ Second 26: "PDF ready for download."
 #### Concurrent User Support
 
 **Current Configuration**:
+
 ```
 Lambda concurrency: 100 (reserved)
 API Gateway throttle: 10,000 requests/second
@@ -2814,34 +2990,37 @@ Athena concurrency: 100 queries simultaneously
 ```
 
 **Expected Load**:
+
 - **Low**: 1-10 users → 1-10 concurrent requests
 - **Medium**: 50-100 users → 10-30 concurrent requests
 - **High**: 500+ users → 50-100 concurrent requests
 
 **Bottlenecks**:
+
 1. **Bedrock Throttling**: 50 requests/second
+
    - With 5 Bedrock calls per report
    - Max: 10 reports/second = 600 reports/minute
    - Solution: Request limit increase from AWS
-
 2. **Athena Concurrency**: 100 queries
+
    - Rarely hit in practice
    - Solution: Use query result caching
-
 3. **Lambda Concurrency**: 100 instances
+
    - Each handles 1 report at a time (~20s duration)
    - Throughput: 5 reports/second
    - Solution: Increase reserved concurrency
 
 **Scalability Test Results** (simulated):
 
-| Concurrent Users | Avg Latency | P95 Latency | Errors | Throughput |
-|------------------|-------------|-------------|--------|------------|
-| 1 | 22s | 24s | 0% | 0.045 req/s |
-| 10 | 23s | 27s | 0% | 0.43 req/s |
-| 50 | 25s | 32s | 1% | 2.0 req/s |
-| 100 | 28s | 38s | 5% | 3.5 req/s |
-| 200 | 35s | 50s | 15% | 5.0 req/s |
+| Concurrent Users | Avg Latency | P95 Latency | Errors | Throughput  |
+| ---------------- | ----------- | ----------- | ------ | ----------- |
+| 1                | 22s         | 24s         | 0%     | 0.045 req/s |
+| 10               | 23s         | 27s         | 0%     | 0.43 req/s  |
+| 50               | 25s         | 32s         | 1%     | 2.0 req/s   |
+| 100              | 28s         | 38s         | 5%     | 3.5 req/s   |
+| 200              | 35s         | 50s         | 15%    | 5.0 req/s   |
 
 **Recommendation**: Configure for 50-100 concurrent users for optimal cost/performance
 
@@ -2852,6 +3031,7 @@ Athena concurrency: 100 queries simultaneously
 #### Configuration Options
 
 **Option 1: Cost-Optimized** ($50-100/month)
+
 ```
 Lambda: 512 MB memory, no provisioned concurrency
 Bedrock: Amazon Nova primary (cheaper), Claude fallback
@@ -2860,6 +3040,7 @@ Expected latency: 25-30 seconds
 ```
 
 **Option 2: Balanced** ($150-250/month) ← **Recommended**
+
 ```
 Lambda: 1024 MB memory, 2 provisioned instances
 Bedrock: Claude 3.7 primary, Nova fallback
@@ -2868,6 +3049,7 @@ Expected latency: 20-25 seconds ← Target
 ```
 
 **Option 3: Performance-Optimized** ($400-600/month)
+
 ```
 Lambda: 2048 MB memory, 5 provisioned instances
 Bedrock: Claude 3.7 only, higher rate limits
@@ -2884,6 +3066,7 @@ Expected latency: 15-20 seconds
 #### Key Metrics to Track
 
 **CloudWatch Custom Metrics**:
+
 ```
 Namespace: BeautyProducts/LLM
 
@@ -2899,6 +3082,7 @@ Metrics:
 ```
 
 **CloudWatch Dashboard**:
+
 ```yaml
 Widgets:
   1. Average Latency (line chart)
@@ -2924,6 +3108,7 @@ Widgets:
 ```
 
 **Alarms**:
+
 ```
 1. HighAverageLatency
    Condition: Avg latency > 30s for 2 consecutive periods
@@ -2945,6 +3130,7 @@ Widgets:
 #### Load Testing
 
 **Test Scenarios**:
+
 1. **Baseline**: Single user, single query
 2. **Steady Load**: 10 concurrent users for 10 minutes
 3. **Burst**: 50 users arrive within 30 seconds
@@ -2952,11 +3138,13 @@ Widgets:
 5. **Peak**: 100 concurrent users for 5 minutes
 
 **Tools**:
+
 - Apache JMeter
 - AWS Load Testing solution
 - Locust.io
 
 **Success Criteria**:
+
 - P95 latency < 30 seconds
 - Error rate < 2%
 - No throttling errors
@@ -2965,6 +3153,7 @@ Widgets:
 #### Performance Benchmarking
 
 **Compare Against**:
+
 - ChatGPT similar query: ~20-30 seconds
 - Manual research: 2-4 hours
 - Traditional BI report: 1-2 minutes (but no AI insights)
@@ -2976,6 +3165,7 @@ Widgets:
 ### Future Performance Enhancements
 
 **Phase 2 Optimizations** (if needed):
+
 1. **Edge caching** (CloudFront): Cache common category reports for 5 minutes
 2. **Predictive pre-warming**: Pre-generate reports for popular categories
 3. **Model fine-tuning**: Faster, domain-specific models
@@ -3003,12 +3193,14 @@ This section provides step-by-step instructions for using the LLM Trending Produ
 #### First-Time Setup
 
 **Step 1: Access the Chatbot**
+
 ```
 URL: https://trending-chatbot.example.com
 (Replace with your organization's chatbot URL)
 ```
 
 **Step 2: Create Account** (if needed)
+
 - Click "Sign Up" or "Create Account"
 - Enter email address
 - Create strong password (minimum 8 characters)
@@ -3016,10 +3208,42 @@ URL: https://trending-chatbot.example.com
 - Account activated
 
 **Step 3: Log In**
+
 - Enter email/username
 - Enter password
 - Click "Log In"
 - Session valid for 1 hour (automatically renewed)
+
+---
+
+### Testing the API with Postman (or API clients)
+
+You can call the trending-products API directly with Postman, curl, or any HTTP client.
+
+**1. Get the API URL**
+
+From the project `terraform` directory: `terraform output -raw api_gateway_url`
+Example: `https://da3q8553db.execute-api.us-east-1.amazonaws.com/dev/trending-products/query`
+
+**2. Obtain a Cognito JWT (IdToken)**
+
+- Create a Cognito test user if needed (see [terraform/README-LLM.md](../terraform/README-LLM.md#step-1-create-test-user-required-once)).
+- Authenticate with Cognito (e.g. `USER_PASSWORD_AUTH` flow) and use the returned `IdToken` as the Bearer token.
+
+**3. Configure the request**
+
+| Setting                   | Value                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| **Method**          | POST                                                                                    |
+| **URL**             | `https://{api-id}.execute-api.{region}.amazonaws.com/{stage}/trending-products/query` |
+| **Headers**         | `Authorization: Bearer <IdToken>`, `Content-Type: application/json`                 |
+| **Body** (raw JSON) | `{ "query": "What are the top trending products in Skincare?" }`                      |
+
+**4. Send the request**
+
+Expected response (200): JSON with `status`, `request_id`, `query`, `category`, `report`, `pdf_url`, `execution_time_ms`, `product_count`. Typical end-to-end time: about 20–25 seconds (or 2–8 seconds with caching).
+
+**Quick test from project root (PowerShell):** `.\scripts\call-api-llm.ps1`
 
 ---
 
@@ -3034,7 +3258,7 @@ flowchart LR
     wait --> view[View Report]
     view --> download[Download PDF]
     download --> share[Share Report]
-    
+  
     view --> newquery[New Query]
     newquery --> query
 ```
@@ -3048,17 +3272,19 @@ flowchart LR
 **In the chatbot input box, type your question about trending products.**
 
 **Query Format**:
+
 ```
 "What are the trending products in [L2 Category]?"
-"¿Cuáles son los trending products en [L2 Category]?"
+"What are the top trending products in [L2 Category]?"
 "Show me trending [L2 Category] products"
 "Trending products in [L2 Category]"
 ```
 
 **Example Queries**:
+
 ```
 ✅ "What are the trending products in Skincare?"
-✅ "¿Cuáles son los trending products en Haircare & Styling?"
+✅ "What are the top trending products in Haircare & Styling?"
 ✅ "Show me trending Makeup products"
 ✅ "Trending products in Bath & Body Care"
 ```
@@ -3070,6 +3296,7 @@ flowchart LR
 #### Step 2: Wait for Report Generation
 
 **What Happens**:
+
 - System extracts the L2 category from your query
 - Queries the data lake for top 5 products
 - AI generates brand names and market trends
@@ -3080,6 +3307,7 @@ flowchart LR
 **Expected Wait Time**: 20-25 seconds
 
 **Progress Indicator**: You'll see a loading animation or progress message:
+
 ```
 "Analyzing trending products in Skincare..."
 "Generating AI-powered insights..."
@@ -3093,6 +3321,7 @@ flowchart LR
 **Report Contains** (for each of the top 5 products):
 
 **Product Overview**:
+
 - Product image
 - Brand name (AI-identified)
 - Product name (from sales data)
@@ -3100,16 +3329,19 @@ flowchart LR
 - Product description
 
 **Revenue Metrics**:
+
 - Revenue trend: "+45.5% Last 30 Days"
 - Revenue scale: "$1,250,000 Last 30 Days"
 - Product rank in category: "[1], +1 in Last 30 Days"
 
 **AI-Generated Market Trends**:
+
 - 5 macro trends explaining product success
 - Each trend includes title and 2-3 line explanation
 - Based on market research and AI analysis
 
 **Example Report Section**:
+
 ```
 Trending Product #1:
 
@@ -3132,6 +3364,7 @@ Supporting Trends:
 ```
 
 **Navigate the Report**:
+
 - Scroll down to see all 5 products
 - Click product URLs to visit brand websites
 - Read trends for market insights
@@ -3141,24 +3374,28 @@ Supporting Trends:
 #### Step 4: Download PDF Report
 
 **To Download**:
+
 1. Scroll to bottom of report (or top, depending on UI)
 2. Click "Download PDF Report" button
 3. PDF downloads automatically to your device
 4. File name: `trending-products-skincare-20260126-100530.pdf`
 
 **PDF Contents**:
+
 - Complete report with all 5 products
 - Product images embedded
 - Formatted for printing and sharing
 - Professional layout suitable for presentations
 
 **PDF Features**:
+
 - Searchable text
 - Clickable URLs
 - Print-friendly formatting
 - File size: 1-3 MB typically
 
 **Use Cases for PDF**:
+
 - Share with team members
 - Include in presentations
 - Archive for future reference
@@ -3170,18 +3407,19 @@ Supporting Trends:
 
 The system supports queries about the following beauty product categories:
 
-| L2 Category | Example Query | Description |
-|-------------|---------------|-------------|
-| **Skincare** | "Trending products in Skincare" | Face creams, serums, moisturizers, cleansers |
-| **Haircare & Styling** | "What are trending Haircare & Styling products?" | Shampoos, conditioners, styling products, treatments |
-| **Makeup** | "Show me trending Makeup" | Foundations, lipsticks, eyeshadows, mascaras |
-| **Bath & Body Care** | "Trending Bath & Body Care products" | Body lotions, shower gels, bath products |
-| **Fragrance** | "What's trending in Fragrance?" | Perfumes, colognes, body sprays |
-| **Tools & Accessories** | "Trending Tools & Accessories" | Brushes, applicators, beauty devices |
+| L2 Category                   | Example Query                                    | Description                                          |
+| ----------------------------- | ------------------------------------------------ | ---------------------------------------------------- |
+| **Skincare**            | "Trending products in Skincare"                  | Face creams, serums, moisturizers, cleansers         |
+| **Haircare & Styling**  | "What are trending Haircare & Styling products?" | Shampoos, conditioners, styling products, treatments |
+| **Makeup**              | "Show me trending Makeup"                        | Foundations, lipsticks, eyeshadows, mascaras         |
+| **Bath & Body Care**    | "Trending Bath & Body Care products"             | Body lotions, shower gels, bath products             |
+| **Fragrance**           | "What's trending in Fragrance?"                  | Perfumes, colognes, body sprays                      |
+| **Tools & Accessories** | "Trending Tools & Accessories"                   | Brushes, applicators, beauty devices                 |
 
 **Note**: Categories are based on the L2 classification in the data lake. Only products with high data quality (score >= 0.95) are included in trending reports.
 
 **How to Find Your Category**:
+
 - If unsure of category name, try general terms: "skincare", "makeup", "haircare"
 - System is smart enough to match variations and common misspellings
 - Check error message for category suggestions if query fails
@@ -3197,25 +3435,27 @@ The system supports queries about the following beauty product categories:
 **Response Time**: 22 seconds
 
 **Result**: Report with 5 trending skincare products including:
+
 - Collagen supplements
 - Face serums
 - Moisturizers
 - Anti-aging products
-Each with revenue data and market trend analysis
+  Each with revenue data and market trend analysis
 
 ---
 
-#### Example 2: Spanish Language Query
+#### Example 2: Haircare Category Query
 
-**Query**: "¿Cuáles son los trending products en Haircare & Styling?"
+**Query**: "What are the top trending products in Haircare & Styling?"
 
 **Response Time**: 24 seconds
 
 **Result**: Report with 5 trending haircare products including:
+
 - Shampoos
 - Hair treatments
 - Styling products
-Each with AI-generated insights in English (translation support coming soon)
+  Each with AI-generated insights
 
 ---
 
@@ -3226,10 +3466,11 @@ Each with AI-generated insights in English (translation support coming soon)
 **Response Time**: 21 seconds
 
 **Result**: Report with 5 trending makeup products including:
+
 - Foundations
 - Lipsticks
 - Eye makeup
-With complete market analysis
+  With complete market analysis
 
 ---
 
@@ -3238,18 +3479,21 @@ With complete market analysis
 #### Query Best Practices
 
 ✅ **DO**:
+
 - Use specific L2 category names
 - Keep queries simple and clear
 - Use natural language
-- Try both English and Spanish
+- Try different phrasings in English
 
 ❌ **DON'T**:
+
 - Ask for multiple categories in one query
 - Use very long, complex sentences
 - Include special characters or emojis
 - Ask unrelated questions
 
 **Good Queries**:
+
 ```
 "Trending products in Skincare"
 "What's trending in Makeup?"
@@ -3257,6 +3501,7 @@ With complete market analysis
 ```
 
 **Problematic Queries**:
+
 ```
 "Trending products in Skincare and Makeup and Haircare"
 "What are all the trending products across all categories?"
@@ -3266,16 +3511,19 @@ With complete market analysis
 #### Understanding the Data
 
 **Data Freshness**:
+
 - Reports based on last 30 days of sales data
 - Data updated daily at 2 AM UTC
 - Query run time reflects most recent data available
 
 **Data Quality**:
+
 - Only includes high-quality data (score >= 0.95)
 - Excludes duplicates, malformed records, and low-quality entries
 - Ensures reliable trend analysis
 
 **Ranking Criteria**:
+
 - Products ranked by revenue (last 30 days)
 - Secondary ranking by month-over-month growth
 - Top 5 products per category
@@ -3287,6 +3535,7 @@ With complete market analysis
 #### Issue 1: "Category Not Found"
 
 **Error Message**:
+
 ```
 No trending products found in category "[YourQuery]"
 
@@ -3296,6 +3545,7 @@ Suggestions:
 ```
 
 **Solution**:
+
 - Check your category name against supported list
 - Use exact category names (e.g., "Haircare & Styling" not "Hair Care")
 - Try alternative query: "What are the trending beauty products?"
@@ -3305,16 +3555,19 @@ Suggestions:
 #### Issue 2: "No Trending Products Found"
 
 **Error Message**:
+
 ```
 No trending products found in [Category] for the last 30 days.
 ```
 
 **Possible Reasons**:
+
 - Category has < 5 products with sufficient data
 - No products meet quality threshold (score >= 0.95)
 - Data not yet loaded for recent dates
 
 **Solution**:
+
 - Try a different category
 - Check back later (data updated daily)
 - Contact support if issue persists
@@ -3323,10 +3576,11 @@ No trending products found in [Category] for the last 30 days.
 
 #### Issue 3: Report Takes Too Long
 
-**Expected Time**: 20-25 seconds  
+**Expected Time**: 20-25 seconds
 **Maximum Time**: 35 seconds
 
 **If report takes longer**:
+
 - Check your internet connection
 - Refresh the page and try again
 - System may be experiencing high load
@@ -3337,11 +3591,13 @@ No trending products found in [Category] for the last 30 days.
 #### Issue 4: PDF Download Fails
 
 **Symptoms**:
+
 - Download button doesn't work
 - PDF opens as blank
 - Download interrupted
 
 **Solution**:
+
 1. Check browser pop-up blocker settings
 2. Try different browser
 3. Check available disk space
@@ -3353,17 +3609,20 @@ No trending products found in [Category] for the last 30 days.
 #### Issue 5: Login Issues
 
 **Forgot Password**:
+
 - Click "Forgot Password" on login page
 - Enter email address
 - Check email for reset link
 - Create new password
 
 **Account Locked**:
+
 - After 5 failed login attempts, account locks for 30 minutes
 - Wait 30 minutes or contact administrator
 - Ensure Caps Lock is off
 
 **Session Expired**:
+
 - Sessions expire after 1 hour of inactivity
 - Simply log in again
 - Your previous reports are not saved (download PDFs to keep)
@@ -3372,34 +3631,34 @@ No trending products found in [Category] for the last 30 days.
 
 ### Frequently Asked Questions
 
-**Q: How many products are shown in each report?**  
+**Q: How many products are shown in each report?**
 A: The system returns the top 5 trending products per L2 category, ranked by revenue and growth.
 
-**Q: Can I query multiple categories at once?**  
+**Q: Can I query multiple categories at once?**
 A: Currently, no. Each query should focus on one L2 category. You can run multiple queries sequentially.
 
-**Q: Is the data real-time?**  
+**Q: Is the data real-time?**
 A: Data is updated daily at 2 AM UTC. Reports reflect sales data from the last 30 days.
 
-**Q: Can I customize the number of products?**  
+**Q: Can I customize the number of products?**
 A: Not currently. The system is configured for top 5 products. Future versions may support customization.
 
-**Q: How long are PDF download links valid?**  
+**Q: How long are PDF download links valid?**
 A: PDF download links expire after 1 hour. Download immediately after report generation.
 
-**Q: Can I see historical trends?**  
+**Q: Can I see historical trends?**
 A: Currently, reports show last 30 days only. Historical comparison features planned for future release.
 
-**Q: What languages are supported?**  
-A: Queries can be in English or Spanish. Reports are currently generated in English only.
+**Q: What languages are supported?**
+A: Queries are in English. Reports are generated in English.
 
-**Q: How accurate are the AI-generated trends?**  
+**Q: How accurate are the AI-generated trends?**
 A: Trends are generated by advanced AI models (Claude 3.7 Sonnet) based on product data and market research. While highly informative, they should be validated with domain expertise for critical business decisions.
 
-**Q: Can I share reports with others?**  
+**Q: Can I share reports with others?**
 A: Yes, download the PDF and share via email. PDFs are not password-protected and can be freely distributed.
 
-**Q: Is my query history saved?**  
+**Q: Is my query history saved?**
 A: For audit purposes, query logs are maintained by the system. Users cannot currently view their own history. Feature planned for future release.
 
 ---
@@ -3409,20 +3668,24 @@ A: For audit purposes, query logs are maintained by the system. Users cannot cur
 #### Support Channels
 
 **For Technical Issues**:
+
 - Email: support@example.com
 - Response time: 1 business day
 - Include: Error message, query used, timestamp
 
 **For Account Issues**:
+
 - Email: accounts@example.com
 - Response time: 4 hours
 - Include: Email used for registration
 
 **For Feature Requests**:
+
 - Email: feedback@example.com
 - We welcome suggestions for improvements
 
 **For Training**:
+
 - Request training session from your manager
 - Group training available quarterly
 - Online tutorials: https://training.example.com
@@ -3432,24 +3695,28 @@ A: For audit purposes, query logs are maintained by the system. Users cannot cur
 ### Best Practices for Business Use
 
 #### Market Research
+
 - Run reports weekly for key categories
 - Track top products over time (download and compare PDFs)
 - Focus on products with high growth rates
 - Investigate supporting trends for opportunities
 
 #### Competitive Intelligence
+
 - Compare brands within categories
 - Identify emerging trends early
 - Monitor new product launches
 - Track market share shifts
 
 #### Product Development
+
 - Identify successful product attributes
 - Understand consumer preferences
 - Validate product concepts against trends
 - Spot white space opportunities
 
 #### Sales & Marketing
+
 - Support pitch decks with data
 - Identify hot products for promotions
 - Create trend-based content
@@ -3460,23 +3727,27 @@ A: For audit purposes, query logs are maintained by the system. Users cannot cur
 ### Privacy & Data Usage
 
 **What data is collected**:
+
 - Your email (for authentication)
 - Queries submitted
 - Reports generated
 - Download timestamps
 
 **What data is NOT collected**:
+
 - Personal browsing history
 - Device information
 - Location data
 - Third-party tracking
 
 **Data retention**:
+
 - Query logs: 90 days
 - Account information: Until account deletion requested
 - PDFs: Automatically deleted after 7 days from server
 
 **Your rights**:
+
 - Request account deletion
 - Export your query history
 - Opt out of usage analytics
@@ -3502,25 +3773,25 @@ flowchart TB
         bedrock[Bedrock Usage]
         dynamodb[DynamoDB Metrics]
     end
-    
+  
     subgraph logging [Logging]
         cloudwatch[CloudWatch Logs]
         prompt[Prompt Logs]
         audit[CloudTrail Audit]
     end
-    
+  
     subgraph monitoring [Monitoring]
         dashboard[CloudWatch Dashboard]
         alarms[CloudWatch Alarms]
         insights[CloudWatch Insights]
     end
-    
+  
     subgraph alerting [Alerting]
         sns[SNS Topics]
         email[Email Notifications]
         slack[Slack - Optional]
     end
-    
+  
     apigw --> cloudwatch
     lambda --> cloudwatch
     athena --> cloudwatch
@@ -3529,15 +3800,15 @@ flowchart TB
     lambda --> prompt
     apigw --> audit
     lambda --> audit
-    
+  
     cloudwatch --> dashboard
     cloudwatch --> insights
     metrics --> alarms
-    
+  
     alarms --> sns
     sns --> email
     sns --> slack
-    
+  
     style monitoring fill:#e1f5ff
     style alerting fill:#ffe1e1
 ```
@@ -3559,6 +3830,7 @@ flowchart TB
 #### Dashboard Widgets
 
 **Widget 1: Request Volume**
+
 ```
 Type: Line chart
 Metrics:
@@ -3570,6 +3842,7 @@ Display: Last 24 hours
 ```
 
 **Widget 2: Average Latency**
+
 ```
 Type: Line chart with annotation
 Metrics:
@@ -3581,6 +3854,7 @@ Display: Last 3 hours
 ```
 
 **Widget 3: Latency Breakdown**
+
 ```
 Type: Stacked area chart
 Metrics:
@@ -3593,6 +3867,7 @@ Display: Shows time contribution by phase
 ```
 
 **Widget 4: Error Rate**
+
 ```
 Type: Number
 Metric: ErrorRate (percentage)
@@ -3605,6 +3880,7 @@ Period: Last 5 minutes
 ```
 
 **Widget 5: Concurrent Executions**
+
 ```
 Type: Gauge
 Metric: Lambda ConcurrentExecutions
@@ -3614,6 +3890,7 @@ Period: Real-time
 ```
 
 **Widget 6: Bedrock Model Usage**
+
 ```
 Type: Pie chart
 Metrics:
@@ -3625,6 +3902,7 @@ Display: Model distribution
 ```
 
 **Widget 7: Cost Tracking**
+
 ```
 Type: Number
 Calculation:
@@ -3636,6 +3914,7 @@ Display: Estimated daily cost
 ```
 
 **Widget 8: User Activity**
+
 ```
 Type: Bar chart
 Metrics:
@@ -3652,6 +3931,7 @@ Display: User engagement patterns
 #### Critical Alarms (Immediate Action Required)
 
 **Alarm 1: High Error Rate**
+
 ```yaml
 Alarm Name: LLM-HighErrorRate-Critical
 Metric: ErrorRate
@@ -3663,6 +3943,7 @@ Severity: CRITICAL
 ```
 
 **Alarm 2: Lambda Function Errors**
+
 ```yaml
 Alarm Name: LLM-LambdaErrors-Critical
 Metric: Lambda Errors
@@ -3673,6 +3954,7 @@ Severity: CRITICAL
 ```
 
 **Alarm 3: Bedrock Throttling**
+
 ```yaml
 Alarm Name: LLM-BedrockThrottling-Critical
 Metric: Bedrock ThrottledRequests
@@ -3688,6 +3970,7 @@ Auto-remediation: Switch to fallback model
 #### Warning Alarms (Monitor Closely)
 
 **Alarm 4: High Latency**
+
 ```yaml
 Alarm Name: LLM-HighLatency-Warning
 Metric: TotalReportDuration (average)
@@ -3698,6 +3981,7 @@ Severity: WARNING
 ```
 
 **Alarm 5: High Athena Query Time**
+
 ```yaml
 Alarm Name: LLM-AthenaSlowQueries-Warning
 Metric: AthenaQueryDuration (average)
@@ -3709,6 +3993,7 @@ Note: May indicate partition issues or data growth
 ```
 
 **Alarm 6: Concurrent Execution Near Limit**
+
 ```yaml
 Alarm Name: LLM-HighConcurrency-Warning
 Metric: Lambda ConcurrentExecutions
@@ -3724,6 +4009,7 @@ Recommendation: Increase reserved concurrency
 #### Informational Alarms (Awareness Only)
 
 **Alarm 7: No Activity**
+
 ```yaml
 Alarm Name: LLM-NoActivity-Info
 Metric: TrendingReportRequests
@@ -3735,6 +4021,7 @@ Purpose: Detect potential outage vs. low usage
 ```
 
 **Alarm 8: High Cost**
+
 ```yaml
 Alarm Name: LLM-DailyCostHigh-Info
 Metric: EstimatedDailyCost (calculated)
@@ -3752,6 +4039,7 @@ Purpose: Budget monitoring
 #### Log Groups
 
 **Lambda Execution Logs**
+
 ```
 Log Group: /aws/lambda/beauty-products-llm-orchestrator
 Retention: 30 days
@@ -3765,6 +4053,7 @@ Format: JSON structured logs
 ```
 
 **API Gateway Access Logs**
+
 ```
 Log Group: /aws/apigateway/beauty-products-trending-api
 Retention: 90 days (compliance)
@@ -3782,6 +4071,7 @@ Format: JSON structured logs
 #### CloudWatch Insights Queries
 
 **Query 1: Recent Errors**
+
 ```
 fields @timestamp, @message, errorMessage, errorType
 | filter @message like /ERROR/ or @message like /Exception/
@@ -3790,6 +4080,7 @@ fields @timestamp, @message, errorMessage, errorType
 ```
 
 **Query 2: Slow Queries**
+
 ```
 fields @timestamp, l2_category, totalDuration, athenaQueryDuration, bedrockDuration
 | filter totalDuration > 30000
@@ -3798,6 +4089,7 @@ fields @timestamp, l2_category, totalDuration, athenaQueryDuration, bedrockDurat
 ```
 
 **Query 3: Popular Categories**
+
 ```
 fields l2_category as Category, count() as Requests
 | filter ispresent(l2_category)
@@ -3806,6 +4098,7 @@ fields l2_category as Category, count() as Requests
 ```
 
 **Query 4: User Activity**
+
 ```
 fields @timestamp, userId, l2_category
 | stats count() by userId
@@ -3814,6 +4107,7 @@ fields @timestamp, userId, l2_category
 ```
 
 **Query 5: Bedrock Token Usage**
+
 ```
 fields @timestamp, model, tokensUsed, cost
 | filter model like /bedrock/
@@ -3831,6 +4125,7 @@ fields @timestamp, model, tokensUsed, cost
 **Sample Queries**:
 
 **Query by User**:
+
 ```
 Partition Key: user_id = "user@example.com"
 Sort Key: timestamp (descending)
@@ -3838,12 +4133,14 @@ Limit: 50
 ```
 
 **Query by Date Range**:
+
 ```
 Index: timestamp-index
 Condition: timestamp BETWEEN "2026-01-26T00:00:00Z" AND "2026-01-26T23:59:59Z"
 ```
 
 **Query by Request ID**:
+
 ```
 Partition Key: request_id = "550e8400-e29b-41d4-a716-446655440000"
 Returns: Complete audit record
@@ -3888,29 +4185,33 @@ Returns: Complete audit record
 #### Issue 1: High Error Rate
 
 **Symptoms**:
+
 - ErrorRate alarm triggered
 - Users reporting failed queries
 - Lambda errors in CloudWatch logs
 
 **Investigation Steps**:
+
 1. Check CloudWatch Logs for error patterns
+
    ```
    Filter: ERROR or Exception
    Look for: Repeated error messages
    ```
-
 2. Identify error type:
+
    - Athena timeout → Check partition performance
    - Bedrock throttling → Request limit increase
    - DynamoDB throttling → Increase capacity
    - Network timeout → Check VPC/endpoints
-
 3. Check recent deployments:
+
    - Lambda code changes?
    - Configuration updates?
    - Rollback if needed
 
 **Resolution**:
+
 - Apply hot fix or rollback deployment
 - Increase service limits if throttling
 - Scale up resources if capacity issue
@@ -3920,29 +4221,33 @@ Returns: Complete audit record
 #### Issue 2: High Latency
 
 **Symptoms**:
+
 - Reports taking > 30 seconds
 - Users complaining of slow response
 - HighLatency alarm triggered
 
 **Investigation Steps**:
-1. Check latency breakdown in dashboard
-   - Which phase is slow? Athena, Bedrock, or PDF?
 
+1. Check latency breakdown in dashboard
+
+   - Which phase is slow? Athena, Bedrock, or PDF?
 2. If Athena slow:
+
    - Check data volume (partitions growing?)
    - Verify partition pruning is working
    - Check Athena query metrics
-
 3. If Bedrock slow:
+
    - Check model availability
    - Look for throttling
    - Verify parallel processing is working
-
 4. If PDF slow:
+
    - Check image download times
    - Verify S3 upload speed
 
 **Resolution**:
+
 - Optimize slow component
 - Add caching where appropriate
 - Scale up resources
@@ -3953,20 +4258,24 @@ Returns: Complete audit record
 #### Issue 3: Bedrock Throttling
 
 **Symptoms**:
+
 - BedrockThrottling alarm
 - Errors mentioning "TooManyRequestsException"
 - Reports failing during AI generation
 
 **Investigation Steps**:
+
 1. Check Bedrock usage metrics
+
    - Current requests per second
    - Service quotas
-
 2. Check if burst or sustained:
+
    - Temporary spike? Wait and retry
    - Sustained high load? Need quota increase
 
 **Resolution**:
+
 - **Immediate**: Activate fallback model (Nova)
 - **Short-term**: Implement exponential backoff retry
 - **Long-term**: Request Bedrock quota increase from AWS
@@ -3976,29 +4285,33 @@ Returns: Complete audit record
 #### Issue 4: No Reports Generated
 
 **Symptoms**:
+
 - NoActivity alarm
 - Users unable to access chatbot
 - No logs appearing
 
 **Investigation Steps**:
+
 1. Check API Gateway health
+
    - Is endpoint accessible?
    - Check access logs
-
 2. Check Cognito
+
    - Users able to log in?
    - Token validation working?
-
 3. Check Lambda
+
    - Function deployed?
    - Recent failures?
-
 4. Check network
+
    - VPC configuration (if used)
    - Security group rules
    - VPC endpoints healthy
 
 **Resolution**:
+
 - Identify and fix blocking component
 - Test end-to-end flow
 - Communicate status to users
@@ -4010,10 +4323,12 @@ Returns: Complete audit record
 #### User Support Workflow
 
 **Step 1: Receive Support Request**
+
 - Email: support@example.com
 - Include: User email, timestamp, error message, query
 
 **Step 2: Gather Information**
+
 ```
 Required info:
 - User email/ID
@@ -4024,18 +4339,20 @@ Required info:
 ```
 
 **Step 3: Investigate**
+
 1. Look up request in DynamoDB prompt logs
+
    ```
    Query by: user_id + timestamp range
    ```
-
 2. Check CloudWatch Logs
+
    ```
    Filter by: request_id or timestamp
    Look for: Error messages, stack traces
    ```
-
 3. Check CloudWatch Dashboard
+
    ```
    Was system experiencing issues at that time?
    Any alarms triggered?
@@ -4045,21 +4362,23 @@ Required info:
 
 **Common Issues**:
 
-| Issue | Symptoms | Resolution |
-|-------|----------|------------|
-| Invalid category | "Category not found" error | Provide correct category name list |
-| No products found | Empty results | Explain data availability, suggest alternatives |
-| PDF download failure | Link doesn't work | Regenerate PDF, check browser settings |
-| Session expired | 401 Unauthorized | Instruct to log in again |
-| Slow response | Takes > 35 seconds | Check system status, explain if expected |
+| Issue                | Symptoms                   | Resolution                                      |
+| -------------------- | -------------------------- | ----------------------------------------------- |
+| Invalid category     | "Category not found" error | Provide correct category name list              |
+| No products found    | Empty results              | Explain data availability, suggest alternatives |
+| PDF download failure | Link doesn't work          | Regenerate PDF, check browser settings          |
+| Session expired      | 401 Unauthorized           | Instruct to log in again                        |
+| Slow response        | Takes > 35 seconds         | Check system status, explain if expected        |
 
 **Step 5: Resolve**
+
 - Provide solution to user
 - Document in support ticket system
 - If bug found: Create JIRA ticket for eng team
 - Follow up after resolution
 
 **Step 6: Prevent Recurrence**
+
 - Analyze root cause
 - Implement fix or monitoring
 - Update documentation
@@ -4072,6 +4391,7 @@ Required info:
 #### Daily Operations Checklist
 
 **Morning Check** (9 AM daily):
+
 - [ ] Review CloudWatch Dashboard
   - Any red alarms?
   - Error rate within acceptable range?
@@ -4084,6 +4404,7 @@ Required info:
   - Run test query to validate
 
 **Weekly Review** (Friday):
+
 - [ ] Analyze week's metrics
   - Average latency trend
   - Error rate trend
@@ -4095,6 +4416,7 @@ Required info:
 - [ ] Plan optimizations if needed
 
 **Monthly Tasks**:
+
 - [ ] Review IAM policies (security audit)
 - [ ] Check service quotas and usage
 - [ ] Analyze user feedback
@@ -4107,6 +4429,7 @@ Required info:
 #### Emergency Procedures
 
 **Critical Outage** (all users impacted):
+
 1. **Immediate**: Post status on status page
 2. **Investigate**: Check all service health
 3. **Mitigate**: Rollback if recent deployment
@@ -4116,6 +4439,7 @@ Required info:
 7. **Post-mortem**: Document incident
 
 **Escalation Path**:
+
 - **Level 1**: Support team (response: 1 hour)
 - **Level 2**: Ops team (response: 30 minutes)
 - **Level 3**: Engineering team (response: 15 minutes)
@@ -4128,21 +4452,25 @@ Required info:
 #### Key Performance Indicators (KPIs)
 
 **Availability**:
+
 - Target: 99.9% uptime
 - Measurement: Successful requests / Total requests
 - Review: Weekly
 
 **Latency**:
+
 - Target: P95 < 30 seconds
 - Measurement: 95th percentile of TotalReportDuration
 - Review: Daily
 
 **Error Rate**:
+
 - Target: < 2%
 - Measurement: Failed requests / Total requests
 - Review: Real-time
 
 **User Satisfaction**:
+
 - Target: > 4.0/5.0
 - Measurement: User feedback surveys
 - Review: Monthly
@@ -4154,16 +4482,19 @@ Required info:
 #### Support Team
 
 **General Support**:
+
 - Email: support@example.com
 - Hours: Monday-Friday, 9 AM - 5 PM EST
 - Response Time: 4-24 hours
 
 **Technical Support**:
+
 - Email: tech-support@example.com
 - Hours: 24/7 for critical issues
 - Response Time: 30 minutes (critical), 4 hours (normal)
 
 **Emergency Contact**:
+
 - Phone: 1-800-XXX-XXXX
 - On-call engineer: Available 24/7
 - Use for: System outages only
@@ -4171,23 +4502,27 @@ Required info:
 #### Team Responsibilities
 
 **Support Team**:
+
 - First-line user support
 - Troubleshooting common issues
 - Documentation updates
 
 **Operations Team**:
+
 - System monitoring
 - Alarm response
 - Performance optimization
 - Incident management
 
 **Engineering Team**:
+
 - Bug fixes
 - Feature development
 - Architecture changes
 - Code deployments
 
 **Security Team**:
+
 - Security monitoring
 - IAM policy reviews
 - Compliance audits
@@ -4198,23 +4533,27 @@ Required info:
 ### Documentation & Resources
 
 **Internal Documentation**:
+
 - Architecture details: This document
 - Implementation plan: [plan.md](../plan.md)
 - Data lake docs: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Operations guide: [CLIENT-OPERATIONS-GUIDE.md](CLIENT-OPERATIONS-GUIDE.md)
 
 **AWS Resources**:
+
 - CloudWatch Console: https://console.aws.amazon.com/cloudwatch/
 - Lambda Console: https://console.aws.amazon.com/lambda/
 - Bedrock Console: https://console.aws.amazon.com/bedrock/
 - DynamoDB Console: https://console.aws.amazon.com/dynamodb/
 
 **Training Materials**:
+
 - User guide: See "User Guide" section above
 - Video tutorials: https://training.example.com
 - FAQ: https://support.example.com/faq
 
 **Monitoring Tools**:
+
 - CloudWatch Dashboard: Direct link
 - Grafana (optional): https://grafana.example.com
 - PagerDuty (optional): https://example.pagerduty.com
@@ -4229,15 +4568,16 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 
 #### 1. Multi-Language Support
 
-**Current State**: Queries in English/Spanish, reports in English only
+**Current State**: Queries and reports in English
 
 **Enhancement**:
-- Full multi-language report generation
-- Support for: Spanish, French, Portuguese, German
+
+- Additional language support (future)
 - Language auto-detection from user query
 - Localized revenue formatting (€, £, etc.)
 
 **Benefits**:
+
 - Expand to international markets
 - Better user experience for non-English speakers
 - Support global teams
@@ -4251,11 +4591,13 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Current State**: Fixed top 5 products per report
 
 **Enhancement**:
+
 - User selects: Top 1, 3, 5, or 10 products
 - Query parameter: `"Show me top 10 Skincare products"`
 - Configurable default per user or organization
 
 **Benefits**:
+
 - Flexibility for different use cases
 - Deeper market analysis with top 10
 - Quick insights with top 1
@@ -4269,6 +4611,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Current State**: Last 30 days only
 
 **Enhancement**:
+
 - Compare multiple time periods: 30, 60, 90 days
 - Month-over-month comparison
 - Year-over-year trending
@@ -4277,6 +4620,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Example Query**: "Compare trending Skincare products: this month vs. last month"
 
 **Benefits**:
+
 - Identify seasonal patterns
 - Track product lifecycle
 - Validate sustained vs. temporary trends
@@ -4290,12 +4634,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Current State**: One L2 category per query
 
 **Enhancement**:
+
 - Compare multiple categories side-by-side
 - Query: "Compare trending products: Skincare vs. Makeup"
 - Cross-category insights
 - Market share analysis
 
 **Benefits**:
+
 - Portfolio strategy decisions
 - Category performance benchmarking
 - Market dynamics understanding
@@ -4309,12 +4655,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Current State**: Wait 20-25 seconds for complete report
 
 **Enhancement**:
+
 - Progressive report display via WebSockets
 - Stream updates as products are analyzed
 - Show progress: "Analyzing product 3 of 5..."
 - Early engagement while processing
 
 **Benefits**:
+
 - Perceived latency reduction
 - Better user experience
 - Transparency into process
@@ -4328,6 +4676,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 6. Predictive Trending
 
 **Enhancement**:
+
 - Machine learning models predict future trends
 - Identify products likely to trend in next 30 days
 - Early warning system for emerging products
@@ -4336,6 +4685,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Example**: "Products predicted to trend in Skincare next month"
 
 **Benefits**:
+
 - First-mover advantage
 - Proactive product development
 - Inventory planning
@@ -4347,6 +4697,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 7. Competitive Intelligence
 
 **Enhancement**:
+
 - Brand-level analysis across categories
 - Market share tracking over time
 - Competitor comparison reports
@@ -4355,6 +4706,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 **Example Query**: "How is [Brand X] performing across all categories?"
 
 **Benefits**:
+
 - Strategic planning
 - Competitive positioning
 - M&A target identification
@@ -4366,12 +4718,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 8. Custom Trend Factors
 
 **Enhancement**:
+
 - User-defined trend factors beyond revenue + growth
 - Include: customer reviews, social media mentions, influencer endorsements
 - Configurable ranking algorithm
 - Personalized trend definitions
 
 **Benefits**:
+
 - Align with business priorities
 - Different perspectives on "trending"
 - Comprehensive market view
@@ -4383,12 +4737,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 9. Automated Insights & Alerts
 
 **Enhancement**:
+
 - Proactive notifications when products meet criteria
 - Alert: "New product entered top 5 in Skincare"
 - Scheduled reports (daily, weekly, monthly)
 - Anomaly detection (unusual spikes/drops)
 
 **Benefits**:
+
 - Stay informed without manual checks
 - Never miss important trends
 - Automated workflows
@@ -4400,12 +4756,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 10. Collaboration Features
 
 **Enhancement**:
+
 - Share reports with team members
 - Add comments and annotations
 - Export to PowerPoint/Google Slides
 - Integration with BI tools (Tableau, Power BI)
 
 **Benefits**:
+
 - Team collaboration
 - Presentation-ready outputs
 - Integration with existing workflows
@@ -4419,12 +4777,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 11. White-Label Customization
 
 **Enhancement**:
+
 - Custom branding (logo, colors, fonts)
 - Tailored report templates
 - Custom trend analysis prompts
 - Private LLM model fine-tuning
 
 **Benefits**:
+
 - Enterprise-ready for resale
 - Brand consistency
 - Domain-specific insights
@@ -4436,12 +4796,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 12. API Access
 
 **Enhancement**:
+
 - Public API for programmatic access
 - SDKs for Python, JavaScript, R
 - Webhook notifications
 - Batch processing capabilities
 
 **Benefits**:
+
 - Integration with custom applications
 - Automated data pipelines
 - Developer ecosystem
@@ -4453,12 +4815,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 13. Advanced Visualizations
 
 **Enhancement**:
+
 - Interactive charts and graphs
 - Trend trajectory visualizations
 - Market map diagrams
 - 3D product positioning
 
 **Benefits**:
+
 - Better data comprehension
 - Presentation quality
 - Executive-level insights
@@ -4470,12 +4834,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### 14. Multi-Region Deployment
 
 **Enhancement**:
+
 - Deploy in multiple AWS regions (EU, APAC)
 - Data residency compliance
 - Lower latency globally
 - Disaster recovery capabilities
 
 **Benefits**:
+
 - Global performance
 - Compliance with local regulations
 - High availability
@@ -4489,18 +4855,21 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### AI/ML Improvements
 
 **Enhanced Foundation Models**:
+
 - Access to latest Bedrock models as released
 - GPT-4, Claude 4, Gemini integration
 - Model performance benchmarking
 - Automatic selection of best model
 
 **Fine-Tuned Models**:
+
 - Beauty industry-specific language models
 - Faster inference times
 - More accurate trend analysis
 - Cost optimization
 
 **Retrieval-Augmented Generation (RAG)**:
+
 - Connect to external knowledge bases
 - Industry reports and publications
 - Real-time web scraping
@@ -4511,17 +4880,20 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### Performance Optimizations
 
 **Caching Strategy**:
+
 - Cache popular category reports (5-10 minutes)
 - Pre-generate reports for top categories
 - User-specific result caching
 - Reduce redundant Bedrock calls
 
 **Edge Computing**:
+
 - CloudFront edge caching
 - Lambda@Edge for geo-routing
 - Faster response for global users
 
 **Query Optimization**:
+
 - Materialized views in Athena
 - Pre-aggregated trend tables
 - Incremental data processing
@@ -4532,18 +4904,21 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 ### Infrastructure Enhancements
 
 **Observability**:
+
 - Distributed tracing (AWS X-Ray)
 - Advanced anomaly detection
 - ML-powered alerting
 - Predictive capacity planning
 
 **Security**:
+
 - Advanced threat protection (GuardDuty)
 - DDoS protection (Shield)
 - Enhanced audit logging
 - Compliance certifications (SOC 2, ISO 27001)
 
 **Disaster Recovery**:
+
 - Multi-region active-active
 - Automated failover
 - RTO < 5 minutes, RPO < 1 minute
@@ -4556,6 +4931,7 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 #### Enterprise Tier
 
 **Features**:
+
 - Unlimited queries
 - Priority Bedrock access
 - Custom report templates
@@ -4564,23 +4940,10 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 
 **Pricing**: Based on usage volume
 
----
-
-#### Self-Service Tier
-
-**Features**:
-- Limited queries per month
-- Standard report format
-- Community support
-- Standard response times
-
-**Pricing**: Freemium or low-cost subscription
-
----
-
 #### Reseller/Partner Program
 
 **Features**:
+
 - White-label customization
 - Revenue sharing
 - Partner portal
@@ -4588,41 +4951,31 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 
 **Target**: Consulting firms, agencies, analytics platforms
 
----
-
-### Roadmap Timeline
-
-| Phase | Timeline | Key Deliverables | Complexity | Priority |
-|-------|----------|------------------|------------|----------|
-| **Phase 1 (Current)** | Complete | Basic trending reports with AI | - | Launched |
-| **Phase 2** | 3-6 months | Multi-language, customization, comparisons | Medium | High |
-| **Phase 3** | 6-12 months | Predictive analytics, advanced insights | High | Medium |
-| **Phase 4** | 12-18 months | Enterprise features, API, global deployment | High | Medium-Low |
-| **Phase 5** | 18+ months | AI-powered platform, ecosystem | Very High | TBD |
-
----
-
 ### Prioritization Framework
 
 **High Priority** (Next 6 months):
+
 - Multi-language support
 - Historical trend comparison
 - Real-time streaming
 - Automated alerts
 
 **Medium Priority** (6-12 months):
+
 - Predictive trending
 - API access
 - Advanced visualizations
 - Category comparisons
 
 **Low Priority** (12+ months):
+
 - White-label customization
 - Multi-region deployment
 - Custom model fine-tuning
 - Reseller program
 
 **Evaluation Criteria**:
+
 - User demand (feedback, surveys)
 - Business value (revenue impact)
 - Implementation cost (time, resources)
@@ -4634,12 +4987,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 ### Innovation Pipeline
 
 **Experimental Features** (Proof of Concept):
+
 - Voice-activated queries (Alexa, Google Assistant)
 - AR/VR product visualization
 - Blockchain-based trend verification
 - Quantum computing for complex simulations
 
 **Research Areas**:
+
 - Causal inference in trending analysis
 - Explainable AI for trend factors
 - Federated learning for privacy
@@ -4652,12 +5007,14 @@ The LLM Trending Products Report Generator is designed as an extensible platform
 We welcome feedback and feature requests from all users.
 
 **Submit Ideas**:
+
 - Email: feedback@example.com
 - User feedback form: https://feedback.example.com
 - Quarterly user surveys
 - Customer advisory board (enterprise clients)
 
 **Evaluation Process**:
+
 1. Collect and categorize requests
 2. Evaluate against prioritization framework
 3. Prototype feasibility assessment
@@ -4665,6 +5022,7 @@ We welcome feedback and feature requests from all users.
 5. Communicate decisions to requestors
 
 **Recent Requests Under Consideration**:
+
 - Excel export format
 - Mobile app (iOS/Android)
 - Integration with Slack/Teams

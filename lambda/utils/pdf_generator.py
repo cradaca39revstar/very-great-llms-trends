@@ -4,7 +4,6 @@ Creates professional PDF reports using FPDF
 """
 
 import os
-from io import BytesIO
 from datetime import datetime, timezone
 from typing import Dict, List
 import boto3
@@ -57,10 +56,9 @@ def generate_pdf_report(report: Dict) -> bytes:
     for product in products:
         add_product_page(pdf, product)
     
-    # Get PDF as bytes
-    pdf_output = BytesIO()
-    pdf_bytes = pdf.output(dest='S').encode('latin-1')
-    
+    # Get PDF as bytes (fpdf2 2.8+ output() returns bytearray; no .encode())
+    pdf_bytes = bytes(pdf.output())
+
     return pdf_bytes
 
 
