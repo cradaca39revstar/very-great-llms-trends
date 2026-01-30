@@ -94,6 +94,12 @@ def add_title_page(pdf: FPDF, report: Dict):
     )
 
 
+def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
+    """Effective width from current x to right margin; never 0 (avoids FPDF 'Not enough horizontal space')."""
+    w = pdf.w - pdf.r_margin - pdf.get_x()
+    return max(float(w), min_w)
+
+
 def add_product_page(pdf: FPDF, product: Dict):
     """Add product details page"""
     pdf.add_page()
@@ -109,9 +115,9 @@ def add_product_page(pdf: FPDF, product: Dict):
     pdf.set_font('Arial', 'B', 14)
     pdf.cell(0, 8, f"Brand Name: {product.get('brand_name', 'Unknown')}", 0, 1, 'L')
     
-    # Product name
+    # Product name (explicit width to avoid 0-width)
     pdf.set_font('Arial', '', 12)
-    pdf.multi_cell(0, 6, f"Product: {product.get('product_name', '')}")
+    pdf.multi_cell(_safe_width(pdf), 6, f"Product: {product.get('product_name', '') or '—'}")
     pdf.ln(2)
     
     # URL (if available)
@@ -122,9 +128,9 @@ def add_product_page(pdf: FPDF, product: Dict):
         pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
     
-    # Description
+    # Description (explicit width; empty = "—")
     pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(0, 5, f"Description: {product.get('description', '')}")
+    pdf.multi_cell(_safe_width(pdf), 5, (product.get('description') or '').strip() or "—")
     pdf.ln(5)
     
     # Revenue metrics box
@@ -132,18 +138,18 @@ def add_product_page(pdf: FPDF, product: Dict):
     pdf.cell(0, 8, 'Revenue Metrics', 0, 1, 'L')
     pdf.set_font('Arial', '', 11)
     
-    # Metrics table
+    # Metrics table: value column uses explicit width and multi_cell so long values wrap
     metrics = [
         ('Revenue Trend:', product.get('revenue_trend', '')),
         ('Revenue Scale:', product.get('revenue_scale', '')),
         ('Product Rank in Category:', product.get('category_rank', ''))
     ]
-    
     for label, value in metrics:
         pdf.set_font('Arial', 'B', 11)
         pdf.cell(60, 6, label, 0, 0, 'L')
         pdf.set_font('Arial', '', 11)
-        pdf.cell(0, 6, value, 0, 1, 'L')
+        w_val = _safe_width(pdf)
+        pdf.multi_cell(w_val, 6, (str(value).strip() if value is not None else '') or '—', 0, 1, 'L')
     
     pdf.ln(5)
     
@@ -158,22 +164,19 @@ def add_product_page(pdf: FPDF, product: Dict):
         f"{product.get('brand_name', '')} {product.get('product_name', '')}, "
         f"and which have helped make it one of the most dominant products in the market:"
     )
-    pdf.multi_cell(0, 5, intro_text)
+    pdf.multi_cell(_safe_width(pdf), 5, intro_text)
     pdf.ln(3)
     
-    # List trends
+    # List trends (explicit width; empty title/explanation = "—")
     trends = product.get('supporting_trends', [])
     for i, trend in enumerate(trends, 1):
-        # Parse trend title and explanation
         trend_parts = parse_trend_text(trend)
-        
-        # Trend number and title
+        title = (trend_parts['title'] or '').strip() or "—"
+        explanation = (trend_parts['explanation'] or '').strip() or "—"
         pdf.set_font('Arial', 'B', 11)
-        pdf.multi_cell(0, 5, f"{i}. {trend_parts['title']}")
-        
-        # Trend explanation
+        pdf.multi_cell(_safe_width(pdf), 5, f"{i}. {title}")
         pdf.set_font('Arial', '', 10)
-        pdf.multi_cell(0, 5, trend_parts['explanation'])
+        pdf.multi_cell(_safe_width(pdf), 5, explanation)
         pdf.ln(2)
 
 
@@ -187,6 +190,11 @@ def parse_trend_text(trend: str) -> Dict:
     Returns:
         Dict with 'title' and 'explanation'
     """
+    if trend is None or not isinstance(trend, str):
+        return {'title': '—', 'explanation': '—'}
+    trend = trend.strip()
+    if not trend:
+        return {'title': '—', 'explanation': '—'}
     lines = trend.split('\n', 1)
     
     if len(lines) == 2:

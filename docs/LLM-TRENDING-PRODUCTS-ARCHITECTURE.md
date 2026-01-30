@@ -2,8 +2,8 @@
 
 ## System Architecture
 
-**Version:** 1.0.0
-**Last Updated:** January 26, 2026
+**Version:** 1.1.0
+**Last Updated:** January 30, 2026
 **Target Audience:** Client Stakeholders
 **Status:** Implemented
 
@@ -55,7 +55,7 @@ The system enables users to ask natural language questions about trending produc
 | ---------------------------------- | -------------------------------------------------------------------------- |
 | **Natural Language Queries** | Users ask questions in plain English                                       |
 | **L2 Category Focus**        | Analyzes specific product subcategories (Skincare, Haircare, Makeup, etc.) |
-| **AI-Powered Insights**      | Leverages AWS Bedrock foundation models (Claude 3.7 Sonnet, Nova, Cohere)  |
+| **AI-Powered Insights**      | Leverages AWS Bedrock (Amazon Nova Pro, us-east-1 only)                     |
 | **Data-Driven**              | Uses real sales data from the existing Beauty Products Data Lake           |
 | **Fast Response**            | Delivers complete reports in 20-25 seconds                                 |
 | **Secure Access**            | Protected by AWS Cognito authentication and authorization                  |
@@ -131,9 +131,7 @@ flowchart TB
 
     subgraph ai [AI/ML Layer]
         bedrock[Amazon Bedrock]
-        claude[Claude 3.7 Sonnet]
-        nova[Amazon Nova]
-        cohere[Cohere]
+        nova[Amazon Nova Pro<br/>Primary Model]
         websearch[Web Search API<br/>URLs & Images]
     end
 
@@ -158,9 +156,7 @@ flowchart TB
     lambda -->|Generate Brand Name| bedrock
     lambda -->|Generate Trends| bedrock
     lambda -->|Web Search| websearch
-    bedrock -->|Use Model| claude
-    bedrock -->|Fallback| nova
-    bedrock -->|Alternative| cohere
+    bedrock -->|Use Model| nova
   
     lambda -->|Log Prompts| dynamodb
     lambda -->|Publish Metrics| cloudwatch
@@ -219,9 +215,7 @@ For a detailed visual representation of the system architecture, refer to the ar
 #### 5. AI/ML Layer
 
 - **Amazon Bedrock**: Managed service for foundation models
-  - **Claude 3.7 Sonnet**: Primary model for brand names and trend generation
-  - **Amazon Nova**: Fallback model for reliability
-  - **Cohere**: Alternative model for specific use cases
+  - **Amazon Nova Pro**: Primary model for brand names, trend generation, and product search (us-east-1 only; no cross-region inference)
 - **Web Search API**: Retrieves brand URLs, product descriptions, and images
 
 #### 6. Logging & Monitoring Layer
@@ -267,6 +261,8 @@ This section provides detailed descriptions of each component in the LLM Trendin
 - Token expiration: Configurable (typically 1 hour)
 - Password requirements: Minimum 8 characters, complexity rules
 - Integration: API Gateway uses Cognito as authorizer
+
+**Getting the Cognito Client ID**: Run `terraform output -raw cognito_client_id` from the `terraform/` directory after deployment. The script `scripts/call-api-llm.ps1` obtains this value automatically when invoking the API.
 
 **Benefits**:
 
@@ -374,7 +370,7 @@ POST /trending-products/query
 
 - Invalid L2 category → Return friendly error with suggestions
 - No products found → Return "No trending products" message
-- Bedrock timeout → Retry with fallback model
+- Bedrock timeout → Retry with same model (Nova Pro)
 - Athena failure → Return cached data or error message
 - Web search failure → Use LLM-generated descriptions only
 
@@ -383,7 +379,7 @@ POST /trending-products/query
 ```
 ATHENA_WORKGROUP=beauty-products-athena-poc
 ATHENA_DATABASE=beauty_products_db
-BEDROCK_PRIMARY_MODEL=anthropic.claude-3-7-sonnet-20240229-v1:0
+BEDROCK_PRIMARY_MODEL=amazon.nova-pro-v1:0
 BEDROCK_FALLBACK_MODEL=amazon.nova-pro-v1:0
 DQ_THRESHOLD=0.95
 PROMPT_LOG_TABLE=beauty-products-prompt-logs
@@ -479,7 +475,7 @@ ORDER BY revenue_rank;
 **Service Benefits**:
 
 - No infrastructure management required
-- Multiple models available (Claude, Nova, Cohere)
+- Amazon Nova Pro used for all AI generation (us-east-1 only)
 - Built-in prompt management and versioning
 - Guardrails for content safety
 - Automatic scaling and high availability
@@ -490,42 +486,17 @@ ORDER BY revenue_rank;
 - **Endpoint**: `bedrock-runtime.us-east-1.amazonaws.com`
 - **Authentication**: IAM role with bedrock:InvokeModel permission
 
-#### Foundation Models
+#### Foundation Model in Use
 
-**1. Claude 3.7 Sonnet (Primary)**
+**Amazon Nova Pro (Primary)**
 
-- **Model ID**: `anthropic.claude-3-7-sonnet-20240229-v1:0`
+- **Model ID**: `amazon.nova-pro-v1:0`
+- **Region**: us-east-1 only (no cross-region inference profiles)
 - **Use Cases**:
   - Brand name generation
   - Supporting trends generation
-  - Product description enhancement
-- **Strengths**:
-  - Superior reasoning and context understanding
-  - Excellent at creative writing
-  - Handles nuanced queries well
-- **Token Limits**: 200k context, 4k output
-
-**2. Amazon Nova (Fallback)**
-
-- **Model ID**: `amazon.nova-pro-v1:0`
-- **Use Cases**:
-  - Fallback when Claude is unavailable
-  - Cost optimization for simple queries
-- **Strengths**:
-  - Fast response times
-  - Cost-effective
-  - Good for structured outputs
-- **Token Limits**: 128k context, 4k output
-
-**3. Cohere (Alternative)**
-
-- **Model ID**: `cohere.command-r-plus-v1:0`
-- **Use Cases**:
-  - Alternative for specific formatting needs
-  - Search-augmented generation
-- **Strengths**:
-  - Strong at summarization
-  - Good for structured outputs
+  - Product description enhancement and product search
+- **Why Nova Pro**: AWS Bedrock now requires inference profiles for newer Claude models (3.5/4/4.5), which route traffic across regions. Using Nova Pro with direct foundation model ID keeps all inference in us-east-1 for predictable latency and simpler IAM.
 - **Token Limits**: 128k context, 4k output
 
 #### Prompt Templates
@@ -602,7 +573,7 @@ Focus on market trends, consumer behavior, and industry insights.
   "products_queried": ["product_id_1", "product_id_2", ...],
   "prompts": [
     {
-      "model": "claude-3-7-sonnet",
+      "model": "amazon.nova-pro-v1",
       "prompt_type": "brand_name",
       "prompt": "...",
       "response": "...",
@@ -647,7 +618,7 @@ Focus on market trends, consumer behavior, and industry insights.
 - Request volume over time
 - Average latency by component
 - Error rate trends
-- Model usage distribution (Claude vs Nova vs Cohere)
+- Model usage (Amazon Nova Pro)
 - Cost tracking (estimated)
 
 #### S3 PDF Storage
@@ -883,7 +854,7 @@ ORDER BY revenue_rank;
 
 1. **Generate Brand Name** (~ 2-3 seconds per product)
 
-   - Send prompt to Claude 3.7 Sonnet
+   - Send prompt to Amazon Nova Pro
    - Input: product_name + shop_name
    - Output: Clean brand name (e.g., "Vital Proteins")
 
@@ -1421,6 +1392,8 @@ The generated PDF includes:
 - Metadata: Title, Author, Creation Date
 - File size: Typically 1-3 MB per report
 
+**PDF Robustness**: The generator uses explicit cell widths and replaces empty or missing content (e.g., description, trend title, metrics) with a placeholder so reports render reliably even when some product data is missing or very long.
+
 ---
 
 ### Error Handling in Output
@@ -1712,9 +1685,7 @@ The LLM system adds the following new components that do not affect existing inf
 
 **Models Used**:
 
-- Claude 3.7 Sonnet
-- Amazon Nova
-- Cohere
+- Amazon Nova Pro (us-east-1 only)
 
 #### 5. DynamoDB Prompt Logging
 
@@ -2200,9 +2171,7 @@ Token rotation: Enabled
         "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
-        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-7-sonnet-*",
-        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-*",
-        "arn:aws:bedrock:us-east-1::foundation-model/cohere.command-*"
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-*"
       ]
     },
     {
@@ -2348,7 +2317,7 @@ CORS policy: Restricted to chatbot domain only
 ```
 Region: us-east-1
 Models enabled:
-  - anthropic.claude-3-7-sonnet-20240229-v1:0
+  - amazon.nova-pro-v1:0
   - amazon.nova-pro-v1:0
   - cohere.command-r-plus-v1:0
 
@@ -2503,7 +2472,7 @@ Log file validation: Enabled
     "arn": "arn:aws:iam::123456789012:role/beauty-products-llm-lambda-execution-role"
   },
   "requestParameters": {
-    "modelId": "anthropic.claude-3-7-sonnet-20240229-v1:0",
+    "modelId": "amazon.nova-pro-v1:0",
     "body": "[REDACTED]"
   },
   "responseElements": null,
@@ -2922,34 +2891,13 @@ WHERE l2_category = 'Skincare' AND rank <= 5;
 
 #### 4. Bedrock Model Selection
 
-**Model Performance Comparison**:
+**Model Performance**:
 
 | Model             | Avg Latency | Quality   | Cost per 1K tokens |
 | ----------------- | ----------- | --------- | ------------------ |
-| Claude 3.7 Sonnet | 2-3s        | Excellent | $0.015             |
-| Amazon Nova       | 1-2s        | Good      | $0.008             |
-| Cohere Command R+ | 2-3s        | Good      | $0.010             |
+| Amazon Nova Pro   | 1-2s        | Good      | $0.008             |
 
-**Strategy**:
-
-- Use Claude 3.7 for primary generation (best quality)
-- Use Nova for simple brand name extraction (50% faster)
-- Reserve Cohere as fallback
-
-**Hybrid Approach**:
-
-```python
-def generate_report(product):
-    # Fast model for simple task
-    brand_name = invoke_model("amazon.nova", brand_prompt)
-  
-    # High-quality model for complex task
-    trends = invoke_model("claude-3.7-sonnet", trends_prompt)
-  
-    return format_report(brand_name, trends)
-```
-
-**Impact**: 20% latency reduction without quality loss
+**Strategy**: Amazon Nova Pro is used for all AI generation (brand names, trends, product search) in us-east-1. No fallback to other models in current configuration.
 
 #### 5. Response Streaming (Future Enhancement)
 
@@ -3034,7 +2982,7 @@ Athena concurrency: 100 queries simultaneously
 
 ```
 Lambda: 512 MB memory, no provisioned concurrency
-Bedrock: Amazon Nova primary (cheaper), Claude fallback
+Bedrock: Amazon Nova Pro (us-east-1)
 Athena: Standard query caching only
 Expected latency: 25-30 seconds
 ```
@@ -3043,7 +2991,7 @@ Expected latency: 25-30 seconds
 
 ```
 Lambda: 1024 MB memory, 2 provisioned instances
-Bedrock: Claude 3.7 primary, Nova fallback
+Bedrock: Amazon Nova Pro (us-east-1)
 Athena: Standard with query result caching
 Expected latency: 20-25 seconds ← Target
 ```
@@ -3052,7 +3000,7 @@ Expected latency: 20-25 seconds ← Target
 
 ```
 Lambda: 2048 MB memory, 5 provisioned instances
-Bedrock: Claude 3.7 only, higher rate limits
+Bedrock: Amazon Nova Pro (us-east-1)
 Athena: Provisioned capacity (reserved)
 Expected latency: 15-20 seconds
 ```
@@ -3653,7 +3601,7 @@ A: Currently, reports show last 30 days only. Historical comparison features pla
 A: Queries are in English. Reports are generated in English.
 
 **Q: How accurate are the AI-generated trends?**
-A: Trends are generated by advanced AI models (Claude 3.7 Sonnet) based on product data and market research. While highly informative, they should be validated with domain expertise for critical business decisions.
+A: Trends are generated by Amazon Nova Pro (AWS Bedrock) based on product data and market research. While highly informative, they should be validated with domain expertise for critical business decisions.
 
 **Q: Can I share reports with others?**
 A: Yes, download the PDF and share via email. PDFs are not password-protected and can be freely distributed.
@@ -3894,9 +3842,7 @@ Period: Real-time
 ```
 Type: Pie chart
 Metrics:
-  - ClaudeInvocations (count)
-  - NovaInvocations (count)
-  - CohereInvocations (count)
+  - BedrockInvocations (count, Amazon Nova Pro)
 Period: Last 24 hours
 Display: Model distribution
 ```
@@ -3962,7 +3908,7 @@ Threshold: > 20 throttles
 Evaluation Period: 5 minutes
 Action: SNS topic → Email to ops team
 Severity: CRITICAL
-Auto-remediation: Switch to fallback model
+Auto-remediation: Retry with same model; check Bedrock service health
 ```
 
 ---
@@ -4161,7 +4107,7 @@ Returns: Complete audit record
   "products_queried": [12345, 12346, 12347, 12348, 12349],
   "prompts": [
     {
-      "model": "claude-3-7-sonnet",
+      "model": "amazon.nova-pro-v1",
       "prompt_type": "brand_name",
       "prompt": "Based on the following product information...",
       "response": "Vital Proteins",
@@ -4276,7 +4222,7 @@ Returns: Complete audit record
 
 **Resolution**:
 
-- **Immediate**: Activate fallback model (Nova)
+- **Immediate**: Retry Bedrock invocation; check model availability in us-east-1
 - **Short-term**: Implement exponential backoff retry
 - **Long-term**: Request Bedrock quota increase from AWS
 

@@ -216,7 +216,9 @@ resource "aws_iam_policy" "lambda_bedrock" {
           "bedrock:InvokeModelWithResponseStream"
         ]
         Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-7-sonnet-*",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-sonnet-4*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*"
         ]
