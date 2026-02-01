@@ -56,6 +56,7 @@ The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transf
 - Architecture: [`docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)
 - Deployment: [`terraform/README-LLM.md`](terraform/README-LLM.md)
 - User Guide: See [LLM Architecture Doc - User Guide Section](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md#user-guide)
+- Frontend (UI): [`frontend/README.md`](frontend/README.md) — local dev and Amplify Hosting
 
 **How to test the agent**: Prerequisites: Terraform applied, Lambda deployed (`.\scripts\deploy-lambda-llm.ps1`), and a Cognito test user created once (see [Testing in terraform/README-LLM.md](terraform/README-LLM.md#testing)). Then run `.\scripts\call-api-llm.ps1` from the project root.
 
