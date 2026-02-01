@@ -4,18 +4,19 @@
 **Version:** 1.0.0  
 **Last Updated:** January 24, 2026  
 **Owner:** Data Engineering Team  
-**Purpose:** Comprehensive validation of data quality, crawler performance, query response time, and dashboard accuracy
+**Purpose:** Comprehensive validation of data quality, crawler performance, query response time, dashboard accuracy, and (when enabled) the LLM trending-products API
 
 ---
 
 ## Overview
 
-This runbook provides step-by-step procedures to validate the Beauty Products Data Lake across four critical dimensions:
+This runbook provides step-by-step procedures to validate the Beauty Products Data Lake across five critical dimensions:
 
 1. **Data Quality** - Verify quality reports, metrics, and framework integrity
 2. **Crawler Performance** - Validate Glue crawler configuration and execution
 3. **Query Response Time** - Ensure Athena queries meet SLA (< 5 seconds)
 4. **Dashboard Accuracy** - Confirm CloudWatch dashboard reflects actual metrics
+5. **LLM API** - Validate the trending-products/query endpoint (when LLM system is enabled)
 
 **Prerequisites:**
 - AWS CLI configured with appropriate permissions
@@ -257,7 +258,7 @@ LIMIT 12;
 
 ### Data Quality Validation Summary
 
-**Criterios de Éxito:**
+**Success Criteria:**
 - ✓ Quality reports generated in expected S3 path
 - ✓ Report schema matches `quality_report_v1.json`
 - ✓ `pass_rate >= 0.95` and `avg_quality_score >= 0.95`
@@ -265,7 +266,7 @@ LIMIT 12;
 - ✓ Quality trends view returns correct aggregations
 - ✓ Integration tests cover core quality logic
 
-**Status:** ☐ Cumple / ☐ Cumple con salvedades / ☐ No cumple
+**Status:** ☐ Pass / ☐ With caveats / ☐ Fail
 
 **Notes:**
 ```
@@ -438,7 +439,7 @@ aws glue get-table \
 
 ### Crawler Performance Validation Summary
 
-**Criterios de Éxito:**
+**Success Criteria:**
 - ✓ Crawlers correctly configured in Terraform
 - ✓ IAM roles have necessary permissions
 - ✓ Crawlers can be started via CLI
@@ -446,7 +447,7 @@ aws glue get-table \
 - ✓ Tables updated after crawler runs
 - ✓ Crawler duration can be measured via LastCrawl.StartTime
 
-**Status:** ☐ Cumple / ☐ Cumple con salvedades / ☐ No cumple
+**Status:** ☐ Pass / ☐ With caveats / ☐ Fail
 
 **Notes:**
 ```
@@ -655,13 +656,13 @@ View Performance Results:
 
 ### Query Response Time Validation Summary
 
-**Criterios de Éxito:**
+**Success Criteria:**
 - ✓ Views use Glue Catalog tables and partition columns
 - ✓ All views return results in < 5 seconds for LIMIT 10 queries
 - ✓ Query execution time can be measured via AWS CLI or Console
 - ✓ SLA of < 5 seconds is documented
 
-**Status:** ☐ Cumple / ☐ Cumple con salvedades / ☐ No cumple
+**Status:** ☐ Pass / ☐ With caveats / ☐ Fail
 
 **Notes:**
 ```
@@ -912,13 +913,13 @@ Records Duplicates        | {value}        | {value}              | ☐ Yes / �
 
 ### Dashboard Accuracy Validation Summary
 
-**Criterios de Éxito:**
+**Success Criteria:**
 - ✓ Dashboard widgets reference correct namespaces and metrics
 - ✓ CloudWatch metrics can be queried via CLI
 - ✓ Dashboard values match quality report values (within tolerance)
 - ✓ Discrepancies can be explained (delay, aggregation, etc.)
 
-**Status:** ☐ Cumple / ☐ Cumple con salvedades / ☐ No cumple
+**Status:** ☐ Pass / ☐ With caveats / ☐ Fail
 
 **Notes:**
 ```
@@ -934,6 +935,116 @@ Validation Approach:
 
 ---
 
+## 5. LLM Trending Products API Validation
+
+**Applicable when:** LLM system is enabled (`enable_llm_system = true`) and Lambda orchestrator is deployed.
+
+### Objective
+
+Verify that the `POST /trending-products/query` API endpoint accepts authenticated requests, returns a valid report, and completes within the expected latency (target 20–25 seconds end-to-end).
+
+### Context
+
+- **Endpoint:** `https://{api-id}.execute-api.{region}.amazonaws.com/{stage}/trending-products/query`
+- **Method:** POST
+- **Auth:** Cognito User Pool (Bearer JWT in `Authorization` header)
+- **Body:** `{ "query": "What are the top trending products in Skincare?" }` (natural language; required field: `query`)
+- **Terraform output:** `terraform output -raw api_gateway_url`
+- **Script:** `.\scripts\call-api-llm.ps1` (from project root)
+
+### Step 5.1: Obtain API URL and Cognito Credentials
+
+**Commands:**
+
+```bash
+cd terraform
+terraform output -raw api_gateway_url
+terraform output -raw cognito_user_pool_id
+terraform output -raw cognito_client_id
+```
+
+**Criterion:** You have the API URL and Cognito client ID. A test user must exist (e.g. created per [terraform/README-LLM.md](../terraform/README-LLM.md#step-1-create-test-user-required-once)).
+
+### Step 5.2: Call the API (Postman or Script)
+
+**Option A – PowerShell script (recommended):**
+
+```powershell
+# From project root
+.\scripts\call-api-llm.ps1
+```
+
+**Option B – Postman (or curl):**
+
+1. **Get IdToken:** Use Cognito `USER_PASSWORD_AUTH` with the test user (e.g. `verygreat@test.com` / `VeryGreat123!`). Use the returned `IdToken`.
+2. **Request:**
+   - Method: POST
+   - URL: value of `api_gateway_url`
+   - Headers: `Authorization: Bearer <IdToken>`, `Content-Type: application/json`
+   - Body (raw JSON): `{ "query": "What are the top trending products in Skincare?" }`
+3. Send the request.
+
+**Criterion:** Response status 200 and JSON body contains `status`, `report`, `product_count`.
+
+### Step 5.3: Validate Response Structure
+
+**Checks:**
+
+1. **Status:** `status` is `"success"`.
+2. **Body fields:** `request_id`, `query`, `category`, `report`, `pdf_url` (or null), `execution_time_ms`, `product_count` are present.
+3. **Category:** `category` matches the extracted L2 category (e.g. `"Skincare"`).
+4. **Report:** `report` is an object with at least `query`, `category`, `generated_at`, and a products array.
+5. **Latency (optional):** `execution_time_ms` is typically under 30000 ms (target 20000–25000 ms).
+
+**Example success response (abbreviated):**
+
+```json
+{
+  "status": "success",
+  "request_id": "...",
+  "query": "What are the top trending products in Skincare?",
+  "category": "Skincare",
+  "report": { "query": "...", "category": "Skincare", "products": [...] },
+  "pdf_url": "https://...",
+  "execution_time_ms": 22000,
+  "product_count": 5
+}
+```
+
+**Criterion:** Response structure matches the above; no client-side parsing errors.
+
+### Step 5.4: Optional – Check Lambda Logs
+
+**Command:**
+
+```bash
+aws logs tail /aws/lambda/beauty-products-llm-orchestrator-{environment} --follow
+```
+
+Run a request and confirm logs show successful steps (Athena query, Bedrock processing, PDF generation) and no errors.
+
+**Criterion:** Logs show completion without exceptions for the test query.
+
+### LLM API Validation Summary
+
+**Success Criteria:**
+
+- ✓ API URL and Cognito credentials obtained
+- ✓ POST with Bearer token and body `{ "query": "..." }` returns 200
+- ✓ Response includes `status`, `report`, `product_count`, `execution_time_ms`
+- ✓ `category` extracted correctly; report structure valid
+- ✓ (Optional) Lambda logs show successful execution
+
+**Status:** ☐ Pass / ☐ With caveats / ☐ Fail
+
+**Notes:**
+
+```
+[Document any API errors, timeouts, or missing fields]
+```
+
+---
+
 ## Overall Validation Summary
 
 ### Completion Checklist
@@ -942,15 +1053,17 @@ Validation Approach:
 - [ ] **Crawler Performance:** All steps completed, criteria met
 - [ ] **Query Response Time:** All steps completed, criteria met
 - [ ] **Dashboard Accuracy:** All steps completed, criteria met
+- [ ] **LLM API** (if enabled): All steps completed, criteria met
 
 ### Final Status
 
-| Eje de Validación        | Estado                          | Notas                                    |
-| ------------------------ | ------------------------------- | ---------------------------------------- |
-| Data Quality             | ☐ Cumple / ☐ Salvedades / ☐ No |                                          |
-| Crawler Performance      | ☐ Cumple / ☐ Salvedades / ☐ No |                                          |
-| Query Response Time      | ☐ Cumple / ☐ Salvedades / ☐ No |                                          |
-| Dashboard Accuracy       | ☐ Cumple / ☐ Salvedades / ☐ No |                                          |
+| Validation Area          | Status                           | Notes                                    |
+| ------------------------ | -------------------------------- | ---------------------------------------- |
+| Data Quality             | ☐ Pass / ☐ With caveats / ☐ Fail |                                          |
+| Crawler Performance      | ☐ Pass / ☐ With caveats / ☐ Fail |                                          |
+| Query Response Time      | ☐ Pass / ☐ With caveats / ☐ Fail |                                          |
+| Dashboard Accuracy       | ☐ Pass / ☐ With caveats / ☐ Fail |                                          |
+| LLM API (if enabled)     | ☐ Pass / ☐ With caveats / ☐ Fail |                                          |
 
 ### Issues Found
 
@@ -976,6 +1089,8 @@ Validation Approach:
 - **CloudWatch Dashboard:** `terraform/cloudwatch.tf`
 - **Deployment Checklist:** `deployment-checklist.md`
 - **Integration Tests:** `tests/integration_test.py`
+- **LLM Architecture:** `docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`
+- **LLM Deployment & Testing:** `terraform/README-LLM.md`
 
 ---
 

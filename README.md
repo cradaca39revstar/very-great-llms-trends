@@ -46,7 +46,7 @@ The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transf
 **NEW**: AI-powered trending products report generator that integrates with the existing data lake to deliver intelligent, data-driven insights.
 
 **Key Features**:
-- Natural language queries (English/Spanish)
+- Natural language queries (English)
 - AI-generated market trend analysis using AWS Bedrock
 - Professional PDF reports in 20-25 seconds
 - Secure authentication via AWS Cognito
