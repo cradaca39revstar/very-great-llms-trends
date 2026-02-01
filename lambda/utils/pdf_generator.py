@@ -25,7 +25,7 @@ class TrendingProductsPDF(FPDF):
         self.set_font('Arial', 'B', 16)
         self.cell(0, 10, 'Trending Products Report', 0, 1, 'C')
         self.set_font('Arial', '', 10)
-        self.cell(0, 5, f"Category: {self.report_data.get('category', '')}", 0, 1, 'C')
+        self.cell(0, 5, _sanitize_pdf_text(f"Category: {self.report_data.get('category', '')}"), 0, 1, 'C')
         self.ln(5)
     
     def footer(self):
@@ -47,12 +47,12 @@ def generate_pdf_report(report: Dict) -> bytes:
     """
     pdf = TrendingProductsPDF(report)
     pdf.set_auto_page_break(auto=True, margin=15)
+    products = report.get('products', [])
     
     # Add title page
     add_title_page(pdf, report)
     
     # Add each product
-    products = report.get('products', [])
     for product in products:
         add_product_page(pdf, product)
     
@@ -74,7 +74,7 @@ def add_title_page(pdf: FPDF, report: Dict):
     # Category
     pdf.set_font('Arial', 'B', 18)
     pdf.ln(10)
-    pdf.cell(0, 10, f"Category: {report.get('category', '')}", 0, 1, 'C')
+    pdf.cell(0, 10, _sanitize_pdf_text(f"Category: {report.get('category', '')}"), 0, 1, 'C')
     
     # Metadata
     pdf.set_font('Arial', '', 12)
@@ -92,6 +92,25 @@ def add_title_page(pdf: FPDF, report: Dict):
         f"month-over-month growth over the last 30 days. Each product includes AI-generated "
         f"market trend analysis."
     )
+
+
+def _sanitize_pdf_text(s: str) -> str:
+    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII equivalents."""
+    if not s or not isinstance(s, str):
+        return s
+    replacements = (
+        ('\u2019', "'"),   # RIGHT SINGLE QUOTATION MARK
+        ('\u2018', "'"),   # LEFT SINGLE QUOTATION MARK
+        ('\u201c', '"'),   # LEFT DOUBLE QUOTATION MARK
+        ('\u201d', '"'),   # RIGHT DOUBLE QUOTATION MARK
+        ('\u2014', "-"),   # EM DASH
+        ('\u2013', "-"),   # EN DASH
+        ('\u2026', "..."), # HORIZONTAL ELLIPSIS
+    )
+    out = s
+    for u, a in replacements:
+        out = out.replace(u, a)
+    return out
 
 
 def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
@@ -117,20 +136,20 @@ def add_product_page(pdf: FPDF, product: Dict):
     
     # Product name (explicit width to avoid 0-width)
     pdf.set_font('Arial', '', 12)
-    pdf.multi_cell(_safe_width(pdf), 6, f"Product: {product.get('product_name', '') or '—'}")
+    pdf.multi_cell(_safe_width(pdf), 6, _sanitize_pdf_text(f"Product: {product.get('product_name', '') or '-'}"))
     pdf.ln(2)
     
     # URL (if available)
     if product.get('brand_url'):
         pdf.set_font('Arial', 'U', 10)
         pdf.set_text_color(0, 0, 255)
-        pdf.cell(0, 6, f"URL: {product.get('brand_url', '')}", 0, 1, 'L')
+        pdf.cell(0, 6, _sanitize_pdf_text(f"URL: {product.get('brand_url', '')}"), 0, 1, 'L')
         pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
     
-    # Description (explicit width; empty = "—")
+    # Description (explicit width; empty = "-")
     pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(_safe_width(pdf), 5, (product.get('description') or '').strip() or "—")
+    pdf.multi_cell(_safe_width(pdf), 5, _sanitize_pdf_text((product.get('description') or '').strip() or "-"))
     pdf.ln(5)
     
     # Revenue metrics box
@@ -149,7 +168,7 @@ def add_product_page(pdf: FPDF, product: Dict):
         pdf.cell(60, 6, label, 0, 0, 'L')
         pdf.set_font('Arial', '', 11)
         w_val = _safe_width(pdf)
-        pdf.multi_cell(w_val, 6, (str(value).strip() if value is not None else '') or '—', 0, 1, 'L')
+        pdf.multi_cell(w_val, 6, _sanitize_pdf_text((str(value).strip() if value is not None else '') or '-'), 0, 'L')
     
     pdf.ln(5)
     
@@ -171,8 +190,8 @@ def add_product_page(pdf: FPDF, product: Dict):
     trends = product.get('supporting_trends', [])
     for i, trend in enumerate(trends, 1):
         trend_parts = parse_trend_text(trend)
-        title = (trend_parts['title'] or '').strip() or "—"
-        explanation = (trend_parts['explanation'] or '').strip() or "—"
+        title = _sanitize_pdf_text((trend_parts['title'] or '').strip() or "-")
+        explanation = _sanitize_pdf_text((trend_parts['explanation'] or '').strip() or "-")
         pdf.set_font('Arial', 'B', 11)
         pdf.multi_cell(_safe_width(pdf), 5, f"{i}. {title}")
         pdf.set_font('Arial', '', 10)
@@ -191,10 +210,10 @@ def parse_trend_text(trend: str) -> Dict:
         Dict with 'title' and 'explanation'
     """
     if trend is None or not isinstance(trend, str):
-        return {'title': '—', 'explanation': '—'}
+        return {'title': '-', 'explanation': '-'}
     trend = trend.strip()
     if not trend:
-        return {'title': '—', 'explanation': '—'}
+        return {'title': '-', 'explanation': '-'}
     lines = trend.split('\n', 1)
     
     if len(lines) == 2:

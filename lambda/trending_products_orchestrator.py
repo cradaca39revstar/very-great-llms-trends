@@ -321,11 +321,13 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
         product['url'] = product_info.get('url', '')
         product['description'] = product_info.get('description', '')
         product['image_url'] = product_info.get('image_url', '')
+        product['url_confidence'] = product_info.get('url_confidence', 'unknown')
     except Exception as e:
         print(f"[{request_id}] Product search failed for {product_id}: {str(e)}")
         product['url'] = ''
         product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
         product['image_url'] = ''
+        product['url_confidence'] = 'unknown'
     
     # Generate 5 supporting trends
     try:
@@ -372,7 +374,8 @@ def format_report(query: str, category: str, products: List[Dict]) -> Dict:
                 'revenue_trend': format_revenue_trend(p.get('mom_growth_pct', 0)),
                 'revenue_scale': format_revenue_scale(p.get('revenue_usd', 0)),
                 'category_rank': format_category_rank(p.get('revenue_rank', i + 1)),
-                'supporting_trends': p.get('supporting_trends', [])
+                'supporting_trends': p.get('supporting_trends', []),
+                'url_confidence': p.get('url_confidence', 'unknown'),
             }
             for i, p in enumerate(products)
         ]
@@ -463,21 +466,32 @@ def clean_product_name(product_name: str) -> str:
 
 def format_revenue_trend(mom_growth_pct: float) -> str:
     """Format revenue trend as percentage with +/- sign"""
-    if mom_growth_pct >= 0:
-        return f"+{mom_growth_pct:.1f}% Last 30 Days"
+    try:
+        val = float(mom_growth_pct) if mom_growth_pct not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    if val >= 0:
+        return f"+{val:.1f}% Last 30 Days"
     else:
-        return f"{mom_growth_pct:.1f}% Last 30 Days"
+        return f"{val:.1f}% Last 30 Days"
 
 
 def format_revenue_scale(revenue_usd: float) -> str:
     """Format revenue as USD currency"""
-    return f"${revenue_usd:,.0f} Last 30 Days"
+    try:
+        val = float(revenue_usd) if revenue_usd not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    return f"${val:,.0f} Last 30 Days"
 
 
 def format_category_rank(rank: int) -> str:
     """Format category rank with change indicator"""
-    # For now, assume +0 change (would need historical data for actual change)
-    return f"[{rank}], +0 in Last 30 Days"
+    try:
+        val = int(rank) if rank not in (None, '') else 0
+    except (TypeError, ValueError):
+        val = 0
+    return f"[{val}], +0 in Last 30 Days"
 
 
 def log_to_dynamodb(log_data: Dict):

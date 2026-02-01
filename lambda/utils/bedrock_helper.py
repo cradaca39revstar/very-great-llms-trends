@@ -4,6 +4,7 @@ Wrapper functions for invoking foundation models with retry logic
 """
 
 import json
+import re
 import time
 import os
 from typing import Dict, List
@@ -48,24 +49,137 @@ Format each trend exactly as:
 
 Continue for all 5 trends."""
 
-PRODUCT_SEARCH_PROMPT = """Based on the following product information, generate a product description and provide the official brand website URL.
+PRODUCT_SEARCH_PROMPT = """You are a precise assistant for an automated e-commerce product enrichment pipeline.
+You MUST respond ONLY with valid JSON, no other text.
+
+Given this product, find the BEST available product page and image:
 
 Brand: {brand_name}
 Product: {product_name}
 Category: {l2_category}
 
-Provide:
-1. Official website URL (if known, or best estimate)
-2. Product description (2-3 sentences describing the product, its benefits, and key ingredients/features)
+Your task is to provide:
 
-Format your response as JSON:
-{{
-  "url": "https://www.example.com/product-page",
-  "description": "Product description here...",
-  "image_url": "https://www.example.com/image.jpg"
-}}
+1. "url": The best product page URL, priority order:
+   a) Official brand website product page (highest preference)
+   b) Major retailer product page (Amazon, Sephora, Ulta, Walmart, Target, CVS, Walgreens, iHerb)
+   c) If neither is known, use ONE of these fallback search URLs (set url_confidence to "search_fallback"):
+      - https://www.amazon.com/s?k={{brand_name}}+{{product_name}}
+      - https://www.sephora.com/search?q={{brand_name}}+{{product_name}}
+      - https://www.walmart.com/search?q={{brand_name}}+{{product_name}}
+   d) If you cannot find or reasonably estimate any URL, use "".
 
-If you don't know the exact URL, provide the brand's main website or a reasonable estimate."""
+   Rules:
+   - ONLY provide URLs you are confident exist based on training data.
+   - For lesser-known brands, prefer major retailer URLs.
+   - Do NOT construct URLs from brand names (like https://{{brand}}.com).
+   - Do NOT use example.com or any placeholder domains.
+
+2. "image_url": Direct link to a product image (embeddable URL):
+   - Must start with https:// or http://
+   - Must end in .jpg, .jpeg, .png, .webp, .gif
+     OR contain a known image CDN domain (e.g., cdn.shopify.com, images-na.ssl-images-amazon.com, cloudinary, imgix).
+   - Must point to an actual product image (not just a logo or generic banner).
+   - If you are NOT confident about a specific image URL, use "".
+
+3. "description": 2–3 sentences describing the product, its benefits, and key ingredients/features.
+   - You may generate this; it does NOT need to come from a real page.
+
+4. "url_confidence": One of:
+   - "brand_official"       → Official brand website product page
+   - "retailer_product"     → Product page on a major retailer
+   - "retailer_brand_store" → Official brand store page on a retailer
+   - "search_fallback"      → One of the search URLs above
+   - "unknown"              → No reliable URL found
+
+Global rules:
+- When in doubt about "url" or "image_url", use the empty string "".
+- Output ONLY a single JSON object, no markdown, no comments, no explanations.
+
+Return your answer in exactly this JSON shape:
+{{"url": "...", "url_confidence": "brand_official|retailer_product|retailer_brand_store|search_fallback|unknown", "image_url": "...", "description": "..."}}"""
+
+
+def _looks_like_placeholder_url(url: str) -> bool:
+    """Return True if URL is empty or a known placeholder/example domain."""
+    if not url or not isinstance(url, str):
+        return True
+    u = url.strip().lower()
+    if not u.startswith(("http://", "https://")):
+        return True
+    # Reject example/placeholder domains
+    placeholders = [
+        "example.com", "example.org", "example.net",
+        "placeholder", "test.com", "dummy.com",
+        "sample.com", "brandname.com", "yoursite.com"
+    ]
+    if any(p in u for p in placeholders):
+        return True
+    return False
+
+
+def _looks_like_valid_image_url(url: str) -> bool:
+    """Return True if URL looks like a direct image link (extension or known CDN path)."""
+    if not url or not isinstance(url, str):
+        return False
+    u = url.strip()
+    if not u.startswith(("http://", "https://")):
+        return False
+    u_lower = u.lower()
+    
+    # Common image extensions
+    if re.search(r"\.(jpg|jpeg|png|webp|gif)(\?|$)", u_lower):
+        return True
+    
+    # Known image CDN path patterns
+    cdn_patterns = [
+        r"/(images?|img|assets|media|cdn|productimages)/",
+        "cloudfront", "amazonaws", ".cdn.",
+        "cdn.shopify.com",
+        "images-na.ssl-images-amazon.com",
+        "cloudinary", "imgix",
+        "sephora.com/productimages",
+        "ulta.com/images",
+        "target.com/img",
+        "walmart.com/images",
+        "amazon.com/images",
+        "deciem.com/cdn",
+        "shopify.com/s/files",
+    ]
+    
+    if any(pattern in u_lower if "/" not in pattern else re.search(pattern, u_lower) for pattern in cdn_patterns):
+        return True
+    
+    return False
+
+
+VALID_URL_CONFIDENCE = frozenset({
+    "brand_official", "retailer_product", "retailer_brand_store", "search_fallback", "unknown"
+})
+
+
+def _clean_product_info(product_info: Dict) -> Dict:
+    """
+    Validate and clean product_info after JSON parse.
+    Clears url/image_url that are placeholders or invalid; keeps description and url_confidence.
+    """
+    if not isinstance(product_info, dict):
+        return {"url": "", "description": "", "image_url": "", "url_confidence": "unknown"}
+    raw_confidence = str(product_info.get("url_confidence", "") or "").strip().lower()
+    url_confidence = raw_confidence if raw_confidence in VALID_URL_CONFIDENCE else "unknown"
+    result = {
+        "url": "",
+        "description": str(product_info.get("description", "") or "").strip() or "",
+        "image_url": "",
+        "url_confidence": url_confidence,
+    }
+    url = str(product_info.get("url", "") or "").strip()
+    if url and not _looks_like_placeholder_url(url):
+        result["url"] = url
+    image_url = str(product_info.get("image_url", "") or "").strip()
+    if image_url and _looks_like_valid_image_url(image_url):
+        result["image_url"] = image_url
+    return result
 
 
 def generate_brand_name(
@@ -180,25 +294,35 @@ def search_product_info_via_bedrock(
         )
         
         response_text = extract_text_from_response(response, model_id)
-        
+        # Strip markdown code fences if present
+        text = (response_text or "").strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```\s*$", "", text)
+            text = text.strip()
+        else:
+            text = response_text
+
         # Try to parse as JSON
         try:
-            product_info = json.loads(response_text)
-            return product_info
+            product_info = json.loads(text)
+            return _clean_product_info(product_info)
         except json.JSONDecodeError:
-            # Fallback: extract info from text
+            # Fallback: do not construct fake URLs from brand names
             return {
-                'url': f"https://www.{brand_name.lower().replace(' ', '')}.com",
-                'description': response_text[:200],
-                'image_url': ''
+                "url": "",
+                "description": (response_text[:500] if response_text else "").strip() or f"A trending {product_name} product.",
+                "image_url": "",
+                "url_confidence": "unknown",
             }
     except Exception as e:
         print(f"Product search failed: {str(e)}")
         # Return default values
         return {
-            'url': '',
-            'description': f"A trending {product_name} product.",
-            'image_url': ''
+            "url": "",
+            "description": f"A trending {product_name} product.",
+            "image_url": "",
+            "url_confidence": "unknown",
         }
 
 

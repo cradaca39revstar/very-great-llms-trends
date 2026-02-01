@@ -97,10 +97,6 @@ User Query → API Gateway → Lambda Orchestrator → Athena + Bedrock → AI-G
            Cognito Auth                         Data Lake   Foundation Models
 ```
 
-
-
-
-
 The system combines the reliability of structured data lake analytics with the intelligence of large language models to deliver unprecedented insights into beauty product trends.
 
 ---
@@ -111,10 +107,9 @@ The LLM Trending Products Report Generator follows a serverless, event-driven ar
 
 ### Architecture Diagram
 
-![1769764781139](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764781139.png)
+![Arquitectura completa](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/full_arquitecture.png)
 
-![1769764838264](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/1769764838264.png)
-
+![Arquitectura LLM](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/llm_arquitecture.png)
 
 ```mermaid
 flowchart TB
@@ -187,7 +182,7 @@ flowchart TB
 
 For a detailed visual representation of the system architecture, refer to the architecture diagram:
 
-![LLM Architecture](diagrams/arquitectura_llm.png)
+![Arquitectura completa](image/LLM-TRENDING-PRODUCTS-ARCHITECTURE/arquitecture_llm_revstar.png)
 
 *The diagram shows the complete AWS infrastructure including Cognito authentication, API Gateway, Lambda orchestrator, Bedrock foundation models, and integration with the existing Athena data lake.*
 
