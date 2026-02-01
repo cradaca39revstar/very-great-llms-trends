@@ -1,6 +1,8 @@
 """
 PDF Report Generator Module
-Creates professional PDF reports using FPDF
+Creates professional PDF reports using FPDF (fpdf2).
+All body text uses effective page width (epw) and set_x(l_margin) so content
+wraps within margins and does not overflow.
 """
 
 import os
@@ -8,6 +10,25 @@ from datetime import datetime, timezone
 from typing import Dict, List
 import boto3
 from fpdf import FPDF
+
+# -----------------------------------------------------------------------------
+# Layout constants (tweak here for global layout changes)
+# -----------------------------------------------------------------------------
+# Page margins in mm (FPDF default unit). Left/right/top/bottom.
+PAGE_MARGIN_MM = 15
+# Bottom margin reserved for footer (used by set_auto_page_break)
+PAGE_BOTTOM_MARGIN_MM = 15
+# Font sizes (pt): title, heading, body, small
+FONT_SIZE_TITLE = 24
+FONT_SIZE_HEADING = 16
+FONT_SIZE_SUBHEADING = 12
+FONT_SIZE_BODY = 11
+FONT_SIZE_SMALL = 10
+# Line height multiplier for multi_cell (pt per line)
+LINE_HEIGHT_BODY = 5
+LINE_HEIGHT_TITLE = 6
+# Max URL length before truncation with ellipsis (avoids overflow)
+MAX_URL_DISPLAY_LEN = 80
 
 # AWS S3 client
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION_NAME', 'us-east-1'))
@@ -31,6 +52,7 @@ class TrendingProductsPDF(FPDF):
     def footer(self):
         """Page footer"""
         self.set_y(-15)
+        self.set_x(self.l_margin)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f"Page {self.page_no()}", 0, 0, 'C')
 
@@ -46,7 +68,10 @@ def generate_pdf_report(report: Dict) -> bytes:
         PDF file as bytes
     """
     pdf = TrendingProductsPDF(report)
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_margins(PAGE_MARGIN_MM, PAGE_MARGIN_MM, PAGE_MARGIN_MM)
+    pdf.set_auto_page_break(auto=True, margin=PAGE_BOTTOM_MARGIN_MM)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_y(pdf.t_margin)
     products = report.get('products', [])
     
     # Add title page
@@ -63,11 +88,12 @@ def generate_pdf_report(report: Dict) -> bytes:
 
 
 def add_title_page(pdf: FPDF, report: Dict):
-    """Add title/cover page to PDF"""
+    """Add title/cover page to PDF. All text uses content width and respects margins."""
     pdf.add_page()
+    pdf.set_x(pdf.l_margin)
     
     # Title
-    pdf.set_font('Arial', 'B', 24)
+    pdf.set_font('Arial', 'B', FONT_SIZE_TITLE)
     pdf.ln(30)
     pdf.cell(0, 10, 'Trending Products Report', 0, 1, 'C')
     
@@ -77,21 +103,23 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.cell(0, 10, _sanitize_pdf_text(f"Category: {report.get('category', '')}"), 0, 1, 'C')
     
     # Metadata
-    pdf.set_font('Arial', '', 12)
+    pdf.set_font('Arial', '', FONT_SIZE_SUBHEADING)
     pdf.ln(20)
     pdf.cell(0, 8, f"Generated: {format_timestamp(report.get('generated_at', ''))}", 0, 1, 'C')
     pdf.cell(0, 8, f"Data Period: {report.get('data_period', 'Last 30 Days')}", 0, 1, 'C')
     pdf.cell(0, 8, f"Number of Products: {len(report.get('products', []))}", 0, 1, 'C')
     
-    # Summary
+    # Summary paragraph (full content width, word-wrapped)
     pdf.ln(20)
-    pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(0, 6, 
+    pdf.set_font('Arial', '', FONT_SIZE_BODY)
+    pdf.set_x(pdf.l_margin)
+    summary = _sanitize_pdf_text(
         f"This report presents the top {len(report.get('products', []))} trending products "
         f"in the {report.get('category', '')} category based on revenue performance and "
         f"month-over-month growth over the last 30 days. Each product includes AI-generated "
         f"market trend analysis."
     )
+    pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 
 
 def _sanitize_pdf_text(s: str) -> str:
@@ -113,89 +141,116 @@ def _sanitize_pdf_text(s: str) -> str:
     return out
 
 
+def _content_width(pdf: FPDF) -> float:
+    """Full content width (epw) for body text. Use after set_x(l_margin) for consistent wrapping."""
+    return pdf.epw
+
+
 def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
-    """Effective width from current x to right margin; never 0 (avoids FPDF 'Not enough horizontal space')."""
+    """Width from current x to right margin; for two-column rows (e.g. metrics label + value)."""
     w = pdf.w - pdf.r_margin - pdf.get_x()
     return max(float(w), min_w)
 
 
+def _truncate_url(url: str, max_len: int = MAX_URL_DISPLAY_LEN) -> str:
+    """Truncate long URLs with ellipsis to avoid overflow; keeps one line readable."""
+    if not url or len(url) <= max_len:
+        return url or ""
+    return url[: max_len - 3].rstrip("/") + "..."
+
+
 def add_product_page(pdf: FPDF, product: Dict):
-    """Add product details page"""
+    """Add product details page. All body text uses content width (epw) and stays within margins."""
     pdf.add_page()
+    pdf.set_x(pdf.l_margin)
     
     rank = product.get('rank', 0)
+    cw = _content_width(pdf)
     
     # Product header
-    pdf.set_font('Arial', 'B', 16)
+    pdf.set_font('Arial', 'B', FONT_SIZE_HEADING)
     pdf.cell(0, 10, f"Trending Product #{rank}", 0, 1, 'L')
     pdf.ln(5)
     
     # Brand name
     pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 8, f"Brand Name: {product.get('brand_name', 'Unknown')}", 0, 1, 'L')
+    pdf.cell(0, 8, _sanitize_pdf_text(f"Brand Name: {product.get('brand_name', 'Unknown')}"), 0, 1, 'L')
     
-    # Product name (explicit width to avoid 0-width)
-    pdf.set_font('Arial', '', 12)
-    pdf.multi_cell(_safe_width(pdf), 6, _sanitize_pdf_text(f"Product: {product.get('product_name', '') or '-'}"))
+    # Product name (full width paragraph)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font('Arial', '', FONT_SIZE_SUBHEADING)
+    pdf.multi_cell(cw, LINE_HEIGHT_TITLE, _sanitize_pdf_text(f"Product: {product.get('product_name', '') or '-'}"))
+    pdf.set_x(pdf.l_margin)
     pdf.ln(2)
     
-    # URL (if available)
+    # URL (wrapped or truncated to stay within margins)
     if product.get('brand_url'):
-        pdf.set_font('Arial', 'U', 10)
+        pdf.set_font('Arial', 'U', FONT_SIZE_SMALL)
         pdf.set_text_color(0, 0, 255)
-        pdf.cell(0, 6, _sanitize_pdf_text(f"URL: {product.get('brand_url', '')}"), 0, 1, 'L')
+        url_display = _truncate_url(_sanitize_pdf_text(product.get('brand_url', '') or ""))
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, f"URL: {url_display}")
         pdf.set_text_color(0, 0, 0)
+        pdf.set_x(pdf.l_margin)
     pdf.ln(2)
     
-    # Description (explicit width; empty = "-")
-    pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(_safe_width(pdf), 5, _sanitize_pdf_text((product.get('description') or '').strip() or "-"))
+    # Description (full width paragraph)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font('Arial', '', FONT_SIZE_BODY)
+    desc = _sanitize_pdf_text((product.get('description') or '').strip() or "-")
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, desc)
+    pdf.set_x(pdf.l_margin)
     pdf.ln(5)
     
-    # Revenue metrics box
-    pdf.set_font('Arial', 'B', 12)
+    # Revenue metrics (two-column: label 60pt, value uses rest of line)
+    pdf.set_font('Arial', 'B', FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, 'Revenue Metrics', 0, 1, 'L')
-    pdf.set_font('Arial', '', 11)
-    
-    # Metrics table: value column uses explicit width and multi_cell so long values wrap
+    pdf.set_font('Arial', '', FONT_SIZE_BODY)
     metrics = [
         ('Revenue Trend:', product.get('revenue_trend', '')),
         ('Revenue Scale:', product.get('revenue_scale', '')),
         ('Product Rank in Category:', product.get('category_rank', ''))
     ]
     for label, value in metrics:
-        pdf.set_font('Arial', 'B', 11)
-        pdf.cell(60, 6, label, 0, 0, 'L')
-        pdf.set_font('Arial', '', 11)
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font('Arial', 'B', FONT_SIZE_BODY)
+        pdf.cell(60, LINE_HEIGHT_BODY, label, 0, 0, 'L')
+        pdf.set_font('Arial', '', FONT_SIZE_BODY)
         w_val = _safe_width(pdf)
-        pdf.multi_cell(w_val, 6, _sanitize_pdf_text((str(value).strip() if value is not None else '') or '-'), 0, 'L')
+        pdf.multi_cell(w_val, LINE_HEIGHT_BODY, _sanitize_pdf_text((str(value).strip() if value is not None else '') or '-'), 0, 'L')
+        pdf.set_x(pdf.l_margin)
     
     pdf.ln(5)
     
-    # Supporting trends
-    pdf.set_font('Arial', 'B', 12)
+    # Supporting trends heading
+    pdf.set_font('Arial', 'B', FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, 'Supporting Trends:', 0, 1, 'L')
     pdf.ln(2)
     
-    pdf.set_font('Arial', '', 11)
-    intro_text = (
+    # Intro paragraph (full width)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font('Arial', '', FONT_SIZE_BODY)
+    intro_text = _sanitize_pdf_text(
         f"Here are 5 macro trends that are driving the success of "
         f"{product.get('brand_name', '')} {product.get('product_name', '')}, "
         f"and which have helped make it one of the most dominant products in the market:"
     )
-    pdf.multi_cell(_safe_width(pdf), 5, intro_text)
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro_text)
+    pdf.set_x(pdf.l_margin)
     pdf.ln(3)
     
-    # List trends (explicit width; empty title/explanation = "—")
+    # List of trends (each title + explanation as full-width paragraphs)
     trends = product.get('supporting_trends', [])
     for i, trend in enumerate(trends, 1):
+        pdf.set_x(pdf.l_margin)
         trend_parts = parse_trend_text(trend)
         title = _sanitize_pdf_text((trend_parts['title'] or '').strip() or "-")
         explanation = _sanitize_pdf_text((trend_parts['explanation'] or '').strip() or "-")
-        pdf.set_font('Arial', 'B', 11)
-        pdf.multi_cell(_safe_width(pdf), 5, f"{i}. {title}")
-        pdf.set_font('Arial', '', 10)
-        pdf.multi_cell(_safe_width(pdf), 5, explanation)
+        pdf.set_font('Arial', 'B', FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, f"{i}. {title}")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font('Arial', '', FONT_SIZE_SMALL)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, explanation)
+        pdf.set_x(pdf.l_margin)
         pdf.ln(2)
 
 
