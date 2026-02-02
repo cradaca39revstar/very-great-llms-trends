@@ -39,11 +39,14 @@ DYNAMODB_LOGS_TABLE = os.environ.get('DYNAMODB_LOGS_TABLE')
 PDF_BUCKET = os.environ.get('PDF_BUCKET')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'poc')
 AWS_REGION = os.environ.get('AWS_REGION_NAME', 'us-east-1')
+SCRAPER_FUNCTION_NAME = os.environ.get('SCRAPER_FUNCTION_NAME', '').strip()
+KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '').strip()
 
 # AWS clients
 dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
 cloudwatch = boto3.client('cloudwatch', region_name=AWS_REGION)
 bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
+lambda_client = boto3.client('lambda', region_name=AWS_REGION)
 
 # Supported L2 categories
 SUPPORTED_L2_CATEGORIES = [
@@ -310,26 +313,72 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
         # Fallback: Extract brand from shop name
         product['brand_name'] = shop_name.split()[0] if shop_name else "Unknown"
     
-    # Search for product info (URL, description, image)
+    # Optional: invoke scraper Lambda for real web URL, image, trends_text
+    scraper_url = ''
+    scraper_image_url = ''
+    scraper_trends_text = ''
+    scraper_description = ''
+    if SCRAPER_FUNCTION_NAME:
+        try:
+            payload = {
+                'brand_name': product.get('brand_name', ''),
+                'product_name': product_name,
+                'l2_category': product.get('l2_category', ''),
+                'candidate_url': ''
+            }
+            resp = lambda_client.invoke(
+                FunctionName=SCRAPER_FUNCTION_NAME,
+                InvocationType='RequestResponse',
+                Payload=json.dumps(payload)
+            )
+            payload_out = json.loads(resp['Payload'].read())
+            if isinstance(payload_out, dict):
+                scraper_url = (payload_out.get('url') or '').strip()
+                scraper_image_url = (payload_out.get('image_url') or '').strip()
+                scraper_trends_text = (payload_out.get('trends_text') or '').strip()
+                scraper_description = (payload_out.get('description') or '').strip()
+            if scraper_url:
+                product['url'] = scraper_url
+            if scraper_image_url:
+                product['image_url'] = scraper_image_url
+            if scraper_trends_text:
+                product['trends_text'] = scraper_trends_text
+            if scraper_description:
+                product['description'] = scraper_description
+            if scraper_url or scraper_image_url:
+                product['url_confidence'] = 'scraper'
+        except Exception as e:
+            print(f"[{request_id}] Scraper invocation failed for {product_id}: {str(e)}")
+    
+    # Search for product info (URL, description, image) — fallback when scraper did not return URL/image
     try:
         product_info = search_product_info_via_bedrock(
             brand_name=product.get('brand_name', ''),
             product_name=product_name,
             bedrock_client=bedrock,
-            model_id=BEDROCK_PRIMARY_MODEL
+            model_id=BEDROCK_PRIMARY_MODEL,
+            l2_category=product.get('l2_category', '')
         )
-        product['url'] = product_info.get('url', '')
-        product['description'] = product_info.get('description', '')
-        product['image_url'] = product_info.get('image_url', '')
-        product['url_confidence'] = product_info.get('url_confidence', 'unknown')
+        if not product.get('url'):
+            product['url'] = product_info.get('url', '')
+        if not product.get('image_url'):
+            product['image_url'] = product_info.get('image_url', '')
+        if not product.get('description'):
+            product['description'] = product_info.get('description', '') or f"A trending {product.get('l2_category', 'beauty')} product."
+        if product.get('url_confidence') != 'scraper':
+            product['url_confidence'] = product_info.get('url_confidence', 'unknown')
     except Exception as e:
         print(f"[{request_id}] Product search failed for {product_id}: {str(e)}")
-        product['url'] = ''
-        product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
-        product['image_url'] = ''
-        product['url_confidence'] = 'unknown'
+        if not product.get('url'):
+            product['url'] = ''
+        if not product.get('image_url'):
+            product['image_url'] = ''
+        if not product.get('description'):
+            product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
+        if product.get('url_confidence') != 'scraper':
+            product['url_confidence'] = 'unknown'
     
-    # Generate 5 supporting trends
+    # Generate 5 supporting trends (product may include trends_text from scraper/KB)
     try:
         trends = generate_supporting_trends(
             product_data=product,

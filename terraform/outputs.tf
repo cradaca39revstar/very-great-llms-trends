@@ -119,6 +119,11 @@ output "lambda_function_arn" {
   value       = var.enable_llm_system ? aws_lambda_function.orchestrator[0].arn : null
 }
 
+output "lambda_scraper_function_name" {
+  description = "Scraper Lambda function name (invoked by orchestrator)"
+  value       = var.enable_llm_system ? aws_lambda_function.scraper[0].function_name : null
+}
+
 output "dynamodb_logs_table_name" {
   description = "DynamoDB table for prompt audit logs"
   value       = var.enable_llm_system ? aws_dynamodb_table.prompt_logs[0].name : null

@@ -28,6 +28,7 @@ Category: {l2_category}
 Revenue Growth: {mom_growth_pct}%
 Revenue: ${revenue_usd:,.0f}
 Items Sold: {item_sold:,}
+{web_context_section}
 
 Generate 5 trends, each with:
 - A descriptive title (2-5 words)
@@ -229,20 +230,26 @@ def generate_supporting_trends(
     Generate 5 supporting trends for a product using Bedrock
     
     Args:
-        product_data: Dict with product information
+        product_data: Dict with product information (may include trends_text or web_context from scraper/KB)
         bedrock_client: Boto3 Bedrock client
         model_id: Bedrock model ID to use
         
     Returns:
         List of 5 trend strings with titles and explanations
     """
+    web_context = (product_data.get('trends_text') or product_data.get('web_context') or '').strip()
+    web_context_section = (
+        "Use the following context from the product page if relevant:\n" + web_context
+        if web_context else ""
+    )
     prompt = TRENDS_PROMPT.format(
         product_name=product_data.get('product_name', ''),
         brand_name=product_data.get('brand_name', ''),
         l2_category=product_data.get('l2_category', ''),
         mom_growth_pct=product_data.get('mom_growth_pct', 0),
         revenue_usd=product_data.get('revenue_usd', 0),
-        item_sold=product_data.get('item_sold', 0)
+        item_sold=product_data.get('item_sold', 0),
+        web_context_section=web_context_section
     )
     
     response = invoke_model_with_retry(
@@ -260,29 +267,111 @@ def generate_supporting_trends(
     return trends
 
 
+def retrieve_product_info_from_kb(
+    brand_name: str,
+    product_name: str,
+    l2_category: str,
+    knowledge_base_id: str,
+    region: str
+) -> Dict:
+    """
+    Option A: Retrieve product URL/image/snippets from Bedrock Knowledge Base.
+    Returns same shape as search_product_info_via_bedrock or empty dict.
+    """
+    if not knowledge_base_id or not knowledge_base_id.strip():
+        return {}
+    try:
+        client = boto3.client("bedrock-agent-runtime", region_name=region)
+        query = f"Product page URL and product image URL for: {brand_name} {product_name} {l2_category}"
+        resp = client.retrieve(
+            knowledgeBaseId=knowledge_base_id.strip(),
+            retrievalQuery={"text": query},
+            retrievalConfiguration={
+                "vectorSearchConfiguration": {
+                    "numberOfResults": 5
+                }
+            },
+        )
+        url = ""
+        image_url = ""
+        description = ""
+        snippets = []
+        for result in resp.get("retrievalResults", []):
+            content = (result.get("content") or {}).get("text") or ""
+            if content:
+                snippets.append(content)
+            # Try to find URL and image URL in result location
+            loc = result.get("location", {}) or {}
+            if isinstance(loc.get("s3Location"), dict):
+                s3_loc = loc["s3Location"].get("uri", "")
+                if s3_loc and not url:
+                    url = s3_loc if s3_loc.startswith("http") else ""
+            # Often KB returns text; try to parse URL from content
+            if "http" in content and not url:
+                for part in content.replace(",", " ").split():
+                    if part.startswith("http") and ("amazon" in part or "sephora" in part or "ulta" in part or "product" in part.lower()):
+                        url = part.strip(".,;")
+                        break
+            if not image_url and (".jpg" in content or ".png" in content or "cdn" in content.lower() or "image" in content.lower()):
+                for part in content.replace(",", " ").split():
+                    if part.startswith("http") and (".jpg" in part or ".png" in part or ".webp" in part):
+                        image_url = part.strip(".,;")
+                        break
+        if snippets:
+            description = " ".join(snippets)[:500]
+        result_dict = {
+            "url": url[:2000] if url else "",
+            "image_url": image_url[:2000] if image_url else "",
+            "description": description,
+            "url_confidence": "unknown",
+        }
+        if result_dict["url"] or result_dict["image_url"]:
+            return _clean_product_info(result_dict)
+        return {}
+    except Exception as e:
+        print(f"Knowledge Base retrieve failed: {e}")
+        return {}
+
+
 def search_product_info_via_bedrock(
     brand_name: str,
     product_name: str,
     bedrock_client,
-    model_id: str
+    model_id: str,
+    l2_category: str = ""
 ) -> Dict:
     """
-    Search for product information using Bedrock
-    (In production, this could use Bedrock Knowledge Bases with web search)
+    Search for product information using Bedrock.
+    If KNOWLEDGE_BASE_ID is set, tries KB first; otherwise or on empty result, uses LLM.
     
     Args:
         brand_name: Brand name
         product_name: Product name
         bedrock_client: Boto3 Bedrock client
         model_id: Bedrock model ID to use
+        l2_category: Optional L2 category (from product dict)
         
     Returns:
-        Dict with url, description, image_url
+        Dict with url, description, image_url, url_confidence
     """
+    kb_id = (os.environ.get("KNOWLEDGE_BASE_ID") or "").strip()
+    if kb_id:
+        region = os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        kb_result = retrieve_product_info_from_kb(
+            brand_name=brand_name,
+            product_name=product_name,
+            l2_category=l2_category or "beauty product",
+            knowledge_base_id=kb_id,
+            region=region,
+        )
+        if kb_result and (kb_result.get("url") or kb_result.get("image_url")):
+            return kb_result
+
+    l2_cat = (l2_category or "").strip() or "beauty product"
     prompt = PRODUCT_SEARCH_PROMPT.format(
         brand_name=brand_name,
         product_name=product_name,
-        l2_category="beauty product"
+        l2_category=l2_cat
     )
     
     try:

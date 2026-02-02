@@ -9,6 +9,22 @@
 
 This guide provides step-by-step instructions for deploying the LLM Trending Products Report Generator infrastructure using Terraform. The system includes API Gateway, Cognito authentication, Lambda orchestrator, DynamoDB logging, S3 PDF storage, and AWS Bedrock integration.
 
+### Orchestrator flow (with web-backed enrichment)
+
+- **Cognito → API Gateway → Orchestrator Lambda** (unchanged).
+- **Step 1:** Extract L2 category from user query.
+- **Step 2:** Query Athena for top 5 products (no URL/image in data).
+- **Step 3:** For each product (in parallel):  
+  - Generate brand name (Bedrock).  
+  - If **SCRAPER_FUNCTION_NAME** is set: invoke Scraper Lambda with brand, product name, L2 category; merge returned `url`, `image_url`, `trends_text`, optional `description` into product.  
+  - Call **search_product_info_via_bedrock** (optionally tries Knowledge Base first if **KNOWLEDGE_BASE_ID** is set; else LLM) for URL/image/description fallback; pass **l2_category** from product.  
+  - Generate 5 supporting trends (Bedrock), using **trends_text** from scraper/KB as context when present.  
+- **Step 4:** Format report.  
+- **Step 5:** Generate PDF, upload to S3.  
+- **Step 6:** Log to DynamoDB, publish CloudWatch metrics, return response.  
+
+The Scraper Lambda is internal only (invoked by the orchestrator via `lambda:InvokeFunction`); no new public APIs.
+
 ---
 
 ## Prerequisites

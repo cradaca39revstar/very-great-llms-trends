@@ -93,3 +93,9 @@ variable "pdf_expiration_days" {
     error_message = "PDF expiration must be between 1 and 365 days."
   }
 }
+
+variable "knowledge_base_id" {
+  description = "Optional Bedrock Knowledge Base ID for product URL/image retrieval (Option A)"
+  type        = string
+  default     = ""
+}
