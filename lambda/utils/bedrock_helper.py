@@ -30,6 +30,8 @@ Revenue: ${revenue_usd:,.0f}
 Items Sold: {item_sold:,}
 {web_context_section}
 
+When web context from a product page is provided above, use it to ground or support your trends where it applies; otherwise rely on the product and revenue data.
+
 Generate 5 trends, each with:
 - A descriptive title (2-5 words)
 - 2-3 lines of explanation (approximately 40-80 words)
@@ -127,7 +129,10 @@ def _looks_like_valid_image_url(url: str) -> bool:
     if not u.startswith(("http://", "https://")):
         return False
     u_lower = u.lower()
-    
+    # Reject nav sprites, logos, icons (scraper/LLM sometimes return these)
+    if any(x in u_lower for x in ["sprite", "nav-sprite", "logo", "icon", "pixel", "1x1", "gno/sprites"]):
+        return False
+
     # Common image extensions
     if re.search(r"\.(jpg|jpeg|png|webp|gif)(\?|$)", u_lower):
         return True
@@ -152,6 +157,11 @@ def _looks_like_valid_image_url(url: str) -> bool:
         return True
     
     return False
+
+
+def looks_like_valid_image_url(url: str) -> bool:
+    """Public wrapper for image URL validation (used by orchestrator for scraper images)."""
+    return _looks_like_valid_image_url(url)
 
 
 VALID_URL_CONFIDENCE = frozenset({
@@ -180,6 +190,18 @@ def _clean_product_info(product_info: Dict) -> Dict:
     image_url = str(product_info.get("image_url", "") or "").strip()
     if image_url and _looks_like_valid_image_url(image_url):
         result["image_url"] = image_url
+    # #region agent log
+    try:
+        import os
+        if url_confidence == "search_fallback" and result.get("url"):
+            _pl = {"location": "bedrock_helper:_clean_product_info", "message": "keeping search_fallback url", "data": {"url_preview": result["url"][:80], "url_confidence": url_confidence, "has_image": bool(result.get("image_url"))}, "timestamp": int(time.time() * 1000), "sessionId": "debug-session", "hypothesisId": "H4"}
+            _dp = os.environ.get("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".cursor", "debug.log"))
+            with open(_dp, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(_pl) + "\n")
+            print(f"[DEBUG] {json.dumps(_pl)}")
+    except Exception:
+        pass
+    # #endregion
     return result
 
 

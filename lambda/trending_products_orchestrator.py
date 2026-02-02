@@ -23,7 +23,8 @@ from utils.athena_helper import (
 from utils.bedrock_helper import (
     generate_brand_name,
     generate_supporting_trends,
-    search_product_info_via_bedrock
+    search_product_info_via_bedrock,
+    looks_like_valid_image_url,
 )
 from utils.pdf_generator import (
     generate_pdf_report,
@@ -47,6 +48,18 @@ dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
 cloudwatch = boto3.client('cloudwatch', region_name=AWS_REGION)
 bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 lambda_client = boto3.client('lambda', region_name=AWS_REGION)
+
+DEBUG_LOG_PATH = os.environ.get("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cursor", "debug.log"))
+
+def _debug_log(location: str, message: str, data: dict, hypothesis_id: Optional[str] = None) -> None:
+    try:
+        payload = {"location": location, "message": message, "data": data, "timestamp": int(time.time() * 1000), "sessionId": "debug-session", "hypothesisId": hypothesis_id or ""}
+        line = json.dumps(payload) + "\n"
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(line)
+        print(f"[DEBUG] {line.strip()}")
+    except Exception:
+        pass
 
 # Supported L2 categories
 SUPPORTED_L2_CATEGORIES = [
@@ -339,17 +352,23 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
                 scraper_description = (payload_out.get('description') or '').strip()
             if scraper_url:
                 product['url'] = scraper_url
-            if scraper_image_url:
+            if scraper_image_url and looks_like_valid_image_url(scraper_image_url):
                 product['image_url'] = scraper_image_url
             if scraper_trends_text:
                 product['trends_text'] = scraper_trends_text
             if scraper_description:
                 product['description'] = scraper_description
-            if scraper_url or scraper_image_url:
+            if scraper_url or (scraper_image_url and looks_like_valid_image_url(scraper_image_url)):
                 product['url_confidence'] = 'scraper'
         except Exception as e:
             print(f"[{request_id}] Scraper invocation failed for {product_id}: {str(e)}")
-    
+        # #region agent log
+        try:
+            _debug_log("orchestrator:after_scraper", "after scraper", {"product_id": product_id, "scraper_url": scraper_url or "", "scraper_image_url": scraper_image_url or "", "has_url": bool(product.get("url")), "has_image": bool(product.get("image_url")), "url_confidence": product.get("url_confidence", "")}, "H1")
+        except Exception:
+            pass
+        # #endregion
+
     # Search for product info (URL, description, image) — fallback when scraper did not return URL/image
     try:
         product_info = search_product_info_via_bedrock(
@@ -367,6 +386,12 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
             product['description'] = product_info.get('description', '') or f"A trending {product.get('l2_category', 'beauty')} product."
         if product.get('url_confidence') != 'scraper':
             product['url_confidence'] = product_info.get('url_confidence', 'unknown')
+        # #region agent log
+        try:
+            _debug_log("orchestrator:after_bedrock_search", "after Bedrock product_info", {"product_id": product_id, "info_url": product_info.get("url", "")[:80] if product_info.get("url") else "", "info_image": "y" if product_info.get("image_url") else "n", "info_confidence": product_info.get("url_confidence", ""), "final_url": (product.get("url") or "")[:80], "final_image": "y" if product.get("image_url") else "n", "final_confidence": product.get("url_confidence", "")}, "H2")
+        except Exception:
+            pass
+        # #endregion
     except Exception as e:
         print(f"[{request_id}] Product search failed for {product_id}: {str(e)}")
         if not product.get('url'):
@@ -377,7 +402,13 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
             product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
         if product.get('url_confidence') != 'scraper':
             product['url_confidence'] = 'unknown'
-    
+    # #region agent log
+    try:
+        _debug_log("orchestrator:final_product", "final product url/image", {"product_id": product_id, "brand_name": product.get("brand_name", ""), "url": (product.get("url") or "")[:100], "url_confidence": product.get("url_confidence", ""), "has_image_url": bool(product.get("image_url")), "is_search_url": "/s?k=" in (product.get("url") or "")}, "H3")
+    except Exception:
+        pass
+    # #endregion
+
     # Generate 5 supporting trends (product may include trends_text from scraper/KB)
     try:
         trends = generate_supporting_trends(
@@ -406,6 +437,14 @@ def format_report(query: str, category: str, products: List[Dict]) -> Dict:
     Returns:
         Formatted report dict
     """
+    # #region agent log
+    try:
+        for i, p in enumerate(products):
+            if p.get("url_confidence") == "search_fallback" or not p.get("image_url"):
+                _debug_log("orchestrator:format_report", "product with search_fallback or empty image", {"rank": i + 1, "product_id": p.get("product_id"), "brand_url_preview": (p.get("url") or "")[:80], "url_confidence": p.get("url_confidence", ""), "has_image": bool(p.get("image_url"))}, "H4")
+    except Exception:
+        pass
+    # #endregion
     return {
         'query': query,
         'category': category,
@@ -418,7 +457,7 @@ def format_report(query: str, category: str, products: List[Dict]) -> Dict:
                 'brand_name': p.get('brand_name', 'Unknown'),
                 'product_name': clean_product_name(p.get('product_name', '')),
                 'image_url': p.get('image_url', ''),
-                'brand_url': p.get('url', ''),
+                'brand_url': '' if p.get('url_confidence') == 'search_fallback' else (p.get('url', '') or ''),
                 'description': p.get('description', ''),
                 'revenue_trend': format_revenue_trend(p.get('mom_growth_pct', 0)),
                 'revenue_scale': format_revenue_scale(p.get('revenue_usd', 0)),
