@@ -99,3 +99,10 @@ variable "knowledge_base_id" {
   type        = string
   default     = ""
 }
+
+variable "brave_search_api_key" {
+  description = "Optional Brave Search API key for scraper URL discovery (free tier: 2000 queries/month). When set, used before DuckDuckGo/Google/Bedrock."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

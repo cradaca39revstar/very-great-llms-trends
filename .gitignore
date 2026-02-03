@@ -71,6 +71,9 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 
+# Lambda build artifacts (regenerated on deploy)
+lambda/function.zip
+
 # AWS
 .aws/
 *.pem

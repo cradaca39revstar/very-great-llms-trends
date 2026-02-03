@@ -1,10 +1,13 @@
 # PowerShell script to package and deploy Scraper Lambda code
+# Dependencies (requests, beautifulsoup4) are pure-Python; local pip is fine for Lambda.
+# Optional: -UseDocker $true to build in a Linux container (only needed if you add ddgs/lxml later).
 # Usage: .\deploy-lambda-scraper.ps1 [-Environment "poc"] [-FunctionName "beauty-products-llm-scraper-poc"] [-Region "us-east-1"]
 
 param(
     [string]$Environment = "poc",
     [string]$FunctionName = "",
-    [string]$Region = "us-east-1"
+    [string]$Region = "us-east-1",
+    [bool]$UseDocker = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,17 +49,44 @@ New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
 
 try {
     Write-Host "`nStep 1: Installing dependencies into build dir..." -ForegroundColor Cyan
-    $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $pythonCmd) {
-        Write-Host "Error: Python not found in PATH" -ForegroundColor Red
-        exit 1
+    $depsOk = $false
+    if ($UseDocker) {
+        try {
+            $dockerOk = $false
+            $null = docker info 2>&1
+            if ($LASTEXITCODE -eq 0) { $dockerOk = $true }
+        } catch {
+            $dockerOk = $false
+        }
+        if ($dockerOk) {
+            Write-Host "Using Docker (Lambda-compatible Linux)..." -ForegroundColor Yellow
+            $img = "public.ecr.aws/lambda/python:3.10"
+            docker run --rm --platform linux/amd64 `
+                -v "${BuildDir}:/out" `
+                -v "${ScraperDir}:/src" `
+                -w /src `
+                $img `
+                pip install -r requirements-scraper.txt -t /out --quiet
+            if ($LASTEXITCODE -eq 0) {
+                $depsOk = $true
+                Write-Host "Dependencies installed via Docker" -ForegroundColor Green
+            }
+        }
     }
-    python -m pip install -r $ReqFile -t $BuildDir --quiet
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
-        exit 1
+    if (-not $depsOk) {
+        $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $pythonCmd) {
+            Write-Host "Error: Python not found in PATH" -ForegroundColor Red
+            exit 1
+        }
+        python -m pip install -r $ReqFile -t $BuildDir --quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Dependencies installed" -ForegroundColor Green
+        $depsOk = $true
     }
-    Write-Host "Dependencies installed" -ForegroundColor Green
 
     Copy-Item (Join-Path $ScraperDir "web_product_scraper.py") -Destination $BuildDir -Force
     Write-Host "`nStep 2: Creating deployment package..." -ForegroundColor Cyan

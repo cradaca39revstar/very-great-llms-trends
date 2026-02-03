@@ -268,9 +268,9 @@ def process_products_parallel(products: List[Dict], request_id: str) -> List[Dic
         List of enhanced product dicts with brand names, URLs, trends
     """
     enhanced_products = []
-    
-    # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    # With Brave API (e.g. 20 QPS plan), scraper can run with more parallelism; otherwise default 5
+    max_workers = 10 if SCRAPER_FUNCTION_NAME else 5
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all products for processing
         future_to_product = {
             executor.submit(process_single_product, product, request_id): product
@@ -336,6 +336,7 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
             payload = {
                 'brand_name': product.get('brand_name', ''),
                 'product_name': product_name,
+                'shop_name': product.get('shop_name', ''),
                 'l2_category': product.get('l2_category', ''),
                 'candidate_url': ''
             }
@@ -344,22 +345,30 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
                 InvocationType='RequestResponse',
                 Payload=json.dumps(payload)
             )
+            # Lambda error (timeout, unhandled exception): payload is error dict, not scraper result
+            if resp.get('FunctionError'):
+                print(f"[{request_id}] Scraper Lambda error ({product_id}): FunctionError={resp.get('FunctionError')}; check scraper CloudWatch logs")
             payload_out = json.loads(resp['Payload'].read())
-            if isinstance(payload_out, dict):
+            if isinstance(payload_out, dict) and payload_out.get('errorMessage'):
+                print(f"[{request_id}] Scraper error payload ({product_id}): {payload_out.get('errorMessage', '')[:120]}")
+            elif isinstance(payload_out, dict):
                 scraper_url = (payload_out.get('url') or '').strip()
                 scraper_image_url = (payload_out.get('image_url') or '').strip()
                 scraper_trends_text = (payload_out.get('trends_text') or '').strip()
                 scraper_description = (payload_out.get('description') or '').strip()
-            if scraper_url:
-                product['url'] = scraper_url
-            if scraper_image_url and looks_like_valid_image_url(scraper_image_url):
-                product['image_url'] = scraper_image_url
-            if scraper_trends_text:
-                product['trends_text'] = scraper_trends_text
-            if scraper_description:
-                product['description'] = scraper_description
-            if scraper_url or (scraper_image_url and looks_like_valid_image_url(scraper_image_url)):
-                product['url_confidence'] = 'scraper'
+            if isinstance(payload_out, dict) and not payload_out.get('errorMessage'):
+                if scraper_url:
+                    product['url'] = scraper_url
+                # Prefer scraper image when we have scraper url; else require valid-looking image URL
+                if scraper_image_url:
+                    if scraper_url or looks_like_valid_image_url(scraper_image_url):
+                        product['image_url'] = scraper_image_url
+                if scraper_trends_text:
+                    product['trends_text'] = scraper_trends_text
+                if scraper_description:
+                    product['description'] = scraper_description
+                if scraper_url or scraper_image_url:
+                    product['url_confidence'] = 'scraper'
         except Exception as e:
             print(f"[{request_id}] Scraper invocation failed for {product_id}: {str(e)}")
         # #region agent log

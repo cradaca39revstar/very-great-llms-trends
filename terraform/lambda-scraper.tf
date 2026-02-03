@@ -11,12 +11,13 @@ resource "aws_lambda_function" "scraper" {
   runtime       = "python3.10"
   role          = aws_iam_role.lambda_scraper[0].arn
   memory_size   = 256
-  timeout       = 30
+  timeout       = 60  # DDG search + fetch + DDG Images can take 20–40s; avoid timeout before scraper returns
 
   environment {
     variables = {
       AWS_REGION_NAME       = var.aws_region
       BEDROCK_PRIMARY_MODEL = var.bedrock_primary_model
+      BRAVE_SEARCH_API_KEY  = var.brave_search_api_key
     }
   }
 

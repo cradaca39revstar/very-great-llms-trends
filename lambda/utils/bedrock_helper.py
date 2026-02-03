@@ -137,7 +137,7 @@ def _looks_like_valid_image_url(url: str) -> bool:
     if re.search(r"\.(jpg|jpeg|png|webp|gif)(\?|$)", u_lower):
         return True
     
-    # Known image CDN path patterns
+    # Known image CDN path patterns (incl. DuckDuckGo Images fallback used by scraper)
     cdn_patterns = [
         r"/(images?|img|assets|media|cdn|productimages)/",
         "cloudfront", "amazonaws", ".cdn.",
@@ -151,11 +151,13 @@ def _looks_like_valid_image_url(url: str) -> bool:
         "amazon.com/images",
         "deciem.com/cdn",
         "shopify.com/s/files",
+        "duckduckgo.com",  # scraper fallback: DDG Images URLs
+        "external-content.duckduckgo.com",
     ]
-    
+
     if any(pattern in u_lower if "/" not in pattern else re.search(pattern, u_lower) for pattern in cdn_patterns):
         return True
-    
+
     return False
 
 
