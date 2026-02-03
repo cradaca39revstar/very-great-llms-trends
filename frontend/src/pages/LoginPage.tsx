@@ -54,12 +54,12 @@ export function LoginPage() {
 
   if (needNewPassword) {
     return (
-      <div style={{ maxWidth: 400, margin: '2rem auto', padding: '1rem' }}>
-        <h2>New password required</h2>
-        <p>Set a new password to continue.</p>
+      <div className="login-page">
+        <h2 className="login-page__title">New password required</h2>
+        <p className="login-page__subtitle">Set a new password to continue.</p>
         <form onSubmit={handleConfirmNewPassword}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label htmlFor="new-password">New password</label>
+          <div className="login-page__form-group">
+            <label htmlFor="new-password" className="login-page__label">New password</label>
             <input
               id="new-password"
               type="password"
@@ -67,22 +67,23 @@ export function LoginPage() {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               autoComplete="new-password"
-              style={{ display: 'block', width: '100%', padding: '0.5rem' }}
+              className="login-page__input"
             />
           </div>
           {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
-          <button type="submit" disabled={loading}>Set password</button>
+          <button type="submit" className="login-page__btn" disabled={loading}>Set password</button>
         </form>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '2rem auto', padding: '1rem' }}>
-      <h2>Sign in</h2>
+    <div className="login-page">
+      <h2 className="login-page__title">Sign in</h2>
+      <p className="login-page__subtitle">Trending Products – LLM report</p>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label htmlFor="email">Email</label>
+        <div className="login-page__form-group">
+          <label htmlFor="email" className="login-page__label">Email</label>
           <input
             id="email"
             type="email"
@@ -90,11 +91,11 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            style={{ display: 'block', width: '100%', padding: '0.5rem' }}
+            className="login-page__input"
           />
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label htmlFor="password">Password</label>
+        <div className="login-page__form-group">
+          <label htmlFor="password" className="login-page__label">Password</label>
           <input
             id="password"
             type="password"
@@ -102,7 +103,7 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            style={{ display: 'block', width: '100%', padding: '0.5rem' }}
+            className="login-page__input"
           />
         </div>
         {error && (
@@ -115,7 +116,7 @@ export function LoginPage() {
             )}
           </>
         )}
-        <button type="submit" disabled={loading}>Sign in</button>
+        <button type="submit" className="login-page__btn" disabled={loading}>Sign in</button>
       </form>
     </div>
   );

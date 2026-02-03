@@ -18,14 +18,14 @@ function useAuth() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  if (auth === null) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading…</div>;
+  if (auth === null) return <div className="login-page__loading">Loading…</div>;
   if (!auth) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  if (auth === null) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading…</div>;
+  if (auth === null) return <div className="login-page__loading">Loading…</div>;
   if (auth) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

@@ -56,7 +56,7 @@ export function ChatPage() {
   };
 
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto', padding: '1.25rem 1rem' }}>
+    <div className="chat-layout">
       <header className="chat-header">
         <div className="chat-header__brand">
           <img
