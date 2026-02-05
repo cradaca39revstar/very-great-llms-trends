@@ -263,7 +263,7 @@ def _get_first_image_brave_api(query: str) -> str:
                 if _is_blocked_image_domain(img_url):
                     continue
                 print(f"Scraper: Brave Image API first image: {img_url[:70]}...")
-                return img_url
+                return _upgrade_image_url(img_url)
             if results:
                 print("Scraper: Brave Image API returned results but no valid image URL")
             else:
@@ -287,7 +287,8 @@ def _get_first_image_google_images(query: str) -> str:
     try:
         resp = requests.get(url, params=params, headers=_browser_headers(), timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
-        html = resp.text
+        resp.encoding = resp.apparent_encoding or "utf-8"
+        html = resp.content.decode(resp.encoding, errors="replace")
     except Exception as e:
         print(f"Scraper: Google Images request failed: {e}")
         return ""
@@ -319,15 +320,15 @@ def _get_first_image_google_images(query: str) -> str:
         # Prefer URLs that look like image files or CDNs
         if any(ext in u.lower() for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif")):
             print(f"Scraper: Google Images first image: {u[:80]}...")
-            return u
+            return _upgrade_image_url(u)
         if any(cdn in u.lower() for cdn in ("cdn.", "images.", "img.", "static.", "shopify", "amazon.com/images")):
             print(f"Scraper: Google Images first image (CDN): {u[:80]}...")
-            return u
+            return _upgrade_image_url(u)
 
     if candidates:
         first = candidates[0]
         print(f"Scraper: Google Images first result: {first[:80]}...")
-        return first
+        return _upgrade_image_url(first)
     print("Scraper: Google Images returned no parseable image URLs")
     return ""
 
@@ -335,34 +336,110 @@ def _get_first_image_google_images(query: str) -> str:
 # ---------- Página del producto: description, trends_text, imagen (fallback) ----------
 
 
+def _upgrade_image_url(url: str) -> str:
+    """
+    Upgrade image URL to higher resolution for common CDNs (Shopify, etc.) to reduce pixelation.
+    """
+    if not url or not isinstance(url, str):
+        return url
+    u = url.strip()
+    try:
+        # Shopify: _100x100, _200x200, _500x500 → _800x800 or _master
+        if "cdn.shopify.com" in u or "shopify" in u.lower():
+            for size in ("_100x100", "_200x200", "_300x300", "_400x400", "_500x500", "_600x600", "_700x700"):
+                if size in u:
+                    return u.replace(size, "_800x800")
+            if "_pico." in u or "_icon." in u or "_thumb." in u or "_small." in u:
+                return re.sub(r"_pico\.|_icon\.|_thumb\.|_small\.", "_800x800.", u)
+        # Cloudinary: w_auto, c_scale → w_800
+        if "cloudinary.com" in u and ("/w_" in u or "/image/upload/" in u):
+            if "/w_auto" in u or re.search(r"/w_\d+", u):
+                u = re.sub(r"/w_\d+", "/w_800", u)
+                u = re.sub(r"/w_auto", "/w_800", u)
+                return u
+    except Exception:
+        pass
+    return url
+
+
+def _extract_image_from_json_ld(soup: BeautifulSoup) -> str:
+    """Extract product image from JSON-LD Product schema (Shopify and others)."""
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "{}")
+            if not isinstance(data, dict):
+                continue
+            if data.get("@type") == "Product":
+                img = data.get("image")
+                if isinstance(img, str) and img.startswith(("http://", "https://")):
+                    return _upgrade_image_url(img.strip())
+                if isinstance(img, list) and img:
+                    first = img[0]
+                    if isinstance(first, str) and first.startswith(("http://", "https://")):
+                        return _upgrade_image_url(first.strip())
+                    if isinstance(first, dict) and first.get("url"):
+                        u = (first.get("url") or "").strip()
+                        if u.startswith(("http://", "https://")):
+                            return _upgrade_image_url(u)
+            # Handle @graph array (Shopify often wraps in graph)
+            for item in (data.get("@graph") or []):
+                if isinstance(item, dict) and item.get("@type") == "Product":
+                    img = item.get("image")
+                    if isinstance(img, str) and img.startswith(("http://", "https://")):
+                        return _upgrade_image_url(img.strip())
+                    if isinstance(img, list) and img and isinstance(img[0], str) and img[0].startswith(("http://", "https://")):
+                        return _upgrade_image_url(img[0].strip())
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return ""
+
+
 def _extract_image_from_product_page(soup: BeautifulSoup, base_url: str) -> str:
     """
-    Extrae la URL de la imagen del producto desde la página (og:image, itemprop=image, o primera img útil).
-    Fallback cuando Google Images no devuelve nada.
+    Extrae la URL de la imagen del producto desde la página (og:image, og:image:secure_url,
+    JSON-LD Product, itemprop=image, o primera img útil). Upgrades URLs for higher-res when possible.
     """
+    raw_url = ""
+
     # 1) og:image (muy común en tiendas)
     og = soup.find("meta", property="og:image")
     if og and og.get("content"):
         href = (og["content"] or "").strip()
         if href.startswith(("http://", "https://")):
-            return href
-        if href.startswith("//"):
-            return "https:" + href
-        try:
-            return urllib.parse.urljoin(base_url, href)
-        except Exception:
-            pass
+            raw_url = href
+        elif href.startswith("//"):
+            raw_url = "https:" + href
+        else:
+            try:
+                raw_url = urllib.parse.urljoin(base_url, href)
+            except Exception:
+                pass
+    # 1b) og:image:secure_url (Shopify y otros)
+    if not raw_url:
+        og_secure = soup.find("meta", property="og:image:secure_url")
+        if og_secure and og_secure.get("content"):
+            href = (og_secure["content"] or "").strip()
+            if href.startswith(("http://", "https://")):
+                raw_url = href
+            elif href.startswith("//"):
+                raw_url = "https:" + href
+    if raw_url:
+        return _upgrade_image_url(raw_url)
+    # 1c) JSON-LD Product.image (Shopify)
+    json_ld_img = _extract_image_from_json_ld(soup)
+    if json_ld_img:
+        return json_ld_img
     # 2) img[itemprop="image"]
     for img in soup.find_all("img", itemprop="image"):
         src = (img.get("src") or img.get("data-src") or "").strip()
         if not src or src.lower().startswith("data:"):
             continue
         if src.startswith(("http://", "https://")):
-            return src
+            return _upgrade_image_url(src)
         if src.startswith("//"):
-            return "https:" + src
+            return _upgrade_image_url("https:" + src)
         try:
-            return urllib.parse.urljoin(base_url, src)
+            return _upgrade_image_url(urllib.parse.urljoin(base_url, src))
         except Exception:
             pass
     # 3) Primera img con src que parezca producto (cdn, product, images)
@@ -374,27 +451,54 @@ def _extract_image_from_product_page(soup: BeautifulSoup, base_url: str) -> str:
             continue
         if any(x in src.lower() for x in ("/product", "cdn.", "images.", "shopify", "amazon.com/images")):
             if src.startswith(("http://", "https://")):
-                return src
+                return _upgrade_image_url(src)
             if src.startswith("//"):
-                return "https:" + src
+                return _upgrade_image_url("https:" + src)
             try:
-                return urllib.parse.urljoin(base_url, src)
+                return _upgrade_image_url(urllib.parse.urljoin(base_url, src))
             except Exception:
                 pass
     return ""
 
 
+def _sanitize_description(text: str) -> str:
+    """Clean mojibake and invalid chars from scraped text."""
+    if not text or not isinstance(text, str):
+        return ""
+    # Filter control chars and common mojibake artifacts (replacements/squares)
+    cleaned = "".join(
+        c for c in text
+        if ord(c) >= 32 or c in "\n\t"
+    )
+    # Collapse multiple spaces
+    cleaned = " ".join(cleaned.split())
+    return cleaned.strip()
+
+
+def _is_description_corrupt(text: str) -> bool:
+    """True if description has too many replacement chars or non-Latin-1 (likely mojibake)."""
+    if not text or len(text) < 10:
+        return False
+    replacement_count = text.count("\ufffd")
+    if replacement_count > 10 or replacement_count > len(text) * 0.05:
+        return True
+    non_latin1 = sum(1 for c in text if ord(c) > 255)
+    if non_latin1 > len(text) * 0.15:
+        return True
+    return False
+
+
 def _extract_description(soup: BeautifulSoup) -> str:
     meta = soup.find("meta", attrs={"name": "description"})
     if meta and meta.get("content"):
-        return meta["content"].strip()
+        return _sanitize_description(meta["content"])
     meta = soup.find("meta", property="og:description")
     if meta and meta.get("content"):
-        return meta["content"].strip()
+        return _sanitize_description(meta["content"])
     for p in soup.find_all("p"):
         text = (p.get_text() or "").strip()
         if len(text) > 30:
-            return text
+            return _sanitize_description(text)
     return ""
 
 
@@ -467,10 +571,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 headers=_browser_headers(referer=result["url"]),
             )
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
+            # Parse from bytes so BeautifulSoup detects charset from HTML <meta charset>
+            soup = BeautifulSoup(resp.content, "html.parser")
             desc = _extract_description(soup)
-            if desc:
+            if desc and not _is_description_corrupt(desc):
                 result["description"] = desc[:500]
+            elif desc and _is_description_corrupt(desc):
+                print("Scraper: Description rejected (corrupt/mojibake); orchestrator will use Bedrock")
             trends = _extract_trends_snippet(soup)
             if trends:
                 result["trends_text"] = trends[:MAX_BODY_SNIPPET]

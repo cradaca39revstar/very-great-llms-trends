@@ -5,11 +5,20 @@ All body text uses effective page width (epw) and set_x(l_margin) so content
 wraps within margins and does not overflow.
 """
 
+import io
 import os
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 import boto3
+import requests
 from fpdf import FPDF
+
+# Image fetch: timeout and max size to avoid Lambda timeouts/memory issues
+IMAGE_FETCH_TIMEOUT = 5
+IMAGE_FETCH_MAX_BYTES = 2 * 1024 * 1024  # 2 MB
+# Product image size on PDF page (mm)
+PRODUCT_IMAGE_W_MM = 45
+PRODUCT_IMAGE_H_MM = 45
 
 # -----------------------------------------------------------------------------
 # Layout constants (tweak here for global layout changes)
@@ -123,7 +132,9 @@ def add_title_page(pdf: FPDF, report: Dict):
 
 
 def _sanitize_pdf_text(s: str) -> str:
-    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII equivalents."""
+    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII equivalents.
+    Removes U+FFFD (replacement char from mojibake) and any char outside Latin-1
+    so FPDF Helvetica never fails."""
     if not s or not isinstance(s, str):
         return s
     replacements = (
@@ -134,11 +145,17 @@ def _sanitize_pdf_text(s: str) -> str:
         ('\u2014', "-"),   # EM DASH
         ('\u2013', "-"),   # EN DASH
         ('\u2026', "..."), # HORIZONTAL ELLIPSIS
+        ('\ufffd', " "),   # REPLACEMENT CHAR (mojibake) - causes PDF crash
     )
     out = s
     for u, a in replacements:
         out = out.replace(u, a)
-    return out
+    # Strip any remaining char outside Latin-1 (ord > 255) - Helvetica can't render them
+    out = "".join(c if ord(c) <= 255 else " " for c in out)
+    # Replace control chars (except \n \t \r) with space
+    out = "".join(c if ord(c) >= 32 or c in "\n\t\r" else " " for c in out)
+    # Collapse multiple spaces
+    return " ".join(out.split())
 
 
 def _content_width(pdf: FPDF) -> float:
@@ -159,6 +176,41 @@ def _truncate_url(url: str, max_len: int = MAX_URL_DISPLAY_LEN) -> str:
     return url[: max_len - 3].rstrip("/") + "..."
 
 
+def _fetch_image_bytes(url: str) -> Optional[bytes]:
+    """Fetch image from URL; return bytes or None on failure. Respects timeout and max size."""
+    if not url or not url.strip().startswith(("http://", "https://")):
+        print("PDF: Image URL empty or invalid, skipping")
+        return None
+    try:
+        print(f"PDF: Fetching image: {url[:100]}...")
+        resp = requests.get(
+            url,
+            timeout=IMAGE_FETCH_TIMEOUT,
+            stream=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; PDFReport/1.0)"},
+        )
+        resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "").lower()
+        if "image/" not in content_type and "octet-stream" not in content_type:
+            print(f"PDF: Image rejected (Content-Type={content_type}); expected image/* or octet-stream")
+            return None
+        size = 0
+        chunks = []
+        for chunk in resp.iter_content(chunk_size=65536):
+            if chunk:
+                size += len(chunk)
+                if size > IMAGE_FETCH_MAX_BYTES:
+                    print(f"PDF: Image rejected (exceeds {IMAGE_FETCH_MAX_BYTES} bytes)")
+                    return None
+                chunks.append(chunk)
+        result = b"".join(chunks) if chunks else None
+        print(f"PDF: Image fetched OK: {len(result) if result else 0} bytes")
+        return result
+    except Exception as e:
+        print(f"PDF: Image fetch failed: {type(e).__name__}: {e}")
+        return None
+
+
 def add_product_page(pdf: FPDF, product: Dict):
     """Add product details page. All body text uses content width (epw) and stays within margins."""
     pdf.add_page()
@@ -170,8 +222,30 @@ def add_product_page(pdf: FPDF, product: Dict):
     # Product header
     pdf.set_font('Arial', 'B', FONT_SIZE_HEADING)
     pdf.cell(0, 10, f"Trending Product #{rank}", 0, 1, 'L')
+    pdf.ln(3)
+
+    # Product image (if available)
+    image_url = (product.get("image_url") or "").strip()
+    if image_url:
+        img_bytes = _fetch_image_bytes(image_url)
+        if img_bytes:
+            try:
+                pdf.image(
+                    io.BytesIO(img_bytes),
+                    x=pdf.l_margin,
+                    y=pdf.get_y(),
+                    w=PRODUCT_IMAGE_W_MM,
+                    h=PRODUCT_IMAGE_H_MM,
+                    keep_aspect_ratio=True,
+                )
+                pdf.set_y(pdf.get_y() + PRODUCT_IMAGE_H_MM)
+                print(f"PDF: Product #{rank} image embedded successfully")
+            except Exception as e:
+                print(f"PDF: Product #{rank} image embed failed: {type(e).__name__}: {e}")
+    else:
+        print(f"PDF: Product #{rank} has no image_url, skipping image")
     pdf.ln(5)
-    
+
     # Brand name
     pdf.set_font('Arial', 'B', 14)
     pdf.cell(0, 8, _sanitize_pdf_text(f"Brand Name: {product.get('brand_name', 'Unknown')}"), 0, 1, 'L')

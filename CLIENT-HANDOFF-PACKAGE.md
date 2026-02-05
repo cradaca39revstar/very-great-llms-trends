@@ -206,21 +206,6 @@ The Beauty Products Data Lake transforms raw CSV files into curated, query-ready
 3. **Deployment**: [docs/CLIENT-DEPLOYMENT-GUIDE.md](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Deployment procedures
 4. **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design
 
-### Support Contacts
-
-**Technical Support:**
-
-- Primary: _______________ (Email: _______________)
-- Secondary: _______________ (Email: _______________)
-
-**Data Governance:**
-
-- Data Steward: _______________ (Email: _______________)
-
-**Infrastructure:**
-
-- AWS Support: _______________ (if applicable)
-
 ### Common Resources
 
 - **Runbooks**: [runbooks/](runbooks/) - Detailed troubleshooting procedures

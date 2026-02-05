@@ -272,7 +272,8 @@ a:hover {
 .product-card__image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain avoids stretching small thumbnails (less pixelation) */
+  object-fit: contain;
 }
 
 .product-card__image-placeholder {

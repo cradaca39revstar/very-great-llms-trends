@@ -51,6 +51,17 @@ lambda_client = boto3.client('lambda', region_name=AWS_REGION)
 
 DEBUG_LOG_PATH = os.environ.get("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cursor", "debug.log"))
 
+
+def _is_description_corrupt(text: str) -> bool:
+    """True if description has too many replacement chars or non-Latin-1 (likely mojibake)."""
+    if not text or len(text) < 10:
+        return False
+    if text.count("\ufffd") > 10 or text.count("\ufffd") > len(text) * 0.05:
+        return True
+    non_latin1 = sum(1 for c in text if ord(c) > 255)
+    return non_latin1 > len(text) * 0.15
+
+
 def _debug_log(location: str, message: str, data: dict, hypothesis_id: Optional[str] = None) -> None:
     try:
         payload = {"location": location, "message": message, "data": data, "timestamp": int(time.time() * 1000), "sessionId": "debug-session", "hypothesisId": hypothesis_id or ""}
@@ -365,8 +376,10 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
                         product['image_url'] = scraper_image_url
                 if scraper_trends_text:
                     product['trends_text'] = scraper_trends_text
-                if scraper_description:
+                if scraper_description and not _is_description_corrupt(scraper_description):
                     product['description'] = scraper_description
+                elif scraper_description and _is_description_corrupt(scraper_description):
+                    print(f"[{request_id}] Scraper description rejected (corrupt); using Bedrock for product {product_id}")
                 if scraper_url or scraper_image_url:
                     product['url_confidence'] = 'scraper'
         except Exception as e:
