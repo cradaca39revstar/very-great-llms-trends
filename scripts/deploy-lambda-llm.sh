@@ -46,9 +46,21 @@ if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
     echo "Make sure dependencies are installed in lambda/ directory before packaging."
 else
     PYTHON_CMD=$(command -v python3 || command -v python)
-    echo "Installing packages to lambda/ directory..."
-    $PYTHON_CMD -m pip install -r requirements.txt -t . --quiet
-    echo "Dependencies installed successfully"
+    REQ_FILE="requirements-lambda.txt"
+    if [ ! -f "$REQ_FILE" ]; then
+        REQ_FILE="requirements.txt"
+    fi
+    echo "Installing packages from $REQ_FILE (for Amazon Linux 2 / Lambda)..."
+    # Must use --platform manylinux2014_x86_64 so Pillow/fpdf2 get Linux binaries.
+    # Otherwise PIL fails to load on Lambda and pdf.image() raises 'NoneType' has no attribute 'Image'.
+    $PYTHON_CMD -m pip install -r "$REQ_FILE" -t . \
+        --platform manylinux2014_x86_64 \
+        --implementation cp \
+        --python-version 3.10 \
+        --only-binary=:all: \
+        --upgrade \
+        --quiet
+    echo "Dependencies installed successfully (Linux-compatible)"
 fi
 
 echo ""

@@ -7,6 +7,7 @@ wraps within margins and does not overflow.
 
 import io
 import os
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import boto3
@@ -156,6 +157,15 @@ def _sanitize_pdf_text(s: str) -> str:
     out = "".join(c if ord(c) >= 32 or c in "\n\t\r" else " " for c in out)
     # Collapse multiple spaces
     return " ".join(out.split())
+
+
+def _strip_markdown(s: str) -> str:
+    """Remove Markdown bold (**text**) and italic (*text*) markers. Used for LLM-generated trend text."""
+    if not s or not isinstance(s, str):
+        return s
+    s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)  # **bold** -> bold
+    s = re.sub(r"\*(.+?)\*", r"\1", s)       # *italic* -> italic
+    return s
 
 
 def _content_width(pdf: FPDF) -> float:
@@ -317,8 +327,8 @@ def add_product_page(pdf: FPDF, product: Dict):
     for i, trend in enumerate(trends, 1):
         pdf.set_x(pdf.l_margin)
         trend_parts = parse_trend_text(trend)
-        title = _sanitize_pdf_text((trend_parts['title'] or '').strip() or "-")
-        explanation = _sanitize_pdf_text((trend_parts['explanation'] or '').strip() or "-")
+        title = _sanitize_pdf_text(_strip_markdown((trend_parts['title'] or '').strip()) or "-")
+        explanation = _sanitize_pdf_text(_strip_markdown((trend_parts['explanation'] or '').strip()) or "-")
         pdf.set_font('Arial', 'B', FONT_SIZE_BODY)
         pdf.multi_cell(cw, LINE_HEIGHT_BODY, f"{i}. {title}")
         pdf.set_x(pdf.l_margin)

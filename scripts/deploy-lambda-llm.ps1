@@ -55,13 +55,21 @@ try {
             Write-Host "Error: $reqFile not found. Use requirements.txt fallback only if needed." -ForegroundColor Red
             exit 1
         }
-        Write-Host "Installing packages from $reqFile to lambda/ ..." -ForegroundColor Yellow
-        python -m pip install -r $reqFile -t . --quiet
+        Write-Host "Installing packages from $reqFile to lambda/ (for Amazon Linux 2 / Lambda)..." -ForegroundColor Yellow
+        # Must use --platform manylinux2014_x86_64 so Pillow/fpdf2 get Linux binaries.
+        # Otherwise PIL fails to load on Lambda and pdf.image() raises 'NoneType' has no attribute 'Image'.
+        python -m pip install -r $reqFile -t . `
+            --platform manylinux2014_x86_64 `
+            --implementation cp `
+            --python-version 3.10 `
+            --only-binary=:all: `
+            --upgrade `
+            --quiet
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
+            Write-Host "Error: Failed to install dependencies. If --only-binary fails, try building in Docker." -ForegroundColor Red
             exit 1
         }
-        Write-Host "Dependencies installed successfully" -ForegroundColor Green
+        Write-Host "Dependencies installed successfully (Linux-compatible)" -ForegroundColor Green
     }
     
     Write-Host "`nStep 2: Creating deployment package..." -ForegroundColor Cyan
