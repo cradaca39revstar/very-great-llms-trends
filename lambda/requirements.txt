@@ -1,15 +1,13 @@
-# Lambda Dependencies for LLM Trending Products Orchestrator
+# Lambda Dependencies for LLM Trending Products Orchestrator (V2)
 # Python 3.10
 
 # AWS SDK
 boto3>=1.34.0
 botocore>=1.34.0
 
-# PDF Generation
+# PDF Generation (images via BytesIO require Pillow for fpdf2)
 fpdf2>=2.7.0
+Pillow>=10.0.0
 
 # Date/Time utilities
 python-dateutil>=2.8.2
-
-# HTTP requests (for web search if needed)
-requests>=2.31.0

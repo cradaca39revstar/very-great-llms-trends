@@ -1,8 +1,8 @@
-# Scraper Lambda (internal; invoked by orchestrator only)
+# Scraper Lambda (V2: disabled by default; set enable_scraper_lambda = true to re-enable)
 # Build and deploy code with: scripts/deploy-lambda-scraper.ps1
 
 resource "aws_lambda_function" "scraper" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   function_name = "beauty-products-llm-scraper-${var.environment}"
   description   = "Web product scraper for URL, image, trends_text (invoked by LLM orchestrator)"
@@ -29,7 +29,7 @@ resource "aws_lambda_function" "scraper" {
 }
 
 resource "aws_iam_role" "lambda_scraper" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   name = "beauty-products-llm-scraper-role-${var.environment}"
 
@@ -54,7 +54,7 @@ resource "aws_iam_role" "lambda_scraper" {
 }
 
 resource "aws_iam_policy" "lambda_scraper_logs" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   name        = "beauty-products-llm-scraper-logs-${var.environment}"
   description = "CloudWatch Logs for scraper Lambda"
@@ -79,7 +79,7 @@ resource "aws_iam_policy" "lambda_scraper_logs" {
 }
 
 resource "aws_iam_policy" "lambda_scraper_bedrock" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   name        = "beauty-products-llm-scraper-bedrock-${var.environment}"
   description = "Bedrock InvokeModel for scraper (candidate URL suggestion)"
@@ -107,21 +107,21 @@ resource "aws_iam_policy" "lambda_scraper_bedrock" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scraper_logs" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   role       = aws_iam_role.lambda_scraper[0].name
   policy_arn = aws_iam_policy.lambda_scraper_logs[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_scraper_bedrock" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   role       = aws_iam_role.lambda_scraper[0].name
   policy_arn = aws_iam_policy.lambda_scraper_bedrock[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "lambda_scraper" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   name              = "/aws/lambda/beauty-products-llm-scraper-${var.environment}"
   retention_in_days  = 30

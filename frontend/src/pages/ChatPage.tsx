@@ -10,7 +10,10 @@ import {
   type TrendQueryResponse,
   type TrendQuerySuccess,
   type TrendQueryError,
-  type ReportProduct,
+  type BrandProposal,
+  type MarketProduct,
+  type ProductIdea,
+  type SupportingTrend,
 } from '../types/api';
 
 export function ChatPage() {
@@ -135,14 +138,18 @@ function ErrorView({ data }: { data: TrendQueryError }) {
 }
 
 function SuccessView({ data }: { data: TrendQuerySuccess }) {
-  const { report, pdf_url, request_id, execution_time_ms, product_count } = data;
+  const { report, pdf_url, request_id, execution_time_ms, product_count, brand_name } = data;
+  const brand = report.brand_proposal;
+  const marketContext = report.market_context ?? [];
+  const productIdeas = report.product_ideas ?? [];
+
   return (
     <div>
-      <p className="results-intro">Here&apos;s the answer</p>
+      <p className="results-intro">Product Innovation Report</p>
       <div className="results-meta">
         <span>Request ID: {request_id}</span>
         <span>Execution: {execution_time_ms} ms</span>
-        <span>Products: {product_count}</span>
+        <span>Product ideas: {product_count}</span>
       </div>
       {pdf_url && (
         <div className="results-pdf">
@@ -155,10 +162,19 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
         {report.category} – {report.data_period}
       </h2>
       <p className="results-report-date">Generated at {report.generated_at}</p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {report.products.map((p) => (
+
+      {brand && (
+        <BrandProposalCard brand={brand} brandName={brand_name || brand.brand_name} />
+      )}
+
+      {marketContext.length > 0 && (
+        <MarketContextSection products={marketContext} />
+      )}
+
+      <ul className="product-idea-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        {productIdeas.map((p) => (
           <li key={p.rank}>
-            <ProductCard product={p} />
+            <ProductIdeaCard product={p} />
           </li>
         ))}
       </ul>
@@ -166,70 +182,203 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
   );
 }
 
-function ProductCard({ product: p }: { product: ReportProduct }) {
+function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandName: string }) {
+  const logoDataUrl = brand.logo_image_base64
+    ? `data:image/png;base64,${brand.logo_image_base64}`
+    : null;
   return (
-    <article className="product-card">
-      <div className="product-card__rank">#{p.rank} Trending Product</div>
+    <article className="brand-card">
+      {logoDataUrl && (
+        <div className="brand-card__logo-wrap">
+          <img src={logoDataUrl} alt={`${brandName || brand.brand_name} logo`} className="brand-card__logo" />
+        </div>
+      )}
+      <h3 className="brand-card__name">{brandName || brand.brand_name}</h3>
+      {brand.brand_tagline && (
+        <p className="brand-card__tagline">{brand.brand_tagline}</p>
+      )}
+      {brand.brand_values && brand.brand_values.length > 0 && (
+        <div className="brand-card__values">
+          {brand.brand_values.map((v, i) => (
+            <span key={i} className="brand-card__pill">{v}</span>
+          ))}
+        </div>
+      )}
+      {brand.brand_story && (
+        <div className="brand-card__section">
+          <strong>Brand story</strong>
+          <p>{brand.brand_story}</p>
+        </div>
+      )}
+      {brand.target_demographic && (
+        <div className="brand-card__section">
+          <strong>Target demographic</strong>
+          <p>{brand.target_demographic}</p>
+        </div>
+      )}
+      {brand.price_positioning && (
+        <span className="brand-card__price-badge">{brand.price_positioning}</span>
+      )}
+      {brand.distribution_strategy && (
+        <div className="brand-card__section">
+          <strong>Distribution</strong>
+          <p>{brand.distribution_strategy}</p>
+        </div>
+      )}
+      {brand.brand_personality && (
+        <div className="brand-card__section">
+          <strong>Personality</strong>
+          <p>{brand.brand_personality}</p>
+        </div>
+      )}
+    </article>
+  );
+}
 
-      <div className="product-card__image-wrap">
-        {p.image_url ? (
-          <img
-            src={p.image_url}
-            alt={p.product_name}
-            className="product-card__image"
-          />
-        ) : (
-          <span className="product-card__image-placeholder">No image</span>
+function MarketContextSection({ products }: { products: MarketProduct[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="market-context">
+      <button
+        type="button"
+        className="market-context__toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        {open ? '▼' : '▶'} Market Analysis – Top performers used as context
+      </button>
+      {open && (
+        <>
+          <p className="market-context__subtitle">
+            These top-performing products were analyzed to generate the brand concept.
+          </p>
+          <div className="market-context__table-wrap">
+            <table className="market-context__table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Product</th>
+                  <th>Shop</th>
+                  <th>Revenue (USD)</th>
+                  <th>Growth %</th>
+                  <th>Sold</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.revenue_rank}</td>
+                    <td>{p.product_name}</td>
+                    <td>{p.shop_name}</td>
+                    <td>{p.revenue_usd?.toLocaleString() ?? '—'}</td>
+                    <td>{p.mom_growth_pct != null ? `${p.mom_growth_pct}%` : '—'}</td>
+                    <td>{p.item_sold != null ? p.item_sold.toLocaleString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ProductIdeaCard({ product: p }: { product: ProductIdea }) {
+  return (
+    <article className="product-idea-card">
+      <div className="product-idea-card__header">
+        <span className="product-idea-card__rank">Concept #{p.rank}</span>
+        {p.has_image && (
+          <span className="product-idea-card__badge">AI-Generated Concept</span>
         )}
       </div>
 
-      <div className="product-card__label">Brand Name</div>
-      <div className="product-card__value">{p.brand_name}</div>
+      <div className="product-idea-card__image-wrap">
+        {p.image_base64 ? (
+          <img
+            src={`data:image/png;base64,${p.image_base64}`}
+            alt={p.product_name}
+            className="product-idea-card__image"
+          />
+        ) : p.image_url ? (
+          <img
+            src={p.image_url}
+            alt={p.product_name}
+            className="product-idea-card__image"
+          />
+        ) : p.has_image ? (
+          <span className="product-idea-card__image-placeholder">Image in PDF</span>
+        ) : (
+          <span className="product-idea-card__image-placeholder">No image</span>
+        )}
+      </div>
 
-      <div className="product-card__label">Product</div>
-      <div className="product-card__value">{p.product_name}</div>
+      <div className="product-idea-card__label">Product</div>
+      <div className="product-idea-card__value">{p.product_name}</div>
 
-      {p.brand_url && (
-        <>
-          <div className="product-card__label">URL to brand website</div>
-          <div className="product-card__value">
-            <a href={p.brand_url} target="_blank" rel="noreferrer" className="product-card__link">
-              {p.brand_url}
-            </a>
-          </div>
-        </>
+      {p.estimated_price_usd != null && (
+        <div className="product-idea-card__price">${p.estimated_price_usd.toFixed(2)}</div>
       )}
 
       {p.description && (
         <>
-          <div className="product-card__label">Description</div>
-          <p className="product-card__description">{p.description}</p>
+          <div className="product-idea-card__label">Description</div>
+          <p className="product-idea-card__description">{p.description}</p>
         </>
       )}
 
-      <div className="product-card__metrics">
-        <span className="product-card__metric">
-          <span className="product-card__metric-label">Revenue Trend:</span>
-          {p.revenue_trend}
-        </span>
-        <span className="product-card__metric">
-          <span className="product-card__metric-label">Revenue Scale:</span>
-          {p.revenue_scale}
-        </span>
-        <span className="product-card__metric">
-          <span className="product-card__metric-label">Product Rank in Category:</span>
-          {p.category_rank}
-        </span>
-      </div>
-
-      {p.supporting_trends && p.supporting_trends.length > 0 && (
+      {p.why_it_would_sell && (
         <>
-          <div className="product-card__trends-title">Supporting Trends</div>
-          <ul className="product-card__trends-list">
-            {p.supporting_trends.map((trend, i) => (
-              <li key={i}>{trend}</li>
+          <div className="product-idea-card__label">Why it would sell</div>
+          <p className="product-idea-card__value">{p.why_it_would_sell}</p>
+        </>
+      )}
+
+      {p.key_ingredients && p.key_ingredients.length > 0 && (
+        <div className="product-idea-card__ingredients">
+          <span className="product-idea-card__label">Key ingredients</span>
+          <div className="product-idea-card__pills">
+            {p.key_ingredients.map((ing, i) => (
+              <span key={i} className="product-idea-card__pill">{ing}</span>
             ))}
-          </ul>
+          </div>
+        </div>
+      )}
+
+      {p.competitive_advantage && (
+        <>
+          <div className="product-idea-card__label">Competitive advantage</div>
+          <p className="product-idea-card__value">{p.competitive_advantage}</p>
+        </>
+      )}
+
+      {(p.supporting_trends_intro || (p.supporting_trends && p.supporting_trends.length > 0)) && (
+        <>
+          <div className="product-idea-card__trends-title">Supporting Trends</div>
+          {p.supporting_trends_intro && (
+            <p className="product-idea-card__trends-intro">{p.supporting_trends_intro}</p>
+          )}
+          {p.supporting_trends && p.supporting_trends.length > 0 && (
+            <ol className="product-idea-card__trends-list" start={1}>
+              {p.supporting_trends.map((trend, i) => {
+                const isObj = typeof trend === 'object' && trend !== null && 'title' in trend;
+                const t = trend as SupportingTrend;
+                return (
+                  <li key={i} className="product-idea-card__trend-item">
+                    {isObj && t.title ? (
+                      <>
+                        <strong className="product-idea-card__trend-title">{t.title}</strong>
+                        {t.description && <p className="product-idea-card__trend-desc">{t.description}</p>}
+                      </>
+                    ) : (
+                      <span>{typeof trend === 'string' ? trend : (t.title || t.description || '')}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </>
       )}
     </article>

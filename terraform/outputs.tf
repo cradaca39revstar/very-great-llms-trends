@@ -120,8 +120,8 @@ output "lambda_function_arn" {
 }
 
 output "lambda_scraper_function_name" {
-  description = "Scraper Lambda function name (invoked by orchestrator)"
-  value       = var.enable_llm_system ? aws_lambda_function.scraper[0].function_name : null
+  description = "Scraper Lambda function name (V2: null when enable_scraper_lambda is false)"
+  value       = var.enable_llm_system && var.enable_scraper_lambda ? aws_lambda_function.scraper[0].function_name : null
 }
 
 output "dynamodb_logs_table_name" {

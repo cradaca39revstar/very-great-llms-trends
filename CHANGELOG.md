@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0] - 2026-02-03
+
+### Changed – LLM System V2 (Product Innovation Engine)
+
+- **Report model**: From “top 5 existing products” to “market context + 1 brand + 5 product ideas” with AI-generated images.
+- **Backend**: New Bedrock prompts (`generate_brand_proposal`, `generate_product_ideas`), Titan Image Generator for product concept images, single orchestrator flow (no scraper).
+- **PDF**: Title page, market context table, brand proposal page, product idea pages with embedded Titan images.
+- **API**: Success response includes `brand_name`; error responses use `HTTPStatus`, `request_id`, and `msg_code` (TRD001–TRD007).
+- **Frontend**: New types (`MarketProduct`, `BrandProposal`, `ProductIdea`), `BrandProposalCard`, `MarketContextSection`, `ProductIdeaCard`, and styles.
+- **Terraform**: Titan IAM permission for `amazon.titan-image-generator-v2:0`; scraper Lambda and invoke-scraper policy gated by `enable_scraper_lambda` (default `false`); orchestrator env no longer includes `SCRAPER_FUNCTION_NAME` or `KNOWLEDGE_BASE_ID`.
+- **Lambda**: Removed `requests` from requirements; added `Pillow` for PDF image handling.
+
+### Removed
+
+- Scraper Lambda from default deploy (`enable_scraper_lambda = false`).
+- Legacy PDF helpers: `add_product_page`, `parse_trend_text` from `pdf_generator.py`.
+- Legacy Bedrock helpers: brand-name/product-search/trends prompts and related functions from `bedrock_helper.py`.
+
+---
+
 ## [1.0.0] - 2026-01-17
 
 ### Added - Initial Production Release

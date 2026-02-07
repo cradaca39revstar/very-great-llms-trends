@@ -2,10 +2,10 @@
 
 ## System Architecture
 
-**Version:** 1.1.0
-**Last Updated:** January 30, 2026
+**Version:** 2.0.0
+**Last Updated:** February 3, 2026
 **Target Audience:** Client Stakeholders
-**Status:** Implemented
+**Status:** Implemented (V2 – Product Innovation Engine)
 
 ---
 
@@ -36,18 +36,25 @@
 
 ## Executive Summary
 
-The **LLM Trending Products Report Generator** is an AI-powered analytics system that generates comprehensive trending product reports for the beauty products industry. Built on AWS Bedrock, this system integrates seamlessly with the existing Beauty Products Data Lake to deliver intelligent, data-driven insights about trending products across different beauty categories.
+The **LLM Trending Products Report Generator (V2 – Product Innovation Engine)** is an AI-powered system that produces **Product Innovation Reports** for the beauty products industry. It uses real market data from the Beauty Products Data Lake as context and generates a new brand concept plus five product ideas with AI-generated concept images.
 
-### What It Does
+### What It Does (V2)
 
-The system enables users to ask natural language questions about trending products in specific beauty categories (such as "What are the trending products in Skincare?") and receive AI-generated reports that include:
+Users ask natural language questions by L2 category (e.g. "What are the top trending products in Skincare?"). The system:
 
-- **Top 5 Trending Products** by revenue and growth within the requested category
-- **Brand Intelligence** - AI-identified brand names and product information
-- **Revenue Analytics** - 30-day revenue trends, growth percentages, and category rankings
-- **Market Trends** - 5 macro trends explaining why each product is succeeding
-- **Visual Reports** - Product images, descriptions, and brand website links
-- **PDF Export** - Downloadable reports for sharing and presentations
+1. **Queries Athena** for the top 5 real products in that category (revenue, growth, items sold).
+2. **Generates one Brand Proposal** (name, tagline, story, values, target demographic, price positioning, distribution) using Bedrock.
+3. **Generates five Product Ideas** (name, description, price, ingredients, why it would sell, competitive advantage, supporting trends, image prompt) using Bedrock.
+4. **Generates five concept images** via Amazon Titan Image Generator v2 (one per product idea).
+5. **Produces a PDF** with market context table, brand proposal, and one page per product idea (including embedded images).
+
+Reports include:
+
+- **Market context** – Table of the top 5 real products used as input
+- **Brand proposal** – One AI-generated brand (tagline, story, values, positioning)
+- **Product ideas** – Five AI product concepts with descriptions, price, ingredients, trends
+- **AI-generated images** – Titan concept image per product (embedded in PDF)
+- **PDF export** – Downloadable Product Innovation Report
 
 ### Key Capabilities
 
@@ -652,7 +659,9 @@ Example: trending-products-skincare-20260126-100530.pdf
 
 This section describes the complete end-to-end data flow from user query to report delivery, including timing estimates for each phase.
 
-### Data Flow Sequence Diagram
+**V2 (current) flow:** Parse query → Athena top 5 (market context) → Bedrock: one brand proposal → Bedrock: five product ideas → Titan Image Generator (5 images in parallel) → PDF (title, market context table, brand page, 5 product idea pages with images) → S3 upload and DynamoDB log. No scraper or web search.
+
+### Data Flow Sequence Diagram (V1 reference; V2 uses brand + product ideas + Titan images, no web search)
 
 ```mermaid
 sequenceDiagram

@@ -1,20 +1,53 @@
 /**
- * API contract types for the LLM Trending Products backend.
- * Matches Lambda response: success (status, request_id, report, ...) and error (error, message, request_id, supported_categories).
+ * API contract types for the LLM Trending Products backend (V2).
+ * Success: status, request_id, brand_name, report (market_context, brand_proposal, product_ideas), pdf_url, ...
+ * Error: status_code, msg_code, request_id, message, supported_categories.
  */
 
-export interface ReportProduct {
-  rank: number;
-  product_id: number | null;
-  brand_name: string;
+export interface MarketProduct {
   product_name: string;
-  image_url: string;
-  brand_url: string;
+  shop_name: string;
+  revenue_usd: number;
+  mom_growth_pct: number;
+  item_sold: number;
+  revenue_rank: number;
+}
+
+export interface BrandProposal {
+  brand_name: string;
+  brand_tagline: string;
+  brand_story: string;
+  brand_values: string[];
+  target_demographic: string;
+  price_positioning: string;
+  distribution_strategy: string;
+  brand_personality: string;
+  /** Base64 PNG from Titan (brand logo). Use as data URL for <img>. */
+  logo_image_base64?: string | null;
+}
+
+/** One macro trend: title + paragraph description. */
+export interface SupportingTrend {
+  title: string;
   description: string;
-  revenue_trend: string;
-  revenue_scale: string;
-  category_rank: string;
-  supporting_trends: string[];
+}
+
+export interface ProductIdea {
+  rank: number;
+  product_name: string;
+  description: string;
+  estimated_price_usd: number;
+  why_it_would_sell: string;
+  key_ingredients: string[];
+  /** Intro paragraph before the 5 macro trends (e.g. "Here are 5 macro trends that are driving..."). */
+  supporting_trends_intro?: string | null;
+  /** 5 macro trends with title and description. Legacy: string[] is still supported in UI. */
+  supporting_trends: SupportingTrend[] | string[];
+  competitive_advantage: string;
+  has_image: boolean;
+  image_url?: string;
+  /** Base64 PNG from Titan. Use as data URL for <img>. */
+  image_base64?: string | null;
 }
 
 export interface Report {
@@ -22,7 +55,9 @@ export interface Report {
   category: string;
   generated_at: string;
   data_period: string;
-  products: ReportProduct[];
+  market_context: MarketProduct[];
+  brand_proposal: BrandProposal;
+  product_ideas: ProductIdea[];
 }
 
 /** Success response from POST /trending-products/query (HTTP 200, status === 'success'). */
@@ -31,6 +66,7 @@ export interface TrendQuerySuccess {
   request_id: string;
   query: string;
   category: string;
+  brand_name: string;
   report: Report;
   pdf_url: string | null;
   execution_time_ms: number;
@@ -43,6 +79,8 @@ export interface TrendQueryError {
   message: string;
   request_id: string;
   supported_categories?: string[] | null;
+  status_code?: number;
+  msg_code?: Array<{ code: string; description: string }>;
 }
 
 export type TrendQueryResponse = TrendQuerySuccess | TrendQueryError;

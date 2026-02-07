@@ -106,3 +106,9 @@ variable "brave_search_api_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "enable_scraper_lambda" {
+  description = "Enable scraper Lambda (V2 uses AI-generated products + Titan images; set to false to disable legacy scraper)."
+  type        = bool
+  default     = false
+}

@@ -20,14 +20,29 @@ export async function queryTrendingProducts(
     return err;
   }
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+  } catch (fetchErr) {
+    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    const hint =
+      msg === 'Failed to fetch' || msg.includes('NetworkError')
+        ? ' Often: (1) API took >29s and gateway timed out, (2) wrong VITE_API_URL in .env.local — run "terraform output -raw api_gateway_url" and restart "npm run dev", or (3) CORS.'
+        : '';
+    const err: TrendQueryError = {
+      error: true,
+      message: msg + hint,
+      request_id: 'client-error',
+    };
+    return err;
+  }
 
   const body = await res.json().catch(() => ({}));
 

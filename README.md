@@ -41,16 +41,19 @@ For questions or issues:
 
 The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transforms, and curates beauty product sales data using S3, AWS Glue, and Athena. The solution implements comprehensive data quality checks, governance controls, and metadata management aligned with DAMA-DMBOK best practices.
 
-### LLM Trending Products System
+### LLM Trending Products System (V2 – Product Innovation Engine)
 
-**NEW**: AI-powered trending products report generator that integrates with the existing data lake to deliver intelligent, data-driven insights.
+**V2**: AI-powered **Product Innovation Report** generator. Uses real top-5 market data as context to generate one new brand proposal and five AI product ideas, with Titan-generated concept images.
 
 **Key Features**:
-- Natural language queries (English)
-- AI-generated market trend analysis using AWS Bedrock
-- Professional PDF reports in 20-25 seconds
+- Natural language queries (English) by L2 category
+- **Market context**: Athena top 5 real products (revenue, growth, rank)
+- **Brand proposal**: One AI-generated brand (name, tagline, story, values, positioning)
+- **Product ideas**: Five AI product concepts with descriptions, price, ingredients, trends
+- **AI images**: Amazon Titan Image Generator v2 for each product concept
+- Professional PDF reports in ~15–22 seconds
 - Secure authentication via AWS Cognito
-- Integration with existing curated data
+- Scraper Lambda disabled by default (`enable_scraper_lambda = false`)
 
 **Documentation**:
 - Architecture: [`docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)

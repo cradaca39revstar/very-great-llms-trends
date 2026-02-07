@@ -33,8 +33,6 @@ resource "aws_lambda_function" "orchestrator" {
       PDF_BUCKET              = aws_s3_bucket.pdfs[0].id
       ENVIRONMENT             = var.environment
       AWS_REGION_NAME         = var.aws_region
-      SCRAPER_FUNCTION_NAME   = aws_lambda_function.scraper[0].function_name
-      KNOWLEDGE_BASE_ID       = var.knowledge_base_id
     }
   }
 
@@ -222,7 +220,8 @@ resource "aws_iam_policy" "lambda_bedrock" {
           "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-7-sonnet-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-sonnet-4*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-*",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*"
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-image-generator-v2:0"
         ]
       },
       {
@@ -349,9 +348,9 @@ resource "aws_iam_policy" "lambda_lakeformation" {
   })
 }
 
-# IAM Policy: Invoke Scraper Lambda (internal, no public API)
+# IAM Policy: Invoke Scraper Lambda (V2: disabled; set enable_scraper_lambda = true to re-enable)
 resource "aws_iam_policy" "lambda_invoke_scraper" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   name        = "beauty-products-llm-invoke-scraper-${var.environment}"
   description = "Allow orchestrator to invoke scraper Lambda"
@@ -438,7 +437,7 @@ resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_invoke_scraper" {
-  count = var.enable_llm_system ? 1 : 0
+  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
 
   role       = aws_iam_role.lambda_orchestrator[0].name
   policy_arn = aws_iam_policy.lambda_invoke_scraper[0].arn

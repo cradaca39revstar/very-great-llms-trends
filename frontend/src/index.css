@@ -357,6 +357,316 @@ a:hover {
   margin-bottom: 0.35rem;
 }
 
+/* ---------- V2: Brand card ---------- */
+.brand-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.brand-card__logo-wrap {
+  margin-bottom: 1rem;
+}
+
+.brand-card__logo {
+  max-width: 160px;
+  max-height: 160px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid rgba(255, 255, 255, 0.5);
+}
+
+.brand-card__name {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--color-text);
+}
+
+.brand-card__tagline {
+  font-style: italic;
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.brand-card__values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.brand-card__pill {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: var(--color-text);
+}
+
+.brand-card__section {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.brand-card__section strong {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.brand-card__section p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.brand-card__price-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+/* ---------- V2: Market context (collapsible) ---------- */
+.market-context {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.market-context__toggle {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.15);
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.market-context__toggle:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.market-context__subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 1rem 1rem 1rem;
+}
+
+.market-context__table-wrap {
+  overflow-x: auto;
+  padding: 0 1rem 1rem 1rem;
+}
+
+.market-context__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.market-context__table th,
+.market-context__table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.market-context__table th {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.market-context__table td {
+  color: var(--color-text);
+}
+
+/* ---------- V2: Product idea card ---------- */
+.product-idea-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.product-idea-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.product-idea-card:last-child {
+  margin-bottom: 0;
+}
+
+.product-idea-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.product-idea-card__rank {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.product-idea-card__badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+}
+
+.product-idea-card__image-wrap {
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 1;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-idea-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-idea-card__image-placeholder {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  padding: 1rem;
+  text-align: center;
+}
+
+.product-idea-card__price {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+.product-idea-card__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.product-idea-card__value {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+.product-idea-card__description {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  margin: 0.5rem 0 1rem 0;
+}
+
+.product-idea-card__ingredients {
+  margin-bottom: 1rem;
+}
+
+.product-idea-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.product-idea-card__pill {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+}
+
+.product-idea-card__trends-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.product-idea-card__trends-intro {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  margin: 0 0 1rem 0;
+  padding-left: 0;
+}
+
+.product-idea-card__trends-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  list-style: decimal;
+}
+
+.product-idea-card__trends-list li {
+  margin-bottom: 1rem;
+}
+
+.product-idea-card__trend-item {
+  padding-left: 0.25rem;
+}
+
+.product-idea-card__trend-title {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+}
+
+.product-idea-card__trend-desc {
+  margin: 0 0 0 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
 /* Error block */
 .error-block {
   padding: 1rem 1.25rem;
