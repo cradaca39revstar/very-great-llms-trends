@@ -47,9 +47,15 @@ export async function queryTrendingProducts(
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    const status = res.status;
+    let message = (body as TrendQueryError).message ?? `HTTP ${status}`;
+    if (status === 504) {
+      message =
+        'The report took longer than 29 seconds (gateway timeout). The PDF may still have been generated. Run .\\scripts\\call-api-llm.ps1 to get the PDF link, or try again.';
+    }
     const err: TrendQueryError = {
       error: true,
-      message: (body as TrendQueryError).message ?? `HTTP ${res.status}`,
+      message,
       request_id: (body as TrendQueryError).request_id ?? 'unknown',
       supported_categories: (body as TrendQueryError).supported_categories ?? undefined,
     };

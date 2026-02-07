@@ -183,8 +183,9 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
 }
 
 function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandName: string }) {
+  const logoFormat = brand.logo_image_base64_format || 'png';
   const logoDataUrl = brand.logo_image_base64
-    ? `data:image/png;base64,${brand.logo_image_base64}`
+    ? `data:image/${logoFormat};base64,${brand.logo_image_base64}`
     : null;
   return (
     <article className="brand-card">
@@ -297,7 +298,7 @@ function ProductIdeaCard({ product: p }: { product: ProductIdea }) {
       <div className="product-idea-card__image-wrap">
         {p.image_base64 ? (
           <img
-            src={`data:image/png;base64,${p.image_base64}`}
+            src={`data:image/${p.image_base64_format || 'png'};base64,${p.image_base64}`}
             alt={p.product_name}
             className="product-idea-card__image"
           />
