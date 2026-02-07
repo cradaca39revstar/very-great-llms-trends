@@ -62,7 +62,7 @@ def generate_pdf_report(
     brand_logo_bytes: Optional[bytes] = None,
 ) -> bytes:
     """
-    Generate Product Innovation Report PDF (V2): title, market context, brand proposal, 5 product idea pages.
+    Generate Product Innovation Report PDF (V2): title, market context, brand proposal, 4 product idea pages.
     product_ideas_with_images: list of product dicts that may contain _image_bytes for embedding.
     brand_logo_bytes: optional AI-generated brand logo image (PNG) for brand proposal page.
     """
@@ -116,7 +116,7 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.set_x(pdf.l_margin)
     summary = _sanitize_pdf_text(
         f"Based on market analysis of top-performing products in {category}, this report "
-        f"presents an AI-generated brand concept and 5 product ideas with supporting trends."
+        f"presents an AI-generated brand concept and 4 product ideas (3 based on top performers, 1 brand new) with supporting trends."
     )
     pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 

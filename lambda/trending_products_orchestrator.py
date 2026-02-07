@@ -1,7 +1,7 @@
 """
 LLM Product Innovation Engine - Lambda Orchestrator (V2).
-Athena top 5 (market context) -> Brand proposal -> 5 product ideas -> Titan images -> PDF.
-Target latency: 17-26s. All documentation and comments in English.
+Athena top 5 (market context) -> Brand proposal -> 4 product ideas (3 from top + 1 brand new) -> Titan images -> PDF.
+Target latency: under 29s for API Gateway. All documentation and comments in English.
 """
 
 import base64
@@ -21,6 +21,7 @@ from botocore.exceptions import ClientError
 from utils.athena_helper import query_athena_top_products
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
 from utils.image_generator import generate_brand_logo, generate_images_parallel
+from utils.image_utils import image_bytes_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
 
 # Environment variables
@@ -174,7 +175,7 @@ def lambda_handler(event: Dict, context: Any) -> Dict:
                     product_ideas_raw,
                     brand_name,
                     bedrock,
-                    5,
+                    max_workers=4,
                 )
                 for future in as_completed([future_logo, future_images]):
                     if future == future_logo:
@@ -285,8 +286,10 @@ def lambda_handler(event: Dict, context: Any) -> Dict:
 
         print(f"[{request_id}] Completed in {total_duration:.0f}ms")
 
-        # Return report without image_base64/logo_image_base64 so response fits under API Gateway 29s limit
-        response_report = _report_for_dynamodb(report)
+        # Return report with thumbnail images (small payload) so frontend can show images without timeout
+        response_report = _report_with_thumbnail_images(
+            report, product_ideas=product_ideas, brand_logo_bytes=brand_logo_bytes
+        )
         return {
             "statusCode": HTTPStatus.OK.value,
             "headers": {
@@ -422,12 +425,35 @@ def _report_for_dynamodb(report: Dict) -> Dict:
     """Return a copy of the report without image_base64/logo_image_base64 to stay under DynamoDB 400KB item limit."""
     out = dict(report)
     bp = out.get("brand_proposal") or {}
-    out["brand_proposal"] = {k: v for k, v in bp.items() if k != "logo_image_base64"}
+    out["brand_proposal"] = {k: v for k, v in bp.items() if k not in ("logo_image_base64", "logo_image_base64_format")}
     ideas = []
     for p in out.get("product_ideas") or []:
-        ideas.append({k: v for k, v in (p if isinstance(p, dict) else {}).items() if k != "image_base64"})
+        ideas.append({k: v for k, v in (p if isinstance(p, dict) else {}).items() if k not in ("image_base64", "image_base64_format")})
     out["product_ideas"] = ideas
     return out
+
+
+def _report_with_thumbnail_images(
+    report: Dict,
+    product_ideas: List[Dict],
+    brand_logo_bytes: Optional[bytes] = None,
+) -> Dict:
+    """Return a copy of the report with thumbnail base64 (JPEG) for frontend display; keeps payload small."""
+    response_report = _report_for_dynamodb(report)
+    thumb_size = 256
+    if brand_logo_bytes:
+        logo_b64 = image_bytes_to_thumbnail_base64(brand_logo_bytes, size=thumb_size)
+        if logo_b64:
+            response_report.setdefault("brand_proposal", {})["logo_image_base64"] = logo_b64
+            response_report["brand_proposal"]["logo_image_base64_format"] = "jpeg"
+    for i, idea in enumerate(product_ideas):
+        img_bytes = idea.get("_image_bytes")
+        if img_bytes and i < len(response_report.get("product_ideas") or []):
+            thumb_b64 = image_bytes_to_thumbnail_base64(img_bytes, size=thumb_size)
+            if thumb_b64:
+                response_report["product_ideas"][i]["image_base64"] = thumb_b64
+                response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+    return response_report
 
 
 def _float_to_decimal(obj: Any) -> Any:

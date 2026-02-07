@@ -196,6 +196,33 @@ resource "aws_api_gateway_method_response" "post_200" {
   }
 }
 
+# CORS on gateway error responses (5XX/4XX) so browser can read timeout/errors instead of "Failed to fetch"
+resource "aws_api_gateway_gateway_response" "cors_5xx" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id   = aws_api_gateway_rest_api.llm[0].id
+  response_type = "DEFAULT_5XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'POST,OPTIONS'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "cors_4xx" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id   = aws_api_gateway_rest_api.llm[0].id
+  response_type = "DEFAULT_4XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'POST,OPTIONS'"
+  }
+}
+
 # Lambda permission for API Gateway
 resource "aws_lambda_permission" "api_gateway" {
   count = var.enable_llm_system ? 1 : 0
@@ -220,7 +247,9 @@ resource "aws_api_gateway_deployment" "llm" {
       aws_api_gateway_method.post_query[0].id,
       aws_api_gateway_integration.lambda[0].id,
       aws_api_gateway_method.options_query[0].id,
-      aws_api_gateway_integration.options[0].id
+      aws_api_gateway_integration.options[0].id,
+      aws_api_gateway_gateway_response.cors_5xx[0].id,
+      aws_api_gateway_gateway_response.cors_4xx[0].id
     ]))
   }
 

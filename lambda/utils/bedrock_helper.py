@@ -32,7 +32,10 @@ Output exactly this JSON shape (no other fields):
 {{"brand_name": "string", "brand_tagline": "string", "brand_story": "string", "brand_values": ["string", "string", "string"], "target_demographic": "string", "price_positioning": "string", "distribution_strategy": "string", "brand_personality": "string"}}"""
 
 
-GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 5 NEW product ideas for that brand. Products must be ORIGINAL concepts, not copies of the market context products.
+# Report delivers 4 product ideas: 3 based on top performers + 1 brand new (faster: 4 Titan images, fits 29s gateway limit)
+PRODUCT_IDEAS_COUNT = 4
+
+GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 4 product ideas for that brand.
 
 L2 Category: {l2_category}
 
@@ -47,10 +50,10 @@ Brand proposal:
 - Values: {brand_values}
 
 Instructions:
-- Each product must address a real gap or trend visible in the market data.
-- For each product you MUST provide exactly 5 macro trends that are driving (or would drive) the success of that product in the market. Each trend has a short title and a full paragraph description (2-4 sentences) explaining how the trend connects to the product and to real consumer/sales behavior.
-- supporting_trends_intro must be ONE paragraph (2-3 sentences) that introduces the 5 macro trends for that product. Use this exact style: "Here are 5 macro trends that are driving the success of [product name], and which have helped make it one of the most dominant [relevant subcategory or category] in the market:" (Adapt the wording if the product is new—e.g. "that would help position it" instead of "have helped make it".)
-- supporting_trends must be an array of exactly 5 objects. Each object has "title" (short trend name, e.g. "The Mainstreaming of Collagen as a Wellness Staple") and "description" (one paragraph of 2-4 sentences with concrete, market-relevant explanation).
+- Output exactly 4 products in this order:
+  1. Products 1–3: Inspired by or derived from the top 5 real products (variations, same category, improvements that address gaps). Each must feel like a natural evolution or adjacent opportunity based on the market context.
+  2. Product 4: ONE completely brand new idea — innovative, not derived from the top 5. A fresh concept that fits the brand and category.
+- For each product you MUST provide exactly 5 macro trends (supporting_trends_intro + supporting_trends array of 5 objects with "title" and "description").
 - image_prompt must describe a photorealistic product shot (packaging, colors, style, setting) suitable for AI image generation.
 - You MUST respond with ONLY valid JSON. No markdown, no code fences.
 
@@ -62,16 +65,16 @@ Output exactly this JSON shape:
     "estimated_price_usd": 29.99,
     "why_it_would_sell": "string",
     "key_ingredients": ["s1", "s2"],
-    "supporting_trends_intro": "Here are 5 macro trends that are driving the success of [this product], and which have helped make it one of the most dominant [subcategory] in the market:",
+    "supporting_trends_intro": "Here are 5 macro trends that are driving the success of [this product]...",
     "supporting_trends": [
-      {{"title": "Short Trend Title", "description": "Full paragraph explaining this trend and how it connects to the product and market."}},
+      {{"title": "Short Trend Title", "description": "Full paragraph."}},
       ... exactly 5 items
     ],
     "competitive_advantage": "string",
     "image_prompt": "string"
   }}
 ]}}
-Exactly 5 objects in the "products" array. Each product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
+Exactly 4 objects in the "products" array. Each product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
 
 
 # Template to refine image_prompt before sending to Titan Image Generator (used in image_generator.py)
@@ -206,8 +209,8 @@ def generate_product_ideas(
     model_id: str,
 ) -> List[Dict[str, Any]]:
     """
-    Generate 5 product ideas from market context + brand proposal. Single Bedrock call.
-    Returns list of 5 product dicts. Pads with defaults if fewer than 5 returned.
+    Generate 4 product ideas from market context + brand proposal (3 based on top performers + 1 brand new). Single Bedrock call.
+    Returns list of 4 product dicts. Pads with defaults if fewer than 4 returned.
     """
     market_context_text = _format_market_context(market_context)
     brand_name = brand_proposal.get("brand_name") or ""
@@ -252,12 +255,12 @@ def generate_product_ideas(
             "image_prompt": "Product bottle or package, clean background",
         }
         out = []
-        for p in products[:5]:
+        for p in products[:PRODUCT_IDEAS_COUNT]:
             normalized = _normalize_product_idea_trends(p, default_trend)
             out.append(normalized)
-        while len(out) < 5:
+        while len(out) < PRODUCT_IDEAS_COUNT:
             out.append(default_product.copy())
-        return out[:5]
+        return out[:PRODUCT_IDEAS_COUNT]
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         print(f"Product ideas JSON parse failed: {e}")
         default_trend = {"title": "", "description": ""}
@@ -273,7 +276,7 @@ def generate_product_ideas(
                 "competitive_advantage": "",
                 "image_prompt": "Product bottle or package, clean background",
             }
-            for _ in range(5)
+            for _ in range(PRODUCT_IDEAS_COUNT)
         ]
 
 
