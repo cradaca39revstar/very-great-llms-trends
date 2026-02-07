@@ -171,7 +171,7 @@ resource "aws_api_gateway_integration_response" "options" {
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
 
@@ -206,7 +206,7 @@ resource "aws_api_gateway_gateway_response" "cors_5xx" {
   response_parameters = {
     "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'POST,OPTIONS'"
+    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'GET,POST,OPTIONS'"
   }
 }
 
@@ -219,8 +219,112 @@ resource "aws_api_gateway_gateway_response" "cors_4xx" {
   response_parameters = {
     "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'POST,OPTIONS'"
+    "gatewayresponse.header.Access-Control-Allow-Methods"  = "'GET,POST,OPTIONS'"
   }
+}
+
+# /report resource (for GET /report/{request_id})
+resource "aws_api_gateway_resource" "report" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id = aws_api_gateway_rest_api.llm[0].id
+  parent_id   = aws_api_gateway_rest_api.llm[0].root_resource_id
+  path_part   = "report"
+}
+
+# /report/{request_id} resource
+resource "aws_api_gateway_resource" "report_request_id" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id = aws_api_gateway_rest_api.llm[0].id
+  parent_id   = aws_api_gateway_resource.report[0].id
+  path_part   = "{request_id}"
+}
+
+# GET /report/{request_id} with Cognito authorization
+resource "aws_api_gateway_method" "get_report" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id   = aws_api_gateway_rest_api.llm[0].id
+  resource_id   = aws_api_gateway_resource.report_request_id[0].id
+  http_method   = "GET"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito[0].id
+
+  request_parameters = {
+    "method.request.header.Authorization" = true
+  }
+}
+
+# Lambda integration for GET /report/{request_id}
+resource "aws_api_gateway_integration" "get_report" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id             = aws_api_gateway_rest_api.llm[0].id
+  resource_id             = aws_api_gateway_resource.report_request_id[0].id
+  http_method             = aws_api_gateway_method.get_report[0].http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.orchestrator[0].invoke_arn
+}
+
+# OPTIONS /report/{request_id} for CORS preflight
+resource "aws_api_gateway_method" "options_report_request_id" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id   = aws_api_gateway_rest_api.llm[0].id
+  resource_id   = aws_api_gateway_resource.report_request_id[0].id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "options_report_request_id" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id = aws_api_gateway_rest_api.llm[0].id
+  resource_id = aws_api_gateway_resource.report_request_id[0].id
+  http_method = aws_api_gateway_method.options_report_request_id[0].http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "options_report_200" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id = aws_api_gateway_rest_api.llm[0].id
+  resource_id = aws_api_gateway_resource.report_request_id[0].id
+  http_method = aws_api_gateway_method.options_report_request_id[0].http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options_report" {
+  count = var.enable_llm_system ? 1 : 0
+
+  rest_api_id = aws_api_gateway_rest_api.llm[0].id
+  resource_id = aws_api_gateway_resource.report_request_id[0].id
+  http_method = aws_api_gateway_method.options_report_request_id[0].http_method
+  status_code = aws_api_gateway_method_response.options_report_200[0].status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+
+  depends_on = [aws_api_gateway_integration.options_report_request_id]
 }
 
 # Lambda permission for API Gateway
@@ -248,6 +352,12 @@ resource "aws_api_gateway_deployment" "llm" {
       aws_api_gateway_integration.lambda[0].id,
       aws_api_gateway_method.options_query[0].id,
       aws_api_gateway_integration.options[0].id,
+      aws_api_gateway_resource.report[0].id,
+      aws_api_gateway_resource.report_request_id[0].id,
+      aws_api_gateway_method.get_report[0].id,
+      aws_api_gateway_integration.get_report[0].id,
+      aws_api_gateway_method.options_report_request_id[0].id,
+      aws_api_gateway_integration.options_report_request_id[0].id,
       aws_api_gateway_gateway_response.cors_5xx[0].id,
       aws_api_gateway_gateway_response.cors_4xx[0].id
     ]))
@@ -259,7 +369,9 @@ resource "aws_api_gateway_deployment" "llm" {
 
   depends_on = [
     aws_api_gateway_integration.lambda,
-    aws_api_gateway_integration.options
+    aws_api_gateway_integration.options,
+    aws_api_gateway_integration.get_report,
+    aws_api_gateway_integration.options_report_request_id
   ]
 }
 

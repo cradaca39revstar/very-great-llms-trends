@@ -14,6 +14,19 @@ from utils.bedrock_helper import TITAN_IMAGE_PROMPT_TEMPLATE
 TITAN_IMAGE_MODEL_ID = "amazon.titan-image-generator-v2:0"
 TITAN_MAX_RETRIES = 2
 TITAN_RETRY_DELAY_SEC = 2
+# Titan textToImageParams/text has a 512 character limit
+TITAN_PROMPT_MAX_LENGTH = 512
+
+
+def _truncate_prompt_for_titan(prompt: str, max_len: int = TITAN_PROMPT_MAX_LENGTH) -> str:
+    """Truncate prompt to max_len chars; avoid cutting mid-word when possible."""
+    if not prompt or len(prompt) <= max_len:
+        return prompt or ""
+    truncated = prompt[:max_len]
+    last_space = truncated.rfind(" ")
+    if last_space > max_len // 2:
+        return truncated[:last_space]
+    return truncated
 
 # Logo: minimal, elegant brand mark (Titan works best with clear product/photography prompts; logo is stylized)
 TITAN_LOGO_PROMPT_TEMPLATE = """Minimal luxury brand logo for "{brand_name}". {tagline}
@@ -35,6 +48,7 @@ def generate_product_image(
         brand_name=brand_name or "Brand",
         image_prompt_from_llm=image_prompt or "Product packaging, professional shot.",
     ).strip()
+    prompt = _truncate_prompt_for_titan(prompt)
 
     body = {
         "textToImageParams": {"text": prompt},
@@ -77,6 +91,7 @@ def generate_brand_logo(brand_name: str, brand_tagline: str, bedrock_client) -> 
         brand_name=brand_name or "Brand",
         tagline=f"Tagline: {brand_tagline}" if brand_tagline else "Luxury brand identity.",
     ).strip()
+    prompt = _truncate_prompt_for_titan(prompt)
     body = {
         "textToImageParams": {"text": prompt},
         "taskType": "TEXT_IMAGE",

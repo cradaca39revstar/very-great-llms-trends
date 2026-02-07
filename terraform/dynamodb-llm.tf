@@ -57,6 +57,66 @@ resource "aws_dynamodb_table" "prompt_logs" {
   }
 }
 
+# DynamoDB Table for Web Insights (Brave API) cache - 6h TTL to avoid redundant searches per category
+resource "aws_dynamodb_table" "web_insights_cache" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name         = "beauty-products-web-insights-cache-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "cache_key"
+
+  attribute {
+    name = "cache_key"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl_expiry"
+    enabled        = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "web-insights-cache-${var.environment}"
+    Component   = "LLM-TrendingProducts"
+    Environment = var.environment
+    Purpose     = "WebSearchCache"
+  }
+}
+
+# DynamoDB Table for async report status (polling via GET /report/{request_id})
+resource "aws_dynamodb_table" "report_status" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name         = "beauty-products-report-status-${var.environment}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "request_id"
+
+  attribute {
+    name = "request_id"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl_expiry"
+    enabled        = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "report-status-${var.environment}"
+    Component   = "LLM-TrendingProducts"
+    Environment = var.environment
+    Purpose     = "AsyncReportPolling"
+  }
+}
+
 # CloudWatch Alarm for DynamoDB throttling
 resource "aws_cloudwatch_metric_alarm" "dynamodb_throttle" {
   count = var.enable_llm_system ? 1 : 0

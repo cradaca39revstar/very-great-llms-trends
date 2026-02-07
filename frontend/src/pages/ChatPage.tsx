@@ -1,32 +1,48 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'aws-amplify/auth';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { queryTrendingProducts } from '../services/api';
+import { queryTrendingProducts, getReportStatus } from '../services/api';
 import {
   isTrendQueryError,
   isTrendQuerySuccess,
+  isTrendQueryProcessing,
   SUPPORTED_L2_CATEGORIES,
   type TrendQueryResponse,
   type TrendQuerySuccess,
   type TrendQueryError,
   type BrandProposal,
-  type MarketProduct,
   type ProductIdea,
   type SupportingTrend,
 } from '../types/api';
+
+const POLL_INTERVAL_MS = 2500;
+const POLL_TIMEOUT_MS = 90000;
 
 export function ChatPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TrendQueryResponse | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollStartRef = useRef<number>(0);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimeoutRef.current !== null) {
+      clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const handleConsult = async () => {
     const q = query.trim();
     if (!q) return;
+    stopPolling();
     setLoading(true);
     setResult(null);
+    let res: TrendQueryResponse | undefined;
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
@@ -39,7 +55,40 @@ export function ChatPage() {
         setLoading(false);
         return;
       }
-      const res = await queryTrendingProducts(token, q);
+      res = await queryTrendingProducts(token, q);
+      if (isTrendQueryProcessing(res)) {
+        setResult(res);
+        pollStartRef.current = Date.now();
+        const poll = async () => {
+          if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
+            stopPolling();
+            setResult({
+              error: true,
+              message:
+                'Report is taking longer than expected. You can try again or check back later.',
+              request_id: res.request_id,
+            });
+            setLoading(false);
+            return;
+          }
+          const statusRes = await getReportStatus(token, res.request_id);
+          if (isTrendQuerySuccess(statusRes)) {
+            stopPolling();
+            setResult(statusRes);
+            setLoading(false);
+            return;
+          }
+          if (isTrendQueryError(statusRes)) {
+            stopPolling();
+            setResult(statusRes);
+            setLoading(false);
+            return;
+          }
+          pollTimeoutRef.current = setTimeout(poll, POLL_INTERVAL_MS);
+        };
+        pollTimeoutRef.current = setTimeout(poll, POLL_INTERVAL_MS);
+        return;
+      }
       setResult(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -49,6 +98,7 @@ export function ChatPage() {
         request_id: 'client-error',
       });
     } finally {
+      if (res !== undefined && isTrendQueryProcessing(res)) return;
       setLoading(false);
     }
   };
@@ -115,6 +165,12 @@ export function ChatPage() {
 
       {result && (
         <section>
+          {isTrendQueryProcessing(result) && (
+            <div className="results-intro" aria-live="polite">
+              <p>Generating report…</p>
+              <p className="results-meta">Request ID: {result.request_id}. Polling every 2–3s (max 90s).</p>
+            </div>
+          )}
           {isTrendQueryError(result) && <ErrorView data={result} />}
           {isTrendQuerySuccess(result) && <SuccessView data={result} />}
         </section>
@@ -140,7 +196,6 @@ function ErrorView({ data }: { data: TrendQueryError }) {
 function SuccessView({ data }: { data: TrendQuerySuccess }) {
   const { report, pdf_url, request_id, execution_time_ms, product_count, brand_name } = data;
   const brand = report.brand_proposal;
-  const marketContext = report.market_context ?? [];
   const productIdeas = report.product_ideas ?? [];
 
   return (
@@ -165,10 +220,6 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
 
       {brand && (
         <BrandProposalCard brand={brand} brandName={brand_name || brand.brand_name} />
-      )}
-
-      {marketContext.length > 0 && (
-        <MarketContextSection products={marketContext} />
       )}
 
       <ul className="product-idea-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -233,55 +284,6 @@ function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandNa
         </div>
       )}
     </article>
-  );
-}
-
-function MarketContextSection({ products }: { products: MarketProduct[] }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <section className="market-context">
-      <button
-        type="button"
-        className="market-context__toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        {open ? '▼' : '▶'} Market Analysis – Top performers used as context
-      </button>
-      {open && (
-        <>
-          <p className="market-context__subtitle">
-            These top-performing products were analyzed to generate the brand concept.
-          </p>
-          <div className="market-context__table-wrap">
-            <table className="market-context__table">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Product</th>
-                  <th>Shop</th>
-                  <th>Revenue (USD)</th>
-                  <th>Growth %</th>
-                  <th>Sold</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p, i) => (
-                  <tr key={i}>
-                    <td>{p.revenue_rank}</td>
-                    <td>{p.product_name}</td>
-                    <td>{p.shop_name}</td>
-                    <td>{p.revenue_usd?.toLocaleString() ?? '—'}</td>
-                    <td>{p.mom_growth_pct != null ? `${p.mom_growth_pct}%` : '—'}</td>
-                    <td>{p.item_sold != null ? p.item_sold.toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </section>
   );
 }
 

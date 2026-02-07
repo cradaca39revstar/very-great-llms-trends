@@ -28,6 +28,11 @@ LINE_HEIGHT_BODY = 5
 LINE_HEIGHT_TITLE = 6
 # Max URL length before truncation with ellipsis (avoids overflow)
 MAX_URL_DISPLAY_LEN = 80
+# Market Intelligence: compact section (max 1 page)
+MI_SNIPPET_MAX_CHARS = 90
+MI_ITEMS_PER_SECTION = 3
+MI_LINE_HEIGHT = 4
+MI_SECTION_FILL_RGB = (240, 240, 240)
 
 # AWS S3 client
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION_NAME', 'us-east-1'))
@@ -62,7 +67,7 @@ def generate_pdf_report(
     brand_logo_bytes: Optional[bytes] = None,
 ) -> bytes:
     """
-    Generate Product Innovation Report PDF (V2): title, market context, brand proposal, 4 product idea pages.
+    Generate Product Innovation Report PDF (V2): title, market context, brand proposal, 5 product idea pages.
     product_ideas_with_images: list of product dicts that may contain _image_bytes for embedding.
     brand_logo_bytes: optional AI-generated brand logo image (PNG) for brand proposal page.
     """
@@ -73,7 +78,6 @@ def generate_pdf_report(
     pdf.set_y(pdf.t_margin)
 
     add_title_page(pdf, report)
-    add_market_context_page(pdf, report.get("market_context", []))
     add_brand_proposal_page(pdf, report.get("brand_proposal", {}), logo_bytes=brand_logo_bytes)
     product_ideas = report.get("product_ideas", [])
     ideas_with_images = product_ideas_with_images or []
@@ -116,7 +120,7 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.set_x(pdf.l_margin)
     summary = _sanitize_pdf_text(
         f"Based on market analysis of top-performing products in {category}, this report "
-        f"presents an AI-generated brand concept and 4 product ideas (3 based on top performers, 1 brand new) with supporting trends."
+        f"presents an AI-generated brand concept and 5 product ideas (4 based on top performers, 1 brand new) with supporting trends."
     )
     pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 
@@ -196,6 +200,83 @@ def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optiona
         pdf.set_font("Arial", "", FONT_SIZE_BODY)
         pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(", ".join(str(v) for v in values)))
         pdf.ln(3)
+
+
+def add_market_intelligence_page(pdf: FPDF, web_insights: Dict, show_disclaimer: bool = False) -> None:
+    """Market Intelligence: compact 1-page section with clear hierarchy, domain-only URLs, short snippets.
+    Uses gray section bars, bullets, and max MI_ITEMS_PER_SECTION items per block to fit in ~1 page."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    title_w = cw - 35
+    domain_w = 32
+    trends = web_insights.get("trends") or []
+    pain_points = web_insights.get("pain_points") or []
+    competitors = web_insights.get("competitors") or []
+    has_any = bool(trends or pain_points or competitors)
+    if show_disclaimer and not has_any:
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, "Market Intelligence", 0, 1, "L")
+        pdf.ln(2)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.multi_cell(
+            cw, MI_LINE_HEIGHT,
+            _sanitize_pdf_text(
+                "Web search insights could not be loaded for this report. "
+                "The following analysis is based on internal market data only."
+            )
+        )
+        return
+    if not has_any:
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, "Market Intelligence", 0, 1, "L")
+        pdf.ln(2)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.multi_cell(cw, MI_LINE_HEIGHT, _sanitize_pdf_text("No web search data available for this category."))
+        return
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 7, "Market Intelligence", 0, 1, "L")
+    pdf.ln(2)
+    sections = [
+        (">> Trends", trends),
+        (">> Pain points", pain_points),
+        (">> Competitors", competitors),
+    ]
+    for label, items in sections:
+        if not items:
+            continue
+        pdf.set_fill_color(*MI_SECTION_FILL_RGB)
+        pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+        pdf.cell(0, 7, f"  {label}", 0, 1, "L", fill=1)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.ln(1)
+        for entry in items[:MI_ITEMS_PER_SECTION]:
+            if not isinstance(entry, dict):
+                continue
+            title = _sanitize_pdf_text((entry.get("title") or "").strip())
+            if len(title) > 52:
+                title = title[:49] + "..."
+            url = (entry.get("url") or "").strip()
+            domain = _url_to_domain(url)
+            snippet_raw = (entry.get("snippet") or "").strip()
+            snippet = _sanitize_pdf_text(snippet_raw[:MI_SNIPPET_MAX_CHARS] + ("..." if len(snippet_raw) > MI_SNIPPET_MAX_CHARS else ""))
+            y0 = pdf.get_y()
+            pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.multi_cell(title_w, MI_LINE_HEIGHT, "  - " + (title or "-"), 0, "L")
+            y1 = pdf.get_y()
+            if domain:
+                pdf.set_font("Arial", "I", 8)
+                pdf.set_xy(pdf.l_margin + title_w, y0)
+                pdf.cell(domain_w, MI_LINE_HEIGHT, domain[:28], 0, 0, "R")
+                pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.set_xy(pdf.l_margin, y1)
+            if snippet:
+                pdf.set_x(pdf.l_margin)
+                pdf.set_font("Arial", "", 8)
+                pdf.multi_cell(cw, MI_LINE_HEIGHT - 0.5, "     " + snippet, 0, "L")
+                pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.ln(2)
+        pdf.ln(2)
 
 
 def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes] = None):
@@ -304,6 +385,22 @@ def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
     """Width from current x to right margin; for two-column rows (e.g. metrics label + value)."""
     w = pdf.w - pdf.r_margin - pdf.get_x()
     return max(float(w), min_w)
+
+
+def _url_to_domain(url: str) -> str:
+    """Extract display domain from URL (e.g. https://www.reddit.com/r/... -> reddit.com)."""
+    if not url or not isinstance(url, str):
+        return ""
+    s = url.strip()
+    for prefix in ("https://", "http://"):
+        if s.lower().startswith(prefix):
+            s = s[len(prefix) :].lstrip("/")
+            break
+    if s.lower().startswith("www."):
+        s = s[4:]
+    # Take first path segment (domain only)
+    domain = s.split("/")[0].split("?")[0]
+    return domain if domain else ""
 
 
 def _truncate_url(url: str, max_len: int = MAX_URL_DISPLAY_LEN) -> str:

@@ -57,7 +57,7 @@ export interface Report {
   category: string;
   generated_at: string;
   data_period: string;
-  market_context: MarketProduct[];
+  market_context?: MarketProduct[];
   brand_proposal: BrandProposal;
   product_ideas: ProductIdea[];
 }
@@ -85,7 +85,14 @@ export interface TrendQueryError {
   msg_code?: Array<{ code: string; description: string }>;
 }
 
-export type TrendQueryResponse = TrendQuerySuccess | TrendQueryError;
+/** Async flow: POST returns 202 with this; frontend polls GET /report/{request_id} until completed/failed. */
+export interface TrendQueryProcessing {
+  status: 'processing';
+  request_id: string;
+  message?: string;
+}
+
+export type TrendQueryResponse = TrendQuerySuccess | TrendQueryError | TrendQueryProcessing;
 
 export function isTrendQueryError(r: TrendQueryResponse): r is TrendQueryError {
   return 'error' in r && r.error === true;
@@ -93,6 +100,10 @@ export function isTrendQueryError(r: TrendQueryResponse): r is TrendQueryError {
 
 export function isTrendQuerySuccess(r: TrendQueryResponse): r is TrendQuerySuccess {
   return 'status' in r && r.status === 'success';
+}
+
+export function isTrendQueryProcessing(r: TrendQueryResponse): r is TrendQueryProcessing {
+  return 'status' in r && r.status === 'processing';
 }
 
 /** L2 categories supported by the backend (for selector / validation). */

@@ -24,15 +24,18 @@ resource "aws_lambda_function" "orchestrator" {
   # Environment variables
   environment {
     variables = {
-      ATHENA_WORKGROUP        = "beauty-products-athena-${var.environment}"
-      ATHENA_DATABASE         = "beauty_products_db"
-      ATHENA_RESULT_BUCKET    = aws_s3_bucket.athena_results.id
-      BEDROCK_PRIMARY_MODEL   = var.bedrock_primary_model
-      BEDROCK_FALLBACK_MODEL  = var.bedrock_fallback_model
-      DYNAMODB_LOGS_TABLE     = aws_dynamodb_table.prompt_logs[0].name
-      PDF_BUCKET              = aws_s3_bucket.pdfs[0].id
-      ENVIRONMENT             = var.environment
-      AWS_REGION_NAME         = var.aws_region
+      ATHENA_WORKGROUP         = "beauty-products-athena-${var.environment}"
+      ATHENA_DATABASE          = "beauty_products_db"
+      ATHENA_RESULT_BUCKET     = aws_s3_bucket.athena_results.id
+      BEDROCK_PRIMARY_MODEL    = var.bedrock_primary_model
+      BEDROCK_FALLBACK_MODEL   = var.bedrock_fallback_model
+      BRAVE_SEARCH_API_KEY     = var.brave_search_api_key
+      DYNAMODB_LOGS_TABLE      = aws_dynamodb_table.prompt_logs[0].name
+      REPORT_STATUS_TABLE      = aws_dynamodb_table.report_status[0].name
+      WEB_INSIGHTS_CACHE_TABLE = aws_dynamodb_table.web_insights_cache[0].name
+      PDF_BUCKET               = aws_s3_bucket.pdfs[0].id
+      ENVIRONMENT              = var.environment
+      AWS_REGION_NAME          = var.aws_region
     }
   }
 
@@ -259,6 +262,25 @@ resource "aws_iam_policy" "lambda_dynamodb" {
           aws_dynamodb_table.prompt_logs[0].arn,
           "${aws_dynamodb_table.prompt_logs[0].arn}/index/*"
         ]
+      },
+      {
+        Sid    = "DynamoDBWebInsightsCache"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem"
+        ]
+        Resource = [aws_dynamodb_table.web_insights_cache[0].arn]
+      },
+      {
+        Sid    = "DynamoDBReportStatus"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [aws_dynamodb_table.report_status[0].arn]
       }
     ]
   })
@@ -343,6 +365,26 @@ resource "aws_iam_policy" "lambda_lakeformation" {
           "lakeformation:GetDataAccess"
         ]
         Resource = "*"
+      }
+    ]
+  })
+}
+
+# IAM Policy: Invoke self asynchronously (async report generation)
+resource "aws_iam_policy" "lambda_invoke_self" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name        = "beauty-products-llm-invoke-self-${var.environment}"
+  description = "Allow orchestrator to invoke itself asynchronously for background report generation"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "InvokeSelfAsync"
+        Effect = "Allow"
+        Action = ["lambda:InvokeFunction"]
+        Resource = [aws_lambda_function.orchestrator[0].arn]
       }
     ]
   })
@@ -434,6 +476,13 @@ resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
 
   role       = aws_iam_role.lambda_orchestrator[0].name
   policy_arn = aws_iam_policy.lambda_lakeformation[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_invoke_self" {
+  count = var.enable_llm_system ? 1 : 0
+
+  role       = aws_iam_role.lambda_orchestrator[0].name
+  policy_arn = aws_iam_policy.lambda_invoke_self[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_invoke_scraper" {

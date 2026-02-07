@@ -169,8 +169,8 @@ def wait_for_query_completion(execution_id: str, timeout: int = 30) -> str:
             elif state == 'CANCELLED':
                 raise Exception("Athena query was cancelled")
             else:
-                # Still running (QUEUED or RUNNING)
-                time.sleep(1)
+                # Still running (QUEUED or RUNNING); poll every 0.5s to detect completion sooner
+                time.sleep(0.5)
                 
         except ClientError as e:
             error_message = e.response['Error']['Message']

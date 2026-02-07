@@ -85,8 +85,13 @@ output "lake_formation_console_url" {
 # =============================================================================
 
 output "api_gateway_url" {
-  description = "API Gateway endpoint URL for LLM system"
+  description = "API Gateway endpoint URL for LLM system (POST for async report; use api_gateway_report_status_base for GET /report/{request_id})"
   value       = var.enable_llm_system ? "https://${aws_api_gateway_rest_api.llm[0].id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.llm[0].stage_name}/trending-products/query" : null
+}
+
+output "api_gateway_report_status_base" {
+  description = "Base URL for polling report status: GET {this}/report/{request_id}"
+  value       = var.enable_llm_system ? "https://${aws_api_gateway_rest_api.llm[0].id}.execute-api.${var.aws_region}.amazonaws.com/${aws_api_gateway_stage.llm[0].stage_name}" : null
 }
 
 output "cognito_user_pool_id" {
@@ -127,6 +132,11 @@ output "lambda_scraper_function_name" {
 output "dynamodb_logs_table_name" {
   description = "DynamoDB table for prompt audit logs"
   value       = var.enable_llm_system ? aws_dynamodb_table.prompt_logs[0].name : null
+}
+
+output "web_insights_cache_table_name" {
+  description = "DynamoDB table for web insights (Brave API) cache, 6h TTL"
+  value       = var.enable_llm_system ? aws_dynamodb_table.web_insights_cache[0].name : null
 }
 
 output "cloudwatch_llm_dashboard_url" {

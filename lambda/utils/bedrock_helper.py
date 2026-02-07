@@ -8,7 +8,7 @@ import json
 import re
 import time
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import boto3
 from botocore.exceptions import ClientError
 
@@ -21,6 +21,7 @@ L2 Category: {l2_category}
 
 Market context (top 5 real products by revenue, last 30 days):
 {market_context_text}
+{web_insights_section}
 
 Instructions:
 - Identify gaps or underserved segments in this market data.
@@ -32,15 +33,16 @@ Output exactly this JSON shape (no other fields):
 {{"brand_name": "string", "brand_tagline": "string", "brand_story": "string", "brand_values": ["string", "string", "string"], "target_demographic": "string", "price_positioning": "string", "distribution_strategy": "string", "brand_personality": "string"}}"""
 
 
-# Report delivers 4 product ideas: 3 based on top performers + 1 brand new (faster: 4 Titan images, fits 29s gateway limit)
-PRODUCT_IDEAS_COUNT = 4
+# Report delivers 5 product ideas: 4 based on top performers + 1 brand new
+PRODUCT_IDEAS_COUNT = 5
 
-GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 4 product ideas for that brand.
+GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 5 product ideas for that brand.
 
 L2 Category: {l2_category}
 
 Market context (top 5 real products by revenue):
 {market_context_text}
+{web_insights_section}
 
 Brand proposal:
 - Name: {brand_name}
@@ -50,9 +52,9 @@ Brand proposal:
 - Values: {brand_values}
 
 Instructions:
-- Output exactly 4 products in this order:
-  1. Products 1–3: Inspired by or derived from the top 5 real products (variations, same category, improvements that address gaps). Each must feel like a natural evolution or adjacent opportunity based on the market context.
-  2. Product 4: ONE completely brand new idea — innovative, not derived from the top 5. A fresh concept that fits the brand and category.
+- Output exactly 5 products in this order:
+  1. Products 1–4: Inspired by or derived from the top 5 real products (variations, same category, improvements that address gaps). Each must feel like a natural evolution or adjacent opportunity based on the market context.
+  2. Product 5: ONE completely brand new idea — innovative, not derived from the top 5. A fresh concept that fits the brand and category.
 - For each product you MUST provide exactly 5 macro trends (supporting_trends_intro + supporting_trends array of 5 objects with "title" and "description").
 - image_prompt must describe a photorealistic product shot (packaging, colors, style, setting) suitable for AI image generation.
 - You MUST respond with ONLY valid JSON. No markdown, no code fences.
@@ -74,7 +76,7 @@ Output exactly this JSON shape:
     "image_prompt": "string"
   }}
 ]}}
-Exactly 4 objects in the "products" array. Each product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
+Exactly 5 objects in the "products" array. Each product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
 
 
 # Template to refine image_prompt before sending to Titan Image Generator (used in image_generator.py)
@@ -94,6 +96,33 @@ def _format_market_context(market_context: List[Dict[str, Any]]) -> str:
         sold = p.get("item_sold", 0)
         lines.append(f"{i}. {name} | Shop: {shop} | Revenue: ${rev:,.0f} | Growth: {growth}% | Items sold: {sold:,}")
     return "\n".join(lines) if lines else "No data"
+
+
+def _format_web_insights(web_insights: Optional[Dict[str, Any]]) -> str:
+    """Format web search results for prompt injection. Returns empty string if no insights."""
+    if not web_insights:
+        return ""
+    trends = web_insights.get("trends") or []
+    pain_points = web_insights.get("pain_points") or []
+    competitors = web_insights.get("competitors") or []
+    if not trends and not pain_points and not competitors:
+        return ""
+    lines = ["Web search insights (trends, pain points, competitors):"]
+    for label, items in [("Trends", trends), ("Pain points", pain_points), ("Competitors", competitors)]:
+        if items:
+            parts = []
+            for x in items[:3]:
+                if isinstance(x, dict):
+                    title = (x.get("title") or "").strip()
+                    snippet = (x.get("snippet") or "").strip()[:120]
+                    parts.append(title or snippet or "")
+                elif isinstance(x, str):
+                    parts.append(x[:120])
+            if parts:
+                lines.append(f"- {label}: " + " | ".join(parts))
+    if len(lines) <= 1:
+        return ""
+    return "\n".join(lines) + "\n\n"
 
 
 def _strip_json_fences(text: str) -> str:
@@ -152,16 +181,20 @@ def generate_brand_proposal(
     l2_category: str,
     bedrock_client,
     model_id: str,
+    web_insights: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Generate a brand proposal from market context. Single Bedrock call.
+    Optional web_insights (Brave search results) are injected into the prompt when provided.
     Returns dict with brand_name, brand_tagline, brand_story, brand_values, etc.
     On JSON parse failure, returns a sensible default with brand_name derived from category.
     """
     market_context_text = _format_market_context(market_context)
+    web_insights_section = _format_web_insights(web_insights) if web_insights else ""
     prompt = GENERATE_BRAND_PROPOSAL.format(
         l2_category=l2_category or "Beauty",
         market_context_text=market_context_text,
+        web_insights_section=web_insights_section,
     )
     try:
         response = invoke_model_with_retry(
@@ -207,12 +240,15 @@ def generate_product_ideas(
     l2_category: str,
     bedrock_client,
     model_id: str,
+    web_insights: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Generate 4 product ideas from market context + brand proposal (3 based on top performers + 1 brand new). Single Bedrock call.
-    Returns list of 4 product dicts. Pads with defaults if fewer than 4 returned.
+    Generate 5 product ideas from market context + brand proposal (4 based on top performers + 1 brand new). Single Bedrock call.
+    Optional web_insights (Brave search results) are injected into the prompt when provided.
+    Returns list of 5 product dicts. Pads with defaults if fewer than 5 returned.
     """
     market_context_text = _format_market_context(market_context)
+    web_insights_section = _format_web_insights(web_insights) if web_insights else ""
     brand_name = brand_proposal.get("brand_name") or ""
     brand_tagline = brand_proposal.get("brand_tagline") or ""
     price_positioning = brand_proposal.get("price_positioning") or ""
@@ -223,6 +259,7 @@ def generate_product_ideas(
     prompt = GENERATE_PRODUCT_IDEAS.format(
         l2_category=l2_category or "Beauty",
         market_context_text=market_context_text,
+        web_insights_section=web_insights_section,
         brand_name=brand_name,
         brand_tagline=brand_tagline,
         price_positioning=price_positioning,

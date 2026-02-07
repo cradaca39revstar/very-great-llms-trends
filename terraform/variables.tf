@@ -101,7 +101,7 @@ variable "knowledge_base_id" {
 }
 
 variable "brave_search_api_key" {
-  description = "Optional Brave Search API key for scraper URL discovery (free tier: 2000 queries/month). When set, used before DuckDuckGo/Google/Bedrock."
+  description = "Optional Brave Search API key for Market Intelligence (orchestrator) and scraper URL discovery. Get one at api.search.brave.com. When set, orchestrator fills Market Intelligence page; otherwise report shows disclaimer."
   type        = string
   default     = ""
   sensitive   = true
