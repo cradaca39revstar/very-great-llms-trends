@@ -112,12 +112,8 @@ export function ChatPage() {
     <div className="chat-layout">
       <header className="chat-header">
         <div className="chat-header__brand">
-          <img
-            src="/VG_Logo_White.webp"
-            alt="Logo"
-            className="chat-header__logo"
-          />
-          <h1 className="chat-header__title">Trending Products</h1>
+          <h1 className="chat-header__title-main">Very Great</h1>
+          <p className="chat-header__title-sub">Trending Products</p>
         </div>
         <button type="button" className="chat-header__signout" onClick={handleLogout}>
           Sign out
@@ -125,12 +121,11 @@ export function ChatPage() {
       </header>
 
       <section className="chat-query">
-        <label htmlFor="query" className="chat-query__label">
-          L2 category request
-        </label>
+        <h1 className="chat-query__heading">L2 category request</h1>
         <div className="chat-query__row">
           <input
             id="query"
+            aria-label="L2 category request"
             type="text"
             className="chat-query__input"
             value={query}
@@ -147,9 +142,10 @@ export function ChatPage() {
           </button>
         </div>
         <div className="chat-query__select-wrap">
-          <span>Or pick L2 category:</span>
+          <h2 className="chat-query__heading">Or pick L2 category:</h2>
           <select
             className="chat-query__select"
+            aria-label="Or pick L2 category"
             value={query}
             onChange={(e) => setQuery(e.target.value || '')}
           >

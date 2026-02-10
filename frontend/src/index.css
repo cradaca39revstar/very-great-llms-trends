@@ -1,12 +1,14 @@
-/* Client design system: typography + palette from "Our Process" */
+/* Client design system: Very Great light theme (verygreat.nyc) */
 :root {
-  /* Palette: dark beige/olive-brown background, white text */
-  --color-bg: #6a6760;
-  --color-bg-card: rgba(0, 0, 0, 0.12);
-  --color-text: #ffffff;
-  --color-text-muted: rgba(255, 255, 255, 0.85);
-  --color-border: rgba(255, 255, 255, 0.25);
-  --color-border-focus: rgba(255, 255, 255, 0.6);
+  /* Very Great palette: warm white background #F5F4F1, dark text/buttons #1A1A1A */
+  --color-bg: #F5F4F1;
+  --color-bg-card: #ffffff;
+  --color-text: #1A1A1A;
+  --color-text-muted: rgba(26, 26, 26, 0.7);
+  --color-border: rgba(26, 26, 26, 0.2);
+  --color-border-focus: rgba(26, 26, 26, 0.5);
+  --color-btn-bg: #1A1A1A;
+  --color-btn-text: #F5F4F1;
   /* Typography: serif for headings, monospace for body/UI */
   --font-heading: 'Playfair Display', Georgia, serif;
   --font-body: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
@@ -41,7 +43,7 @@ a:hover {
 }
 
 .error {
-  color: #ffb3b3;
+  color: #b91c1c;
 }
 
 .meta {
@@ -57,8 +59,8 @@ a:hover {
 }
 
 .chat-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   margin-bottom: 1.75rem;
   padding-bottom: 1rem;
@@ -66,46 +68,62 @@ a:hover {
 }
 
 .chat-header__brand {
+  grid-column: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  justify-content: center;
+  gap: 0.15rem;
+  text-align: center;
 }
 
-.chat-header__logo {
-  height: 40px;
-  width: auto;
-  object-fit: contain;
-  display: block;
-}
-
-.chat-header__title {
+.chat-header__title-main {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--color-text);
 }
 
+.chat-header__title-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
 .chat-header__signout {
+  grid-column: 3;
+  justify-self: end;
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-family: var(--font-body);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
+  background: var(--color-btn-bg);
+  border: 1px solid var(--color-btn-bg);
+  color: var(--color-btn-text);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .chat-header__signout:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--color-border-focus);
+  background: #333333;
+  border-color: #333333;
+  color: var(--color-btn-text);
 }
 
 /* Query section */
 .chat-query {
   margin-bottom: 1.5rem;
+}
+
+.chat-query__heading {
+  margin: 0 0 0.5rem 0;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .chat-query__label {
@@ -128,7 +146,7 @@ a:hover {
   font-family: var(--font-body);
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.15);
+  background: #ffffff;
   color: var(--color-text);
 }
 
@@ -146,17 +164,17 @@ a:hover {
   font-size: 0.9375rem;
   font-weight: 500;
   font-family: var(--font-body);
-  background: var(--color-text);
-  color: var(--color-bg);
-  border: 1px solid var(--color-text);
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
+  border: 1px solid var(--color-btn-bg);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .chat-query__btn:hover:not(:disabled) {
-  background: var(--color-text-muted);
-  border-color: var(--color-text-muted);
-  color: var(--color-bg);
+  background: #333333;
+  border-color: #333333;
+  color: var(--color-btn-text);
 }
 
 .chat-query__btn:disabled {
@@ -176,7 +194,7 @@ a:hover {
   font-family: var(--font-body);
   border-radius: 4px;
   border: 1px solid var(--color-border);
-  background: rgba(0, 0, 0, 0.15);
+  background: #ffffff;
   color: var(--color-text);
 }
 
@@ -208,16 +226,17 @@ a:hover {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-family: var(--font-body);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
+  background: var(--color-btn-bg);
+  border: 1px solid var(--color-btn-bg);
+  color: var(--color-btn-text);
   border-radius: 4px;
   text-decoration: none;
 }
 
 .results-pdf__btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--color-border-focus);
+  background: #333333;
+  border-color: #333333;
+  color: var(--color-btn-text);
 }
 
 .results-report-title {
@@ -260,7 +279,7 @@ a:hover {
   width: 100%;
   max-width: 280px;
   aspect-ratio: 1;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.06);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 1rem;
@@ -378,7 +397,7 @@ a:hover {
   border: 1px solid var(--color-border);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border-left: 4px solid rgba(255, 255, 255, 0.5);
+  border-left: 4px solid rgba(26, 26, 26, 0.3);
 }
 
 .brand-card__name {
@@ -407,7 +426,7 @@ a:hover {
   display: inline-block;
   padding: 0.25rem 0.6rem;
   font-size: 0.75rem;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(26, 26, 26, 0.08);
   border-radius: 999px;
   color: var(--color-text);
 }
@@ -438,7 +457,7 @@ a:hover {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(26, 26, 26, 0.12);
   border-radius: 4px;
   margin-bottom: 1rem;
 }
@@ -457,14 +476,14 @@ a:hover {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   text-align: left;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(26, 26, 26, 0.06);
   border: none;
   color: var(--color-text);
   cursor: pointer;
 }
 
 .market-context__toggle:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(26, 26, 26, 0.1);
 }
 
 .market-context__subtitle {
@@ -537,7 +556,7 @@ a:hover {
 .product-idea-card__badge {
   font-size: 0.7rem;
   padding: 0.2rem 0.5rem;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(26, 26, 26, 0.1);
   border-radius: 4px;
   color: var(--color-text-muted);
 }
@@ -546,7 +565,7 @@ a:hover {
   width: 100%;
   max-width: 280px;
   aspect-ratio: 1;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.06);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 1rem;
@@ -612,7 +631,7 @@ a:hover {
   display: inline-block;
   padding: 0.2rem 0.5rem;
   font-size: 0.75rem;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(26, 26, 26, 0.08);
   border-radius: 4px;
   color: var(--color-text-muted);
 }
@@ -670,9 +689,9 @@ a:hover {
 /* Error block */
 .error-block {
   padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 180, 180, 0.5);
+  border: 1px solid rgba(185, 28, 28, 0.4);
   border-radius: 8px;
-  background: rgba(255, 100, 100, 0.08);
+  background: rgba(185, 28, 28, 0.08);
 }
 
 .error-block__meta {
@@ -721,7 +740,7 @@ a:hover {
   font-size: 0.9375rem;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.15);
+  background: #ffffff;
   color: var(--color-text);
 }
 
@@ -735,9 +754,9 @@ a:hover {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   font-weight: 500;
-  background: var(--color-text);
-  color: var(--color-bg);
-  border: 1px solid var(--color-text);
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
+  border: 1px solid var(--color-btn-bg);
   border-radius: 4px;
   cursor: pointer;
   width: 100%;
@@ -745,9 +764,9 @@ a:hover {
 }
 
 .login-page__btn:hover:not(:disabled) {
-  background: var(--color-text-muted);
-  border-color: var(--color-text-muted);
-  color: var(--color-bg);
+  background: #333333;
+  border-color: #333333;
+  color: var(--color-btn-text);
 }
 
 .login-page__btn:disabled {
