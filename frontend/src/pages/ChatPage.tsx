@@ -217,6 +217,26 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
         </div>
       )}
 
+      {report.market_context && report.market_context.length > 0 && (
+        <section className="market-research">
+          <h2 className="market-research__title">Market Research</h2>
+          <p className="market-research__intro">
+            Here are your top 5 products recommended based on your prompt.
+          </p>
+          <h3 className="market-research__subtitle">Top 5 Products</h3>
+          <ol className="market-research__list">
+            {report.market_context.slice(0, 5).map((p, i) => (
+              <li key={i} className="market-research__item">
+                <strong className="market-research__name">{p.product_name}</strong>
+                {p.short_description && (
+                  <p className="market-research__desc">{p.short_description}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       {brand && (
         <BrandProposalCard brand={brand} brandName={brand_name || brand.brand_name} />
       )}

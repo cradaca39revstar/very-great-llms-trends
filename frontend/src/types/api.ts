@@ -6,11 +6,13 @@
 
 export interface MarketProduct {
   product_name: string;
-  shop_name: string;
-  revenue_usd: number;
-  mom_growth_pct: number;
-  item_sold: number;
-  revenue_rank: number;
+  shop_name?: string;
+  revenue_usd?: number;
+  mom_growth_pct?: number;
+  item_sold?: number;
+  revenue_rank?: number;
+  /** Shown in chat and PDF Market Research section. */
+  short_description?: string;
 }
 
 export interface BrandProposal {
