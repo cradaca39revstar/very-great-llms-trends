@@ -4,6 +4,7 @@ Wrapper functions for invoking foundation models with retry logic
 """
 
 import json
+import re
 import time
 import os
 from typing import Dict, List
@@ -27,6 +28,9 @@ Category: {l2_category}
 Revenue Growth: {mom_growth_pct}%
 Revenue: ${revenue_usd:,.0f}
 Items Sold: {item_sold:,}
+{web_context_section}
+
+When web context from a product page is provided above, use it to ground or support your trends where it applies; otherwise rely on the product and revenue data.
 
 Generate 5 trends, each with:
 - A descriptive title (2-5 words)
@@ -48,24 +52,159 @@ Format each trend exactly as:
 
 Continue for all 5 trends."""
 
-PRODUCT_SEARCH_PROMPT = """Based on the following product information, generate a product description and provide the official brand website URL.
+PRODUCT_SEARCH_PROMPT = """You are a precise assistant for an automated e-commerce product enrichment pipeline.
+You MUST respond ONLY with valid JSON, no other text.
+
+Given this product, find the BEST available product page and image:
 
 Brand: {brand_name}
 Product: {product_name}
 Category: {l2_category}
 
-Provide:
-1. Official website URL (if known, or best estimate)
-2. Product description (2-3 sentences describing the product, its benefits, and key ingredients/features)
+Your task is to provide:
 
-Format your response as JSON:
-{{
-  "url": "https://www.example.com/product-page",
-  "description": "Product description here...",
-  "image_url": "https://www.example.com/image.jpg"
-}}
+1. "url": The best product page URL, priority order:
+   a) Official brand website product page (highest preference)
+   b) Major retailer product page (Amazon, Sephora, Ulta, Walmart, Target, CVS, Walgreens, iHerb)
+   c) If neither is known, use ONE of these fallback search URLs (set url_confidence to "search_fallback"):
+      - https://www.amazon.com/s?k={{brand_name}}+{{product_name}}
+      - https://www.sephora.com/search?q={{brand_name}}+{{product_name}}
+      - https://www.walmart.com/search?q={{brand_name}}+{{product_name}}
+   d) If you cannot find or reasonably estimate any URL, use "".
 
-If you don't know the exact URL, provide the brand's main website or a reasonable estimate."""
+   Rules:
+   - ONLY provide URLs you are confident exist based on training data.
+   - For lesser-known brands, prefer major retailer URLs.
+   - Do NOT construct URLs from brand names (like https://{{brand}}.com).
+   - Do NOT use example.com or any placeholder domains.
+
+2. "image_url": Direct link to a product image (embeddable URL):
+   - Must start with https:// or http://
+   - Must end in .jpg, .jpeg, .png, .webp, .gif
+     OR contain a known image CDN domain (e.g., cdn.shopify.com, images-na.ssl-images-amazon.com, cloudinary, imgix).
+   - Must point to an actual product image (not just a logo or generic banner).
+   - If you are NOT confident about a specific image URL, use "".
+
+3. "description": 2–3 sentences describing the product, its benefits, and key ingredients/features.
+   - You may generate this; it does NOT need to come from a real page.
+
+4. "url_confidence": One of:
+   - "brand_official"       → Official brand website product page
+   - "retailer_product"     → Product page on a major retailer
+   - "retailer_brand_store" → Official brand store page on a retailer
+   - "search_fallback"      → One of the search URLs above
+   - "unknown"              → No reliable URL found
+
+Global rules:
+- When in doubt about "url" or "image_url", use the empty string "".
+- Output ONLY a single JSON object, no markdown, no comments, no explanations.
+
+Return your answer in exactly this JSON shape:
+{{"url": "...", "url_confidence": "brand_official|retailer_product|retailer_brand_store|search_fallback|unknown", "image_url": "...", "description": "..."}}"""
+
+
+def _looks_like_placeholder_url(url: str) -> bool:
+    """Return True if URL is empty or a known placeholder/example domain."""
+    if not url or not isinstance(url, str):
+        return True
+    u = url.strip().lower()
+    if not u.startswith(("http://", "https://")):
+        return True
+    # Reject example/placeholder domains
+    placeholders = [
+        "example.com", "example.org", "example.net",
+        "placeholder", "test.com", "dummy.com",
+        "sample.com", "brandname.com", "yoursite.com"
+    ]
+    if any(p in u for p in placeholders):
+        return True
+    return False
+
+
+def _looks_like_valid_image_url(url: str) -> bool:
+    """Return True if URL looks like a direct image link (extension or known CDN path)."""
+    if not url or not isinstance(url, str):
+        return False
+    u = url.strip()
+    if not u.startswith(("http://", "https://")):
+        return False
+    u_lower = u.lower()
+    # Reject nav sprites, logos, icons (scraper/LLM sometimes return these)
+    if any(x in u_lower for x in ["sprite", "nav-sprite", "logo", "icon", "pixel", "1x1", "gno/sprites"]):
+        return False
+
+    # Common image extensions
+    if re.search(r"\.(jpg|jpeg|png|webp|gif)(\?|$)", u_lower):
+        return True
+    
+    # Known image CDN path patterns (incl. DuckDuckGo Images fallback used by scraper)
+    cdn_patterns = [
+        r"/(images?|img|assets|media|cdn|productimages)/",
+        "cloudfront", "amazonaws", ".cdn.",
+        "cdn.shopify.com",
+        "images-na.ssl-images-amazon.com",
+        "cloudinary", "imgix",
+        "sephora.com/productimages",
+        "ulta.com/images",
+        "target.com/img",
+        "walmart.com/images",
+        "amazon.com/images",
+        "deciem.com/cdn",
+        "shopify.com/s/files",
+        "duckduckgo.com",  # scraper fallback: DDG Images URLs
+        "external-content.duckduckgo.com",
+    ]
+
+    if any(pattern in u_lower if "/" not in pattern else re.search(pattern, u_lower) for pattern in cdn_patterns):
+        return True
+
+    return False
+
+
+def looks_like_valid_image_url(url: str) -> bool:
+    """Public wrapper for image URL validation (used by orchestrator for scraper images)."""
+    return _looks_like_valid_image_url(url)
+
+
+VALID_URL_CONFIDENCE = frozenset({
+    "brand_official", "retailer_product", "retailer_brand_store", "search_fallback", "unknown"
+})
+
+
+def _clean_product_info(product_info: Dict) -> Dict:
+    """
+    Validate and clean product_info after JSON parse.
+    Clears url/image_url that are placeholders or invalid; keeps description and url_confidence.
+    """
+    if not isinstance(product_info, dict):
+        return {"url": "", "description": "", "image_url": "", "url_confidence": "unknown"}
+    raw_confidence = str(product_info.get("url_confidence", "") or "").strip().lower()
+    url_confidence = raw_confidence if raw_confidence in VALID_URL_CONFIDENCE else "unknown"
+    result = {
+        "url": "",
+        "description": str(product_info.get("description", "") or "").strip() or "",
+        "image_url": "",
+        "url_confidence": url_confidence,
+    }
+    url = str(product_info.get("url", "") or "").strip()
+    if url and not _looks_like_placeholder_url(url):
+        result["url"] = url
+    image_url = str(product_info.get("image_url", "") or "").strip()
+    if image_url and _looks_like_valid_image_url(image_url):
+        result["image_url"] = image_url
+    # #region agent log
+    try:
+        import os
+        if url_confidence == "search_fallback" and result.get("url"):
+            _pl = {"location": "bedrock_helper:_clean_product_info", "message": "keeping search_fallback url", "data": {"url_preview": result["url"][:80], "url_confidence": url_confidence, "has_image": bool(result.get("image_url"))}, "timestamp": int(time.time() * 1000), "sessionId": "debug-session", "hypothesisId": "H4"}
+            _dp = os.environ.get("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".cursor", "debug.log"))
+            with open(_dp, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(_pl) + "\n")
+            print(f"[DEBUG] {json.dumps(_pl)}")
+    except Exception:
+        pass
+    # #endregion
+    return result
 
 
 def generate_brand_name(
@@ -115,20 +254,26 @@ def generate_supporting_trends(
     Generate 5 supporting trends for a product using Bedrock
     
     Args:
-        product_data: Dict with product information
+        product_data: Dict with product information (may include trends_text or web_context from scraper/KB)
         bedrock_client: Boto3 Bedrock client
         model_id: Bedrock model ID to use
         
     Returns:
         List of 5 trend strings with titles and explanations
     """
+    web_context = (product_data.get('trends_text') or product_data.get('web_context') or '').strip()
+    web_context_section = (
+        "Use the following context from the product page if relevant:\n" + web_context
+        if web_context else ""
+    )
     prompt = TRENDS_PROMPT.format(
         product_name=product_data.get('product_name', ''),
         brand_name=product_data.get('brand_name', ''),
         l2_category=product_data.get('l2_category', ''),
         mom_growth_pct=product_data.get('mom_growth_pct', 0),
         revenue_usd=product_data.get('revenue_usd', 0),
-        item_sold=product_data.get('item_sold', 0)
+        item_sold=product_data.get('item_sold', 0),
+        web_context_section=web_context_section
     )
     
     response = invoke_model_with_retry(
@@ -146,29 +291,111 @@ def generate_supporting_trends(
     return trends
 
 
+def retrieve_product_info_from_kb(
+    brand_name: str,
+    product_name: str,
+    l2_category: str,
+    knowledge_base_id: str,
+    region: str
+) -> Dict:
+    """
+    Option A: Retrieve product URL/image/snippets from Bedrock Knowledge Base.
+    Returns same shape as search_product_info_via_bedrock or empty dict.
+    """
+    if not knowledge_base_id or not knowledge_base_id.strip():
+        return {}
+    try:
+        client = boto3.client("bedrock-agent-runtime", region_name=region)
+        query = f"Product page URL and product image URL for: {brand_name} {product_name} {l2_category}"
+        resp = client.retrieve(
+            knowledgeBaseId=knowledge_base_id.strip(),
+            retrievalQuery={"text": query},
+            retrievalConfiguration={
+                "vectorSearchConfiguration": {
+                    "numberOfResults": 5
+                }
+            },
+        )
+        url = ""
+        image_url = ""
+        description = ""
+        snippets = []
+        for result in resp.get("retrievalResults", []):
+            content = (result.get("content") or {}).get("text") or ""
+            if content:
+                snippets.append(content)
+            # Try to find URL and image URL in result location
+            loc = result.get("location", {}) or {}
+            if isinstance(loc.get("s3Location"), dict):
+                s3_loc = loc["s3Location"].get("uri", "")
+                if s3_loc and not url:
+                    url = s3_loc if s3_loc.startswith("http") else ""
+            # Often KB returns text; try to parse URL from content
+            if "http" in content and not url:
+                for part in content.replace(",", " ").split():
+                    if part.startswith("http") and ("amazon" in part or "sephora" in part or "ulta" in part or "product" in part.lower()):
+                        url = part.strip(".,;")
+                        break
+            if not image_url and (".jpg" in content or ".png" in content or "cdn" in content.lower() or "image" in content.lower()):
+                for part in content.replace(",", " ").split():
+                    if part.startswith("http") and (".jpg" in part or ".png" in part or ".webp" in part):
+                        image_url = part.strip(".,;")
+                        break
+        if snippets:
+            description = " ".join(snippets)[:500]
+        result_dict = {
+            "url": url[:2000] if url else "",
+            "image_url": image_url[:2000] if image_url else "",
+            "description": description,
+            "url_confidence": "unknown",
+        }
+        if result_dict["url"] or result_dict["image_url"]:
+            return _clean_product_info(result_dict)
+        return {}
+    except Exception as e:
+        print(f"Knowledge Base retrieve failed: {e}")
+        return {}
+
+
 def search_product_info_via_bedrock(
     brand_name: str,
     product_name: str,
     bedrock_client,
-    model_id: str
+    model_id: str,
+    l2_category: str = ""
 ) -> Dict:
     """
-    Search for product information using Bedrock
-    (In production, this could use Bedrock Knowledge Bases with web search)
+    Search for product information using Bedrock.
+    If KNOWLEDGE_BASE_ID is set, tries KB first; otherwise or on empty result, uses LLM.
     
     Args:
         brand_name: Brand name
         product_name: Product name
         bedrock_client: Boto3 Bedrock client
         model_id: Bedrock model ID to use
+        l2_category: Optional L2 category (from product dict)
         
     Returns:
-        Dict with url, description, image_url
+        Dict with url, description, image_url, url_confidence
     """
+    kb_id = (os.environ.get("KNOWLEDGE_BASE_ID") or "").strip()
+    if kb_id:
+        region = os.environ.get("AWS_REGION_NAME") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        kb_result = retrieve_product_info_from_kb(
+            brand_name=brand_name,
+            product_name=product_name,
+            l2_category=l2_category or "beauty product",
+            knowledge_base_id=kb_id,
+            region=region,
+        )
+        if kb_result and (kb_result.get("url") or kb_result.get("image_url")):
+            return kb_result
+
+    l2_cat = (l2_category or "").strip() or "beauty product"
     prompt = PRODUCT_SEARCH_PROMPT.format(
         brand_name=brand_name,
         product_name=product_name,
-        l2_category="beauty product"
+        l2_category=l2_cat
     )
     
     try:
@@ -180,25 +407,35 @@ def search_product_info_via_bedrock(
         )
         
         response_text = extract_text_from_response(response, model_id)
-        
+        # Strip markdown code fences if present
+        text = (response_text or "").strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```\s*$", "", text)
+            text = text.strip()
+        else:
+            text = response_text
+
         # Try to parse as JSON
         try:
-            product_info = json.loads(response_text)
-            return product_info
+            product_info = json.loads(text)
+            return _clean_product_info(product_info)
         except json.JSONDecodeError:
-            # Fallback: extract info from text
+            # Fallback: do not construct fake URLs from brand names
             return {
-                'url': f"https://www.{brand_name.lower().replace(' ', '')}.com",
-                'description': response_text[:200],
-                'image_url': ''
+                "url": "",
+                "description": (response_text[:500] if response_text else "").strip() or f"A trending {product_name} product.",
+                "image_url": "",
+                "url_confidence": "unknown",
             }
     except Exception as e:
         print(f"Product search failed: {str(e)}")
         # Return default values
         return {
-            'url': '',
-            'description': f"A trending {product_name} product.",
-            'image_url': ''
+            "url": "",
+            "description": f"A trending {product_name} product.",
+            "image_url": "",
+            "url_confidence": "unknown",
         }
 
 

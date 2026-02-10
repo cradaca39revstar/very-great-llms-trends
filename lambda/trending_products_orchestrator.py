@@ -23,7 +23,8 @@ from utils.athena_helper import (
 from utils.bedrock_helper import (
     generate_brand_name,
     generate_supporting_trends,
-    search_product_info_via_bedrock
+    search_product_info_via_bedrock,
+    looks_like_valid_image_url,
 )
 from utils.pdf_generator import (
     generate_pdf_report,
@@ -39,11 +40,37 @@ DYNAMODB_LOGS_TABLE = os.environ.get('DYNAMODB_LOGS_TABLE')
 PDF_BUCKET = os.environ.get('PDF_BUCKET')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'poc')
 AWS_REGION = os.environ.get('AWS_REGION_NAME', 'us-east-1')
+SCRAPER_FUNCTION_NAME = os.environ.get('SCRAPER_FUNCTION_NAME', '').strip()
+KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '').strip()
 
 # AWS clients
 dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
 cloudwatch = boto3.client('cloudwatch', region_name=AWS_REGION)
 bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
+lambda_client = boto3.client('lambda', region_name=AWS_REGION)
+
+DEBUG_LOG_PATH = os.environ.get("DEBUG_LOG_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".cursor", "debug.log"))
+
+
+def _is_description_corrupt(text: str) -> bool:
+    """True if description has too many replacement chars or non-Latin-1 (likely mojibake)."""
+    if not text or len(text) < 10:
+        return False
+    if text.count("\ufffd") > 10 or text.count("\ufffd") > len(text) * 0.05:
+        return True
+    non_latin1 = sum(1 for c in text if ord(c) > 255)
+    return non_latin1 > len(text) * 0.15
+
+
+def _debug_log(location: str, message: str, data: dict, hypothesis_id: Optional[str] = None) -> None:
+    try:
+        payload = {"location": location, "message": message, "data": data, "timestamp": int(time.time() * 1000), "sessionId": "debug-session", "hypothesisId": hypothesis_id or ""}
+        line = json.dumps(payload) + "\n"
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(line)
+        print(f"[DEBUG] {line.strip()}")
+    except Exception:
+        pass
 
 # Supported L2 categories
 SUPPORTED_L2_CATEGORIES = [
@@ -252,9 +279,9 @@ def process_products_parallel(products: List[Dict], request_id: str) -> List[Dic
         List of enhanced product dicts with brand names, URLs, trends
     """
     enhanced_products = []
-    
-    # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    # With Brave API (e.g. 20 QPS plan), scraper can run with more parallelism; otherwise default 5
+    max_workers = 10 if SCRAPER_FUNCTION_NAME else 5
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all products for processing
         future_to_product = {
             executor.submit(process_single_product, product, request_id): product
@@ -310,24 +337,101 @@ def process_single_product(product: Dict, request_id: str) -> Dict:
         # Fallback: Extract brand from shop name
         product['brand_name'] = shop_name.split()[0] if shop_name else "Unknown"
     
-    # Search for product info (URL, description, image)
+    # Optional: invoke scraper Lambda for real web URL, image, trends_text
+    scraper_url = ''
+    scraper_image_url = ''
+    scraper_trends_text = ''
+    scraper_description = ''
+    if SCRAPER_FUNCTION_NAME:
+        try:
+            payload = {
+                'brand_name': product.get('brand_name', ''),
+                'product_name': product_name,
+                'shop_name': product.get('shop_name', ''),
+                'l2_category': product.get('l2_category', ''),
+                'candidate_url': ''
+            }
+            resp = lambda_client.invoke(
+                FunctionName=SCRAPER_FUNCTION_NAME,
+                InvocationType='RequestResponse',
+                Payload=json.dumps(payload)
+            )
+            # Lambda error (timeout, unhandled exception): payload is error dict, not scraper result
+            if resp.get('FunctionError'):
+                print(f"[{request_id}] Scraper Lambda error ({product_id}): FunctionError={resp.get('FunctionError')}; check scraper CloudWatch logs")
+            payload_out = json.loads(resp['Payload'].read())
+            if isinstance(payload_out, dict) and payload_out.get('errorMessage'):
+                print(f"[{request_id}] Scraper error payload ({product_id}): {payload_out.get('errorMessage', '')[:120]}")
+            elif isinstance(payload_out, dict):
+                scraper_url = (payload_out.get('url') or '').strip()
+                scraper_image_url = (payload_out.get('image_url') or '').strip()
+                scraper_trends_text = (payload_out.get('trends_text') or '').strip()
+                scraper_description = (payload_out.get('description') or '').strip()
+            if isinstance(payload_out, dict) and not payload_out.get('errorMessage'):
+                if scraper_url:
+                    product['url'] = scraper_url
+                # Prefer scraper image when we have scraper url; else require valid-looking image URL
+                if scraper_image_url:
+                    if scraper_url or looks_like_valid_image_url(scraper_image_url):
+                        product['image_url'] = scraper_image_url
+                if scraper_trends_text:
+                    product['trends_text'] = scraper_trends_text
+                if scraper_description and not _is_description_corrupt(scraper_description):
+                    product['description'] = scraper_description
+                elif scraper_description and _is_description_corrupt(scraper_description):
+                    print(f"[{request_id}] Scraper description rejected (corrupt); using Bedrock for product {product_id}")
+                if scraper_url or scraper_image_url:
+                    product['url_confidence'] = 'scraper'
+        except Exception as e:
+            print(f"[{request_id}] Scraper invocation failed for {product_id}: {str(e)}")
+        # #region agent log
+        try:
+            _debug_log("orchestrator:after_scraper", "after scraper", {"product_id": product_id, "scraper_url": scraper_url or "", "scraper_image_url": scraper_image_url or "", "has_url": bool(product.get("url")), "has_image": bool(product.get("image_url")), "url_confidence": product.get("url_confidence", "")}, "H1")
+        except Exception:
+            pass
+        # #endregion
+
+    # Search for product info (URL, description, image) — fallback when scraper did not return URL/image
     try:
         product_info = search_product_info_via_bedrock(
             brand_name=product.get('brand_name', ''),
             product_name=product_name,
             bedrock_client=bedrock,
-            model_id=BEDROCK_PRIMARY_MODEL
+            model_id=BEDROCK_PRIMARY_MODEL,
+            l2_category=product.get('l2_category', '')
         )
-        product['url'] = product_info.get('url', '')
-        product['description'] = product_info.get('description', '')
-        product['image_url'] = product_info.get('image_url', '')
+        if not product.get('url'):
+            product['url'] = product_info.get('url', '')
+        if not product.get('image_url'):
+            product['image_url'] = product_info.get('image_url', '')
+        if not product.get('description'):
+            product['description'] = product_info.get('description', '') or f"A trending {product.get('l2_category', 'beauty')} product."
+        if product.get('url_confidence') != 'scraper':
+            product['url_confidence'] = product_info.get('url_confidence', 'unknown')
+        # #region agent log
+        try:
+            _debug_log("orchestrator:after_bedrock_search", "after Bedrock product_info", {"product_id": product_id, "info_url": product_info.get("url", "")[:80] if product_info.get("url") else "", "info_image": "y" if product_info.get("image_url") else "n", "info_confidence": product_info.get("url_confidence", ""), "final_url": (product.get("url") or "")[:80], "final_image": "y" if product.get("image_url") else "n", "final_confidence": product.get("url_confidence", "")}, "H2")
+        except Exception:
+            pass
+        # #endregion
     except Exception as e:
         print(f"[{request_id}] Product search failed for {product_id}: {str(e)}")
-        product['url'] = ''
-        product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
-        product['image_url'] = ''
-    
-    # Generate 5 supporting trends
+        if not product.get('url'):
+            product['url'] = ''
+        if not product.get('image_url'):
+            product['image_url'] = ''
+        if not product.get('description'):
+            product['description'] = f"A trending {product.get('l2_category', 'beauty')} product."
+        if product.get('url_confidence') != 'scraper':
+            product['url_confidence'] = 'unknown'
+    # #region agent log
+    try:
+        _debug_log("orchestrator:final_product", "final product url/image", {"product_id": product_id, "brand_name": product.get("brand_name", ""), "url": (product.get("url") or "")[:100], "url_confidence": product.get("url_confidence", ""), "has_image_url": bool(product.get("image_url")), "is_search_url": "/s?k=" in (product.get("url") or "")}, "H3")
+    except Exception:
+        pass
+    # #endregion
+
+    # Generate 5 supporting trends (product may include trends_text from scraper/KB)
     try:
         trends = generate_supporting_trends(
             product_data=product,
@@ -355,6 +459,14 @@ def format_report(query: str, category: str, products: List[Dict]) -> Dict:
     Returns:
         Formatted report dict
     """
+    # #region agent log
+    try:
+        for i, p in enumerate(products):
+            if p.get("url_confidence") == "search_fallback" or not p.get("image_url"):
+                _debug_log("orchestrator:format_report", "product with search_fallback or empty image", {"rank": i + 1, "product_id": p.get("product_id"), "brand_url_preview": (p.get("url") or "")[:80], "url_confidence": p.get("url_confidence", ""), "has_image": bool(p.get("image_url"))}, "H4")
+    except Exception:
+        pass
+    # #endregion
     return {
         'query': query,
         'category': category,
@@ -367,12 +479,13 @@ def format_report(query: str, category: str, products: List[Dict]) -> Dict:
                 'brand_name': p.get('brand_name', 'Unknown'),
                 'product_name': clean_product_name(p.get('product_name', '')),
                 'image_url': p.get('image_url', ''),
-                'brand_url': p.get('url', ''),
+                'brand_url': '' if p.get('url_confidence') == 'search_fallback' else (p.get('url', '') or ''),
                 'description': p.get('description', ''),
                 'revenue_trend': format_revenue_trend(p.get('mom_growth_pct', 0)),
                 'revenue_scale': format_revenue_scale(p.get('revenue_usd', 0)),
                 'category_rank': format_category_rank(p.get('revenue_rank', i + 1)),
-                'supporting_trends': p.get('supporting_trends', [])
+                'supporting_trends': p.get('supporting_trends', []),
+                'url_confidence': p.get('url_confidence', 'unknown'),
             }
             for i, p in enumerate(products)
         ]
@@ -463,21 +576,32 @@ def clean_product_name(product_name: str) -> str:
 
 def format_revenue_trend(mom_growth_pct: float) -> str:
     """Format revenue trend as percentage with +/- sign"""
-    if mom_growth_pct >= 0:
-        return f"+{mom_growth_pct:.1f}% Last 30 Days"
+    try:
+        val = float(mom_growth_pct) if mom_growth_pct not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    if val >= 0:
+        return f"+{val:.1f}% Last 30 Days"
     else:
-        return f"{mom_growth_pct:.1f}% Last 30 Days"
+        return f"{val:.1f}% Last 30 Days"
 
 
 def format_revenue_scale(revenue_usd: float) -> str:
     """Format revenue as USD currency"""
-    return f"${revenue_usd:,.0f} Last 30 Days"
+    try:
+        val = float(revenue_usd) if revenue_usd not in (None, '') else 0.0
+    except (TypeError, ValueError):
+        val = 0.0
+    return f"${val:,.0f} Last 30 Days"
 
 
 def format_category_rank(rank: int) -> str:
     """Format category rank with change indicator"""
-    # For now, assume +0 change (would need historical data for actual change)
-    return f"[{rank}], +0 in Last 30 Days"
+    try:
+        val = int(rank) if rank not in (None, '') else 0
+    except (TypeError, ValueError):
+        val = 0
+    return f"[{val}], +0 in Last 30 Days"
 
 
 def log_to_dynamodb(log_data: Dict):

@@ -93,3 +93,16 @@ variable "pdf_expiration_days" {
     error_message = "PDF expiration must be between 1 and 365 days."
   }
 }
+
+variable "knowledge_base_id" {
+  description = "Optional Bedrock Knowledge Base ID for product URL/image retrieval (Option A)"
+  type        = string
+  default     = ""
+}
+
+variable "brave_search_api_key" {
+  description = "Optional Brave Search API key for scraper URL discovery (free tier: 2000 queries/month). When set, used before DuckDuckGo/Google/Bedrock."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
