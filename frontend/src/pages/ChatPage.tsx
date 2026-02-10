@@ -121,7 +121,8 @@ export function ChatPage() {
       </header>
 
       <section className="chat-query">
-        <h1 className="chat-query__heading">L2 category request</h1>
+        <h1 className="chat-query__heading">Report Request</h1>
+        <p className="chat-query__subtitle">Enter the L2 category request</p>
         <div className="chat-query__row">
           <input
             id="query"
@@ -142,7 +143,7 @@ export function ChatPage() {
           </button>
         </div>
         <div className="chat-query__select-wrap">
-          <h2 className="chat-query__heading">Or pick L2 category:</h2>
+          <h2 className="chat-query__heading chat-query__heading--sub">Or pick L2 category:</h2>
           <select
             className="chat-query__select"
             aria-label="Or pick L2 category"
@@ -160,7 +161,7 @@ export function ChatPage() {
       </section>
 
       {result && (
-        <section>
+        <section className="chat-results">
           {isTrendQueryProcessing(result) && (
             <div className="results-intro" aria-live="polite">
               <p>Generating report…</p>
@@ -196,12 +197,18 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
 
   return (
     <div>
-      <p className="results-intro">Product Innovation Report</p>
+      <div className="results-title-block">
+        <h2 className="results-report-title results-report-title--top">
+          {report.category} – {report.data_period}
+        </h2>
+        <p className="results-intro">Product Innovation Report</p>
+      </div>
       <div className="results-meta">
         <span>Request ID: {request_id}</span>
         <span>Execution: {execution_time_ms} ms</span>
         <span>Product ideas: {product_count}</span>
       </div>
+      <p className="results-report-date">Generated at {report.generated_at}</p>
       {pdf_url && (
         <div className="results-pdf">
           <a href={pdf_url} target="_blank" rel="noreferrer" className="results-pdf__btn">
@@ -209,10 +216,6 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
           </a>
         </div>
       )}
-      <h2 className="results-report-title">
-        {report.category} – {report.data_period}
-      </h2>
-      <p className="results-report-date">Generated at {report.generated_at}</p>
 
       {brand && (
         <BrandProposalCard brand={brand} brandName={brand_name || brand.brand_name} />
