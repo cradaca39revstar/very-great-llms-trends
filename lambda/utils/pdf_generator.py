@@ -74,6 +74,7 @@ def generate_pdf_report(
     pdf.set_y(pdf.t_margin)
 
     add_title_page(pdf, report)
+    add_market_research_page(pdf, report)
     add_brand_proposal_page(pdf, report.get("brand_proposal", {}), logo_bytes=brand_logo_bytes)
     product_ideas = report.get("product_ideas", [])
     ideas_with_images = product_ideas_with_images or []
@@ -99,9 +100,15 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(20)
     pdf.cell(0, 10, "Product Innovation Report", 0, 1, "C")
+    pdf.set_font("Arial", "", 18)
+    w_label = pdf.get_string_width("Category: ")
     pdf.set_font("Arial", "B", 18)
-    pdf.ln(8)
-    pdf.cell(0, 10, _sanitize_pdf_text(f"Category: {category}"), 0, 1, "C")
+    w_cat = pdf.get_string_width(_sanitize_pdf_text(category))
+    pdf.set_x((pdf.w - w_label - w_cat) / 2)
+    pdf.set_font("Arial", "", 18)
+    pdf.cell(w_label, 10, "Category: ", 0, 0, "L")
+    pdf.set_font("Arial", "B", 18)
+    pdf.cell(w_cat, 10, _sanitize_pdf_text(category), 0, 1, "L")
 
     # Proposed Brand: Name (bold+italic) and Tagline (italic)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
@@ -130,6 +137,46 @@ def add_title_page(pdf: FPDF, report: Dict):
         f"presents an AI-generated brand concept and 5 product ideas (4 based on top performers, 1 brand new) with supporting trends."
     )
     pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
+
+
+def add_market_research_page(pdf: FPDF, report: Dict):
+    """Page 2: Market Research – title, intro sentence, Top 5 Products list with short descriptions."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    market_context = report.get("market_context") or []
+
+    # Main title: Market Research
+    pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
+    pdf.ln(10)
+    pdf.cell(0, 10, "Market Research", 0, 1, "L")
+
+    # Introductory sentence
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.ln(6)
+    intro = _sanitize_pdf_text("Here are your top 5 products recommended based on your prompt.")
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro)
+
+    # Subtitle: Top 5 Products
+    pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
+    pdf.ln(12)
+    pdf.cell(0, 10, "Top 5 Products", 0, 1, "L")
+
+    # Numbered list with product name and short description
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.ln(4)
+    for i, p in enumerate(market_context[:5], 1):
+        name = _sanitize_pdf_text(p.get("product_name") or "—")
+        desc = _sanitize_pdf_text(p.get("short_description") or "")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Arial", "B", FONT_SIZE_BODY)
+        pdf.cell(8, LINE_HEIGHT_BODY, f"{i}.", 0, 0, "L")
+        pdf.cell(0, LINE_HEIGHT_BODY, name, 0, 1, "L")
+        if desc:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.multi_cell(cw - 10, LINE_HEIGHT_BODY - 1, desc)
+        pdf.ln(4)
 
 
 def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
@@ -165,13 +212,13 @@ def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
 
 
 def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optional[bytes] = None):
-    """V2: Brand Proposal section with optional AI-generated logo."""
+    """V2: Proposed Brand section with optional AI-generated logo (PNG, no background box)."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
     name = brand_proposal.get("brand_name", "")
     pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
-    pdf.cell(0, 10, f"Brand Proposal: {_sanitize_pdf_text(name)}", 0, 1, "L")
+    pdf.cell(0, 10, f"Proposed Brand: {_sanitize_pdf_text(name)}", 0, 1, "L")
     pdf.ln(3)
     if logo_bytes:
         try:
@@ -194,18 +241,22 @@ def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optiona
         val = brand_proposal.get(key) or ""
         if isinstance(val, list):
             val = ", ".join(str(x) for x in val)
+        val_str = str(val)
+        if key == "brand_personality":
+            val_str = _title_case_comma_list(val_str)
         pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
         pdf.cell(0, 8, label, 0, 1, "L")
         pdf.set_font("Arial", "", FONT_SIZE_BODY)
-        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(str(val)) or "-")
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(val_str) or "-")
         pdf.set_x(pdf.l_margin)
         pdf.ln(3)
     values = brand_proposal.get("brand_values") or []
     if values:
+        values_str = _title_case_comma_list(", ".join(str(v) for v in values))
         pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
         pdf.cell(0, 8, "Core Values", 0, 1, "L")
         pdf.set_font("Arial", "", FONT_SIZE_BODY)
-        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(", ".join(str(v) for v in values)))
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(values_str))
         pdf.ln(3)
 
 
@@ -362,6 +413,14 @@ def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes]
     pdf.ln(5)
     pdf.set_font("Arial", "I", FONT_SIZE_SMALL)
     pdf.cell(0, 8, "AI-Generated Product Concept", 0, 1, "L")
+
+
+def _title_case_comma_list(s: str) -> str:
+    """Make capital letters consistent: title-case each comma-separated item (e.g. Brand Personality, Core Values)."""
+    if not s or not isinstance(s, str):
+        return s
+    parts = [p.strip().title() for p in s.split(",") if p.strip()]
+    return ", ".join(parts)
 
 
 def _sanitize_pdf_text(s: str) -> str:

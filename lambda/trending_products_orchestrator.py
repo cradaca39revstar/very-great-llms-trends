@@ -637,11 +637,21 @@ def format_report_v2(
             brand_out["logo_image_base64"] = base64.b64encode(brand_logo_bytes).decode("ascii")
         except Exception:
             pass
+    # Include top 5 market products for PDF "Market Research" page (name + short description)
+    market_list = []
+    for p in market_context[:5]:
+        name = p.get("product_name") or "Unknown"
+        shop = p.get("shop_name") or ""
+        rev = float(p.get("revenue_usd") or 0)
+        growth = float(p.get("mom_growth_pct") or 0)
+        desc = f"Top seller at {shop}. ${rev:,.0f} revenue, {growth:.1f}% growth (Last 30 Days)." if shop else f"${rev:,.0f} revenue, {growth:.1f}% growth (Last 30 Days)."
+        market_list.append({"product_name": name, "short_description": desc})
     out = {
         "query": user_query,
         "category": l2_category,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "data_period": "Last 30 Days",
+        "market_context": market_list,
         "brand_proposal": brand_out,
         "product_ideas": ideas_out,
     }
