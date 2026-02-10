@@ -46,12 +46,8 @@ class TrendingProductsPDF(FPDF):
         self.report_data = report_data
         
     def header(self):
-        """Page header"""
-        self.set_font("Arial", "B", 16)
-        self.cell(0, 10, "Product Innovation Report", 0, 1, "C")
-        self.set_font("Arial", "", 10)
-        self.cell(0, 5, _sanitize_pdf_text(f"Category: {self.report_data.get('category', '')}"), 0, 1, "C")
-        self.ln(5)
+        """Page header – left empty so title appears only once on the title page."""
+        pass
     
     def footer(self):
         """Page footer"""
@@ -91,7 +87,7 @@ def generate_pdf_report(
 
 
 def add_title_page(pdf: FPDF, report: Dict):
-    """V2: Product Innovation Report title page with brand name and tagline."""
+    """V2: Product Innovation Report title page – title and category once; Proposed Brand (name + tagline); Generated; Data Period."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     category = report.get("category", "")
@@ -99,22 +95,33 @@ def add_title_page(pdf: FPDF, report: Dict):
     brand_name = brand_proposal.get("brand_name", "")
     brand_tagline = brand_proposal.get("brand_tagline", "")
 
+    # Title and category (only once)
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(20)
     pdf.cell(0, 10, "Product Innovation Report", 0, 1, "C")
     pdf.set_font("Arial", "B", 18)
     pdf.ln(8)
     pdf.cell(0, 10, _sanitize_pdf_text(f"Category: {category}"), 0, 1, "C")
+
+    # Proposed Brand: Name (bold+italic) and Tagline (italic)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.ln(10)
+    pdf.cell(0, 8, "Proposed Brand:", 0, 1, "C")
     if brand_name:
-        pdf.set_font("Arial", "I", FONT_SIZE_HEADING)
-        pdf.ln(8)
+        pdf.set_font("Arial", "BI", FONT_SIZE_HEADING)
+        pdf.ln(4)
         pdf.cell(0, 8, _sanitize_pdf_text(f"Brand: {brand_name}"), 0, 1, "C")
         if brand_tagline:
+            pdf.set_font("Arial", "I", FONT_SIZE_HEADING)
             pdf.cell(0, 8, _sanitize_pdf_text(brand_tagline), 0, 1, "C")
+
+    # Generated and Data Period
     pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
-    pdf.ln(15)
+    pdf.ln(12)
     pdf.cell(0, 8, f"Generated: {format_timestamp(report.get('generated_at', ''))}", 0, 1, "C")
     pdf.cell(0, 8, f"Data Period: {report.get('data_period', 'Last 30 Days')}", 0, 1, "C")
+
+    # Intro paragraph
     pdf.ln(15)
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.set_x(pdf.l_margin)
