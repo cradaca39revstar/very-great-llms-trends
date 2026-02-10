@@ -22,7 +22,7 @@ from utils.athena_helper import query_athena_top_products
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
 from utils.image_generator import generate_brand_logo, generate_images_parallel
 from utils.market_research_agent import search_all as market_research_search_all
-from utils.image_utils import image_bytes_to_thumbnail_base64
+from utils.image_utils import image_bytes_to_thumbnail_base64, logo_remove_background, logo_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
 
 # Environment variables
@@ -484,6 +484,11 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
                 if future == future_logo:
                     try:
                         brand_logo_bytes = future.result()
+                        if brand_logo_bytes:
+                            # Remove light/grey background so PDF and UI show logo only (transparent PNG)
+                            cleaned = logo_remove_background(brand_logo_bytes)
+                            if cleaned is not None:
+                                brand_logo_bytes = cleaned
                         print(f"[{request_id}] Brand logo: ok={brand_logo_bytes is not None}")
                     except Exception as e:
                         print(f"[{request_id}] Brand logo failed: {e}")
@@ -732,14 +737,14 @@ def _report_with_thumbnail_images(
     product_ideas: List[Dict],
     brand_logo_bytes: Optional[bytes] = None,
 ) -> Dict:
-    """Return a copy of the report with thumbnail base64 (JPEG) for frontend display; keeps payload small."""
+    """Return a copy of the report with thumbnail base64 for frontend; logo as PNG (transparent), product images as JPEG."""
     response_report = _report_for_dynamodb(report)
     thumb_size = 256
     if brand_logo_bytes:
-        logo_b64 = image_bytes_to_thumbnail_base64(brand_logo_bytes, size=thumb_size)
+        logo_b64 = logo_to_thumbnail_base64(brand_logo_bytes, size=thumb_size)
         if logo_b64:
             response_report.setdefault("brand_proposal", {})["logo_image_base64"] = logo_b64
-            response_report["brand_proposal"]["logo_image_base64_format"] = "jpeg"
+            response_report["brand_proposal"]["logo_image_base64_format"] = "png"
     for i, idea in enumerate(product_ideas):
         img_bytes = idea.get("_image_bytes")
         if img_bytes and i < len(response_report.get("product_ideas") or []):

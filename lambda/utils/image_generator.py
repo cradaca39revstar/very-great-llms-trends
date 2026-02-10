@@ -28,9 +28,9 @@ def _truncate_prompt_for_titan(prompt: str, max_len: int = TITAN_PROMPT_MAX_LENG
         return truncated[:last_space]
     return truncated
 
-# Logo: minimal, elegant brand mark (Titan works best with clear product/photography prompts; logo is stylized)
+# Logo: minimal, elegant brand mark. We post-process to remove background for transparent PNG.
 TITAN_LOGO_PROMPT_TEMPLATE = """Minimal luxury brand logo for "{brand_name}". {tagline}
-Clean, elegant wordmark or symbol, premium beauty or skincare brand, white or soft gradient background, professional, high-end, 4K quality."""
+Clean, elegant wordmark or symbol, premium beauty or skincare brand, professional, high-end, 4K quality. Logo only on plain light background."""
 
 
 def generate_product_image(
