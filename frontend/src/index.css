@@ -639,8 +639,8 @@ a:hover {
 }
 
 .product-idea-card__rank {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -681,8 +681,8 @@ a:hover {
 }
 
 .product-idea-card__price {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 400;
   color: var(--color-text);
   margin-bottom: 0.75rem;
 }
