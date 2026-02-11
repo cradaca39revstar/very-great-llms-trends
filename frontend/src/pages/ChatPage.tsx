@@ -57,6 +57,7 @@ export function ChatPage() {
       }
       res = await queryTrendingProducts(token, q);
       if (isTrendQueryProcessing(res)) {
+        const requestId = res.request_id;
         setResult(res);
         pollStartRef.current = Date.now();
         const poll = async () => {
@@ -66,12 +67,12 @@ export function ChatPage() {
               error: true,
               message:
                 'Report is taking longer than expected. You can try again or check back later.',
-              request_id: res.request_id,
+              request_id: requestId,
             });
             setLoading(false);
             return;
           }
-          const statusRes = await getReportStatus(token, res.request_id);
+          const statusRes = await getReportStatus(token, requestId);
           if (isTrendQuerySuccess(statusRes)) {
             stopPolling();
             setResult(statusRes);

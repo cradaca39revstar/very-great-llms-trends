@@ -16,7 +16,6 @@ if (userPoolId && userPoolClientId) {
         userPoolClientId,
         loginWith: {
           email: true,
-          password: true,
         },
       },
     },
