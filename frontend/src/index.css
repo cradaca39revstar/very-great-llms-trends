@@ -250,6 +250,11 @@ a:hover {
   margin-bottom: 1.25rem;
 }
 
+.results-pdf--top {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 .results-pdf__btn {
   display: inline-flex;
   align-items: center;

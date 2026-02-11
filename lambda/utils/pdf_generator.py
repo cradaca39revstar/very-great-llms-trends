@@ -171,7 +171,7 @@ def add_market_research_page(pdf: FPDF, report: Dict):
         pdf.set_x(pdf.l_margin)
         pdf.set_font("Arial", "B", FONT_SIZE_BODY)
         pdf.cell(8, LINE_HEIGHT_BODY, f"{i}.", 0, 0, "L")
-        pdf.cell(0, LINE_HEIGHT_BODY, name, 0, 1, "L")
+        pdf.multi_cell(cw - 8, LINE_HEIGHT_BODY, name, 0, "L")
         if desc:
             pdf.set_x(pdf.l_margin + 10)
             pdf.set_font("Arial", "", FONT_SIZE_SMALL)

@@ -4,21 +4,27 @@ Uses Pillow when available.
 """
 
 import base64
+from collections import deque
 from io import BytesIO
+from statistics import median
 from typing import Optional
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageFilter
     _PIL_AVAILABLE = True
 except ImportError:
     _PIL_AVAILABLE = False
 
 
+def _color_dist(c1: tuple, c2: tuple) -> float:
+    return ((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2) ** 0.5
+
+
 def logo_remove_background(image_bytes: Optional[bytes]) -> Optional[bytes]:
     """
-    Remove grey/gradient background from a logo so only the logo shows (transparent PNG).
-    Samples all edge pixels to detect background; removes any pixel that matches the
-    gradient (grey tones) or is close to edge colors. Returns PNG bytes with alpha.
+    Remove background from a logo so only the symbol shows (transparent PNG).
+    Uses median of edge pixels + conservative tolerance to preserve symbol details.
+    Falls back to border flood-fill if median-based removal leaves too little content.
     """
     if not _PIL_AVAILABLE or not image_bytes:
         return None
@@ -28,52 +34,91 @@ def logo_remove_background(image_bytes: Optional[bytes]) -> Optional[bytes]:
         if w < 2 or h < 2:
             return None
         pixels = img.load()
-        # Sample full perimeter (gradient can vary corner to corner)
-        edge_colors = []
-        for x in range(0, w, max(1, w // 20)):
-            edge_colors.append(pixels[x, 0])
-            edge_colors.append(pixels[x, h - 1])
-        for y in range(0, h, max(1, h // 20)):
-            edge_colors.append(pixels[0, y])
-            edge_colors.append(pixels[w - 1, y])
-        n = len(edge_colors)
-        bg_r = sum(c[0] for c in edge_colors) // n
-        bg_g = sum(c[1] for c in edge_colors) // n
-        bg_b = sum(c[2] for c in edge_colors) // n
-        # Pixel is background if: (1) close to average edge color, OR (2) grey in mid range (not white/black logo)
-        dist_threshold = 85
+        # 1) Median of edge pixels (conservative background color)
+        edge_r, edge_g, edge_b = [], [], []
+        step = max(1, w // 30)
+        for x in range(0, w, step):
+            c = pixels[x, 0]
+            edge_r.append(c[0])
+            edge_g.append(c[1])
+            edge_b.append(c[2])
+            c = pixels[x, h - 1]
+            edge_r.append(c[0])
+            edge_g.append(c[1])
+            edge_b.append(c[2])
+        step = max(1, h // 30)
+        for y in range(0, h, step):
+            c = pixels[0, y]
+            edge_r.append(c[0])
+            edge_g.append(c[1])
+            edge_b.append(c[2])
+            c = pixels[w - 1, y]
+            edge_r.append(c[0])
+            edge_g.append(c[1])
+            edge_b.append(c[2])
+        bg_r, bg_g, bg_b = int(median(edge_r)), int(median(edge_g)), int(median(edge_b))
+        # 2) Conservative tolerance (40) to preserve symbol details
+        tolerance = 40
         out = Image.new("RGBA", (w, h))
         out_pixels = out.load()
         for y in range(h):
             for x in range(w):
                 r, g, b = pixels[x, y]
-                luminance = (r + g + b) / 3
-                spread = max(r, g, b) - min(r, g, b)
-                dist = ((r - bg_r) ** 2 + (g - bg_g) ** 2 + (b - bg_b) ** 2) ** 0.5
-                is_edge_like = dist <= dist_threshold
-                # Remove grey gradient; keep white (luminance > 240) and dark (luminance < 90) as logo
-                is_mid_grey = spread <= 55 and 90 <= luminance <= 238
-                if is_edge_like or is_mid_grey:
+                is_bg = (
+                    abs(r - bg_r) <= tolerance
+                    and abs(g - bg_g) <= tolerance
+                    and abs(b - bg_b) <= tolerance
+                )
+                if is_bg:
                     out_pixels[x, y] = (r, g, b, 0)
                 else:
                     out_pixels[x, y] = (r, g, b, 255)
-        # If logo content is mostly white/light, invert so it's visible on light backgrounds
+        # If almost nothing left (e.g. gradient), use flood-fill from border
+        opaque_count = sum(1 for y in range(h) for x in range(w) if out_pixels[x, y][3] == 255)
+        if opaque_count < 50:
+            out = Image.new("RGBA", (w, h))
+            out_pixels = out.load()
+            q = deque()
+            for x in range(w):
+                q.append((x, 0))
+                q.append((x, h - 1))
+            for y in range(1, h - 1):
+                q.append((0, y))
+                q.append((w - 1, y))
+            is_bg = [[True] * w for _ in range(h)]
+            for x, y in q:
+                is_bg[y][x] = True
+            while q:
+                x, y = q.popleft()
+                c0 = pixels[x, y]
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and not is_bg[ny][nx]:
+                        if _color_dist(c0, pixels[nx, ny]) <= 28:
+                            is_bg[ny][nx] = True
+                            q.append((nx, ny))
+            for y in range(h):
+                for x in range(w):
+                    r, g, b = pixels[x, y]
+                    out_pixels[x, y] = (r, g, b, 0 if is_bg[y][x] else 255)
+        # 3) Invert if logo is mostly light so it's visible on white
         visible_lum = []
         for y in range(h):
             for x in range(w):
                 if out_pixels[x, y][3] == 255:
-                    r, g, b, a = out_pixels[x, y]
+                    r, g, b = out_pixels[x, y][0], out_pixels[x, y][1], out_pixels[x, y][2]
                     visible_lum.append((r + g + b) / 3)
-        if visible_lum:
-            avg_lum = sum(visible_lum) / len(visible_lum)
-            if avg_lum > 195:
-                for y in range(h):
-                    for x in range(w):
+        if visible_lum and sum(visible_lum) / len(visible_lum) > 170:
+            for y in range(h):
+                for x in range(w):
+                    if out_pixels[x, y][3] == 255:
                         r, g, b, a = out_pixels[x, y]
-                        if a == 255:
-                            out_pixels[x, y] = (255 - r, 255 - g, 255 - b, 255)
+                        out_pixels[x, y] = (255 - r, 255 - g, 255 - b, 255)
+        # 4) Light alpha smoothing to preserve crisp edges
+        alpha = out.getchannel("A")
+        out.putalpha(alpha.filter(ImageFilter.GaussianBlur(radius=0.5)))
         buf = BytesIO()
-        out.save(buf, format="PNG")
+        out.save(buf, format="PNG", optimize=True)
         return buf.getvalue()
     except Exception:
         return None
