@@ -40,6 +40,7 @@ Essential documents for understanding and deploying the system.
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Data Lake system architecture, components, and data flow | Technical teams |
 | [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) | LLM Trending Products Report Generator architecture | Technical teams, Stakeholders |
 | [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md) | Step-by-step deployment instructions | DevOps, Engineers |
+| [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md) | Generate client link via AWS Amplify Hosting (LLM frontend) | DevOps, Project leads |
 | [CLIENT-HANDOFF-CHECKLIST.md](CLIENT-HANDOFF-CHECKLIST.md) | Knowledge transfer tracking checklist | Project managers |
 
 ---
@@ -119,6 +120,9 @@ Project history, changes, and planning documents.
 
 **Deploy the system:**
 → [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md)
+
+**Get a client link for the LLM Trending Products app:**
+→ [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md)
 
 **Test the system after deployment / Test the LLM API:**
 → [README.md](../README.md) (see "How to test the agent" and Quick Start)

@@ -144,10 +144,12 @@ Output is in `frontend/dist/`. This directory is what you deploy to Amplify (or 
 
 ## Deploy to AWS Amplify Hosting
 
+For a full step-by-step guide including repository URL and branch (`amplify_versio`), see **[AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md)**.
+
 ### 1. Connect Repository
 
 1. Push the repo (including the `frontend/` folder) to GitHub, GitLab, Bitbucket, or CodeCommit.
-2. In **AWS Amplify Console** → **New app** → **Host web app** → connect the repo and branch.
+2. In **AWS Amplify Console** → **New app** → **Host web app** → connect the repo and branch (e.g. [very-great-llms-trends](https://github.com/cradaca39revstar/very-great-llms-trends), branch `amplify_versio`).
 
 ### 2. Build Settings
 
