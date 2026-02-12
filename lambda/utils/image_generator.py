@@ -30,30 +30,25 @@ def _truncate_prompt_for_titan(prompt: str, max_len: int = TITAN_PROMPT_MAX_LENG
     return truncated
 
 # Logo: premium symbol only; style reference and palettes for elegant icons.
-TITAN_LOGO_PROMPT_TEMPLATE = """Premium luxury brand icon symbol for "{brand_name}".
-
-Design: {style_reference} inspired by high-end fashion house emblems.
-Style: Hermès, Versace, Bulgari level of sophistication - timeless, iconic, refined craftsmanship.
-Execution: Clean vector-style lines, balanced proportions, professional artwork, premium quality, detailed yet minimal.
-Background: single solid flat color (pure white or light cream) for clean extraction.
-
-Symbol only - no text, no letters, no words, no typography whatsoever."""
+TITAN_LOGO_PROMPT_TEMPLATE = """Luxury brand icon for "{brand_name}". {style_reference}, high-end emblem style. Premium craftsmanship: timeless, iconic, refined. Clean vector lines, balanced, professional, minimal. Solid flat background (white or cream). Symbol only - no text, letters, words."""
 
 
 def get_style_reference(brand_name: str) -> str:
-    """Returns style reference hint based on brand name for more relevant icon designs."""
-    name_lower = (brand_name or "").lower()
-    if any(w in name_lower for w in ["nature", "terra", "green", "eco", "natural", "organic"]):
-        return "botanical leaf motif or elegant plant element"
-    if any(w in name_lower for w in ["royal", "crown", "king", "queen", "regal"]):
-        return "royal crown or heraldic crest emblem"
-    if any(w in name_lower for w in ["star", "celeste", "sky", "luna", "stella"]):
-        return "celestial star or constellation symbol"
-    if any(w in name_lower for w in ["ocean", "aqua", "marine", "wave", "sea"]):
-        return "flowing wave or elegant water droplet"
-    if any(w in name_lower for w in ["aura", "glow", "light", "lux"]):
-        return "radiant sun rays or luminous circle"
-    return "elegant geometric symbol or refined abstract mark"
+    """Returns style reference - strips sensitive words that may trigger content filters."""
+    name_clean = (brand_name or "").lower().replace("haircare", "").replace("hair", "").strip()
+
+    if any(word in name_clean for word in ["nature", "terra", "green", "eco", "natural", "organic"]):
+        return "Botanical leaf or plant element"
+    elif any(word in name_clean for word in ["royal", "crown", "king", "queen", "regal"]):
+        return "Royal crown or heraldic crest"
+    elif any(word in name_clean for word in ["star", "celeste", "sky", "luna", "stella"]):
+        return "Celestial star or constellation"
+    elif any(word in name_clean for word in ["ocean", "aqua", "marine", "wave", "sea"]):
+        return "Flowing wave or water droplet"
+    elif any(word in name_clean for word in ["aura", "glow", "light", "lux", "pure"]):
+        return "Radiant sun rays or luminous circle"
+    else:
+        return "Elegant geometric symbol or abstract mark"
 
 
 # 2-color palettes for elegant premium logos (Titan V2 COLOR_GUIDED_GENERATION)
@@ -131,19 +126,31 @@ def generate_brand_logo(brand_name: str, brand_tagline: str, bedrock_client) -> 
     Uses COLOR_GUIDED_GENERATION for consistent premium colors; style reference from brand name.
     Returns decoded PNG bytes or None on failure.
     """
-    name = brand_name or "Brand"
-    style_ref = get_style_reference(name)
+    brand_name_safe = (brand_name or "Brand").replace("Haircare", "").replace("haircare", "").replace("Hair", "").replace("hair", "").strip()
+    if not brand_name_safe:
+        brand_name_safe = brand_name or "Brand"
+
+    style_ref = get_style_reference(brand_name_safe)
     prompt = TITAN_LOGO_PROMPT_TEMPLATE.format(
-        brand_name=name,
+        brand_name=brand_name_safe,
         style_reference=style_ref,
     ).strip()
-    prompt = _truncate_prompt_for_titan(prompt)
+
+    negative = "text, letters, words, font, tagline, gradient, texture, watercolor, sketch, blur, 3D, shadow"
+    total_length = len(prompt) + len(negative)
+    if total_length > 512:
+        max_prompt_len = 512 - len(negative) - 5
+        if max_prompt_len > 0:
+            prompt = prompt[:max_prompt_len].rsplit(" ", 1)[0]
+        total_length = len(prompt) + len(negative)
+    print(f"Logo prompt length: {len(prompt)}, negative: {len(negative)}, total: {total_length}")
+
     body = {
         "taskType": "COLOR_GUIDED_GENERATION",
         "colorGuidedGenerationParams": {
             "text": prompt,
             "colors": get_random_premium_palette(),
-            "negativeText": "text, letters, words, brand name, typography, font, tagline, slogan, gradients, texture overlay, watercolor, sketchy, rough, blur, messy, low quality, 3D render, shadow, glow",
+            "negativeText": negative,
         },
         "imageGenerationConfig": {
             "numberOfImages": 1,
