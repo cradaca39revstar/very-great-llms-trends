@@ -204,19 +204,19 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
         </h2>
         <p className="results-intro">Product Innovation Report</p>
       </div>
+      {pdf_url ? (
+        <div className="results-pdf results-pdf--top">
+          <a href={pdf_url} target="_blank" rel="noreferrer" className="results-pdf__btn">
+            Download PDF Report
+          </a>
+        </div>
+      ) : null}
       <div className="results-meta">
         <span>Request ID: {request_id}</span>
         <span>Execution: {execution_time_ms} ms</span>
         <span>Product ideas: {product_count}</span>
       </div>
       <p className="results-report-date">Generated at {report.generated_at}</p>
-      {pdf_url && (
-        <div className="results-pdf">
-          <a href={pdf_url} target="_blank" rel="noreferrer" className="results-pdf__btn">
-            Download PDF
-          </a>
-        </div>
-      )}
 
       {report.market_context && report.market_context.length > 0 && (
         <section className="market-research">

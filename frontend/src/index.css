@@ -250,6 +250,11 @@ a:hover {
   margin-bottom: 1.25rem;
 }
 
+.results-pdf--top {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 .results-pdf__btn {
   display: inline-flex;
   align-items: center;
@@ -639,8 +644,8 @@ a:hover {
 }
 
 .product-idea-card__rank {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -681,8 +686,8 @@ a:hover {
 }
 
 .product-idea-card__price {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 400;
   color: var(--color-text);
   margin-bottom: 0.75rem;
 }

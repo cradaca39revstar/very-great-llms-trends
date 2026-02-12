@@ -5,6 +5,7 @@ Generates product concept images via Amazon Titan Image Generator v2.
 
 import base64
 import json
+import random
 import time
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -28,9 +29,51 @@ def _truncate_prompt_for_titan(prompt: str, max_len: int = TITAN_PROMPT_MAX_LENG
         return truncated[:last_space]
     return truncated
 
-# Logo: brand mark and brand name only. No tagline or slogan text in the image.
-TITAN_LOGO_PROMPT_TEMPLATE = """Minimal luxury brand logo for "{brand_name}".
-Show only the logo: a symbol or icon and the brand name "{brand_name}". Do not include any tagline, slogan, or extra text. Clean, elegant wordmark or symbol, premium beauty or skincare brand, professional, high-end, 4K quality. Logo only on plain light background."""
+# Logo: premium symbol only; style reference and palettes for elegant icons.
+TITAN_LOGO_PROMPT_TEMPLATE = """Premium luxury brand icon symbol for "{brand_name}".
+
+Design: {style_reference} inspired by high-end fashion house emblems.
+Style: Hermès, Versace, Bulgari level of sophistication - timeless, iconic, refined craftsmanship.
+Execution: Clean vector-style lines, balanced proportions, professional artwork, premium quality, detailed yet minimal.
+Background: single solid flat color (pure white or light cream) for clean extraction.
+
+Symbol only - no text, no letters, no words, no typography whatsoever."""
+
+
+def get_style_reference(brand_name: str) -> str:
+    """Returns style reference hint based on brand name for more relevant icon designs."""
+    name_lower = (brand_name or "").lower()
+    if any(w in name_lower for w in ["nature", "terra", "green", "eco", "natural", "organic"]):
+        return "botanical leaf motif or elegant plant element"
+    if any(w in name_lower for w in ["royal", "crown", "king", "queen", "regal"]):
+        return "royal crown or heraldic crest emblem"
+    if any(w in name_lower for w in ["star", "celeste", "sky", "luna", "stella"]):
+        return "celestial star or constellation symbol"
+    if any(w in name_lower for w in ["ocean", "aqua", "marine", "wave", "sea"]):
+        return "flowing wave or elegant water droplet"
+    if any(w in name_lower for w in ["aura", "glow", "light", "lux"]):
+        return "radiant sun rays or luminous circle"
+    return "elegant geometric symbol or refined abstract mark"
+
+
+# 2-color palettes for elegant premium logos (Titan V2 COLOR_GUIDED_GENERATION)
+PREMIUM_COLOR_PALETTES = {
+    "classic_gold": ["#C9A961", "#000000"],
+    "noir_elegance": ["#1A1A1A", "#FFFFFF"],
+    "champagne": ["#D4AF37", "#2C2C2C"],
+    "rose_gold": ["#B76E79", "#FFFFFF"],
+    "emerald": ["#0C4B33", "#E8DCC8"],
+    "navy_prestige": ["#1B2845", "#D4AF37"],
+    "burgundy": ["#6B1C23", "#F5E6D3"],
+    "platinum": ["#4A4A4A", "#E5E4E2"],
+    "bronze": ["#8B6914", "#FFFFFF"],
+    "sage": ["#87906F", "#F8F6F0"],
+}
+
+
+def get_random_premium_palette() -> List[str]:
+    """Devuelve una paleta premium aleatoria para colorGuidedGenerationParams.colors."""
+    return list(random.choice(list(PREMIUM_COLOR_PALETTES.values())))
 
 
 def generate_product_image(
@@ -84,22 +127,30 @@ def generate_product_image(
 
 def generate_brand_logo(brand_name: str, brand_tagline: str, bedrock_client) -> Optional[bytes]:
     """
-    Generate a brand logo image using Titan Image Generator v2.
-    Logo only (brand name and/or symbol). No tagline text in the image.
+    Generate a brand logo image using Titan Image Generator v2 with Color Palette Control.
+    Uses COLOR_GUIDED_GENERATION for consistent premium colors; style reference from brand name.
     Returns decoded PNG bytes or None on failure.
     """
+    name = brand_name or "Brand"
+    style_ref = get_style_reference(name)
     prompt = TITAN_LOGO_PROMPT_TEMPLATE.format(
-        brand_name=brand_name or "Brand",
+        brand_name=name,
+        style_reference=style_ref,
     ).strip()
     prompt = _truncate_prompt_for_titan(prompt)
     body = {
-        "textToImageParams": {"text": prompt},
-        "taskType": "TEXT_IMAGE",
+        "taskType": "COLOR_GUIDED_GENERATION",
+        "colorGuidedGenerationParams": {
+            "text": prompt,
+            "colors": get_random_premium_palette(),
+            "negativeText": "text, letters, words, brand name, typography, font, tagline, slogan, gradients, texture overlay, watercolor, sketchy, rough, blur, messy, low quality, 3D render, shadow, glow",
+        },
         "imageGenerationConfig": {
             "numberOfImages": 1,
-            "height": 512,
-            "width": 512,
-            "cfgScale": 8.0,
+            "height": 1024,
+            "width": 1024,
+            "cfgScale": 8.5,
+            "seed": random.randint(0, 2147483647),
         },
     }
     for attempt in range(TITAN_MAX_RETRIES):
