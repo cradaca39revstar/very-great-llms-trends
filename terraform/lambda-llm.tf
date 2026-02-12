@@ -286,12 +286,12 @@ resource "aws_iam_policy" "lambda_dynamodb" {
   })
 }
 
-# IAM Policy: CloudWatch Logs
-resource "aws_iam_policy" "lambda_cloudwatch" {
+# IAM Policy: CloudWatch Logs + Metrics + X-Ray (single policy to stay under 10 policies-per-role quota)
+resource "aws_iam_policy" "lambda_observability" {
   count = var.enable_llm_system ? 1 : 0
 
-  name        = "beauty-products-llm-cloudwatch-${var.environment}"
-  description = "CloudWatch Logs access for LLM orchestrator"
+  name        = "beauty-products-llm-observability-${var.environment}"
+  description = "CloudWatch Logs, metrics and X-Ray tracing for LLM orchestrator"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -320,21 +320,7 @@ resource "aws_iam_policy" "lambda_cloudwatch" {
             "cloudwatch:namespace" = "BeautyProducts/LLM"
           }
         }
-      }
-    ]
-  })
-}
-
-# IAM Policy: X-Ray Tracing
-resource "aws_iam_policy" "lambda_xray" {
-  count = var.enable_llm_system ? 1 : 0
-
-  name        = "beauty-products-llm-xray-${var.environment}"
-  description = "X-Ray tracing for LLM orchestrator"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Sid    = "XRayTracing"
         Effect = "Allow"
@@ -370,47 +356,33 @@ resource "aws_iam_policy" "lambda_lakeformation" {
   })
 }
 
-# IAM Policy: Invoke self asynchronously (async report generation)
-resource "aws_iam_policy" "lambda_invoke_self" {
+# IAM Policy: Invoke self + optional scraper (single policy to stay under 10 policies-per-role quota)
+resource "aws_iam_policy" "lambda_invoke" {
   count = var.enable_llm_system ? 1 : 0
 
-  name        = "beauty-products-llm-invoke-self-${var.environment}"
-  description = "Allow orchestrator to invoke itself asynchronously for background report generation"
+  name        = "beauty-products-llm-invoke-async-${var.environment}"
+  description = "Allow orchestrator to invoke itself (async report) and optionally scraper Lambda"
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "InvokeSelfAsync"
-        Effect = "Allow"
-        Action = ["lambda:InvokeFunction"]
-        Resource = [aws_lambda_function.orchestrator[0].arn]
-      }
-    ]
-  })
-}
-
-# IAM Policy: Invoke Scraper Lambda (V2: disabled; set enable_scraper_lambda = true to re-enable)
-resource "aws_iam_policy" "lambda_invoke_scraper" {
-  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
-
-  name        = "beauty-products-llm-invoke-scraper-${var.environment}"
-  description = "Allow orchestrator to invoke scraper Lambda"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "InvokeScraperLambda"
-        Effect = "Allow"
-        Action = [
-          "lambda:InvokeFunction"
-        ]
-        Resource = [
-          aws_lambda_function.scraper[0].arn
-        ]
-      }
-    ]
+    Statement = concat(
+      [
+        {
+          Sid      = "InvokeSelfAsync"
+          Effect   = "Allow"
+          Action   = ["lambda:InvokeFunction"]
+          Resource = [aws_lambda_function.orchestrator[0].arn]
+        }
+      ],
+      var.enable_scraper_lambda ? [
+        {
+          Sid      = "InvokeScraperLambda"
+          Effect   = "Allow"
+          Action   = ["lambda:InvokeFunction"]
+          Resource = [aws_lambda_function.scraper[0].arn]
+        }
+      ] : []
+    )
   })
 }
 
@@ -457,18 +429,11 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
   policy_arn = aws_iam_policy.lambda_dynamodb[0].arn
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_cloudwatch" {
+resource "aws_iam_role_policy_attachment" "lambda_observability" {
   count = var.enable_llm_system ? 1 : 0
 
   role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_cloudwatch[0].arn
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_xray" {
-  count = var.enable_llm_system ? 1 : 0
-
-  role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_xray[0].arn
+  policy_arn = aws_iam_policy.lambda_observability[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
@@ -478,18 +443,11 @@ resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
   policy_arn = aws_iam_policy.lambda_lakeformation[0].arn
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_invoke_self" {
+resource "aws_iam_role_policy_attachment" "lambda_invoke" {
   count = var.enable_llm_system ? 1 : 0
 
   role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_invoke_self[0].arn
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_invoke_scraper" {
-  count = var.enable_llm_system && var.enable_scraper_lambda ? 1 : 0
-
-  role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_invoke_scraper[0].arn
+  policy_arn = aws_iam_policy.lambda_invoke[0].arn
 }
 
 # CloudWatch Log Group for Lambda
