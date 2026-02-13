@@ -24,6 +24,8 @@ export interface BrandProposal {
   price_positioning: string;
   distribution_strategy: string;
   brand_personality: string;
+  /** Which top product inspired this brand concept. */
+  inspired_by_product?: string | null;
   /** Base64 thumbnail (JPEG or PNG). Use as data URL for <img>. */
   logo_image_base64?: string | null;
   logo_image_base64_format?: 'jpeg' | 'png' | null;
