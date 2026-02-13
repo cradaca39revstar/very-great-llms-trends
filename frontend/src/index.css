@@ -352,6 +352,42 @@ a:hover {
   line-height: 1.5;
 }
 
+/* Market research metrics table */
+.market-research__table-wrap {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.market-research__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.market-research__table th {
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.market-research__table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.market-research__table tbody tr:nth-child(even) {
+  background: rgba(26, 26, 26, 0.03);
+}
+
+.market-research__table .text-right {
+  text-align: right;
+}
+
 /* Product card */
 .product-card {
   background: var(--color-bg-card);
@@ -511,6 +547,13 @@ a:hover {
   font-size: 0.9375rem;
   color: var(--color-text-muted);
   margin: 0 0 1rem 0;
+}
+
+.brand-card__inspired {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1rem 0;
+  font-style: italic;
 }
 
 .brand-card__values {

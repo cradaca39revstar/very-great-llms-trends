@@ -214,17 +214,43 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
       <div className="results-meta">
         <span>Request ID: {request_id}</span>
         <span>Execution: {execution_time_ms} ms</span>
-        <span>Product ideas: {product_count}</span>
+        <span>Product concepts: {product_count}</span>
       </div>
       <p className="results-report-date">Generated at {report.generated_at}</p>
 
       {report.market_context && report.market_context.length > 0 && (
         <section className="market-research">
-          <h2 className="market-research__title">Market Research</h2>
+          <h2 className="market-research__title">Top 5 Market Trends</h2>
           <p className="market-research__intro">
-            Here are your top 5 products recommended based on your prompt.
+            Top performing products by revenue, growth, and monthly momentum.
           </p>
-          <h3 className="market-research__subtitle">Top 5 Products</h3>
+          <div className="market-research__table-wrap">
+            <table className="market-research__table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Product</th>
+                  <th>Shop</th>
+                  <th className="text-right">Revenue</th>
+                  <th className="text-right">Growth %</th>
+                  <th className="text-right">Sold</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.market_context.slice(0, 5).map((p, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>{p.product_name}</td>
+                    <td>{p.shop_name || '—'}</td>
+                    <td className="text-right">${(p.revenue_usd ?? 0).toLocaleString()}</td>
+                    <td className="text-right">{(p.mom_growth_pct ?? 0).toFixed(1)}%</td>
+                    <td className="text-right">{(p.item_sold ?? 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h3 className="market-research__subtitle">Product Highlights</h3>
           <ol className="market-research__list">
             {report.market_context.slice(0, 5).map((p, i) => (
               <li key={i} className="market-research__item">
@@ -268,6 +294,9 @@ function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandNa
       <h3 className="brand-card__name">{brandName || brand.brand_name}</h3>
       {brand.brand_tagline && (
         <p className="brand-card__tagline">{brand.brand_tagline}</p>
+      )}
+      {brand.inspired_by_product && (
+        <p className="brand-card__inspired">Inspired by: {brand.inspired_by_product}</p>
       )}
       {brand.brand_values && brand.brand_values.length > 0 && (
         <div className="brand-card__values">
