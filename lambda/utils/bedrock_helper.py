@@ -15,7 +15,7 @@ from botocore.exceptions import ClientError
 
 # ----- V2 Prompts -----
 
-GENERATE_BRAND_PROPOSAL = """You are a brand strategist. Based on REAL market data below, create ONE new brand concept that identifies gaps and opportunities in the current market.
+GENERATE_BRAND_PROPOSAL = """You are a brand strategist. Based on REAL market data below, create ONE new brand concept.
 
 L2 Category: {l2_category}
 
@@ -23,9 +23,11 @@ Market context (top 5 real products by revenue, last 30 days):
 {market_context_text}
 {web_insights_section}
 
+The brand concept should be inspired by the #1 top product ("{top_product_name}"), but DO NOT copy it. Identify what makes it successful (audience, positioning, ingredients, format) and create something that DIFFERENTIATES from it — a fresh angle, new format, underserved niche, or innovative approach.
+
 Instructions:
-- Identify gaps or underserved segments in this market data.
-- Create a NEW brand (name, tagline, story, values) that would differentiate from these existing leaders.
+- Create a NEW brand (name, tagline, story, values) that captures an adjacent market opportunity.
+- The brand_story should explain how the brand fills a gap the top product does not cover. Do NOT mention the top product by name in the story.
 - Target a specific demographic and price positioning (mass-market | mid-range | premium | luxury).
 - You MUST respond with ONLY valid JSON. No markdown, no code fences, no explanation.
 
@@ -33,10 +35,10 @@ Output exactly this JSON shape (no other fields):
 {{"brand_name": "string", "brand_tagline": "string", "brand_story": "string", "brand_values": ["string", "string", "string"], "target_demographic": "string", "price_positioning": "string", "distribution_strategy": "string", "brand_personality": "string"}}"""
 
 
-# Report delivers 5 product ideas: 4 based on top performers + 1 brand new
-PRODUCT_IDEAS_COUNT = 5
+# Report delivers 1 product concept based on brand + top product (client requirement)
+PRODUCT_IDEAS_COUNT = 1
 
-GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 5 product ideas for that brand.
+GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market data and the brand proposal below, create exactly 1 proposed product concept for that brand.
 
 L2 Category: {l2_category}
 
@@ -51,12 +53,15 @@ Brand proposal:
 - Target: {target_demographic}
 - Values: {brand_values}
 
+The product concept is inspired by the #1 top product ("{top_product_name}"), but it MUST BE DIFFERENT. Do NOT replicate the same formula, format, or name. Instead, create something that:
+- Addresses a gap or limitation of the top product (e.g. different format, new ingredient combination, different use case, complementary product).
+- Has its own unique identity and value proposition.
+- Do NOT mention the top product by name in the description or why_it_would_sell.
+
 Instructions:
-- Output exactly 5 products in this order:
-  1. Products 1–4: Inspired by or derived from the top 5 real products (variations, same category, improvements that address gaps). Each must feel like a natural evolution or adjacent opportunity based on the market context.
-  2. Product 5: ONE completely brand new idea — innovative, not derived from the top 5. A fresh concept that fits the brand and category.
-- For each product you MUST provide exactly 5 macro trends (supporting_trends_intro + supporting_trends array of 5 objects with "title" and "description").
-- image_prompt must describe a photorealistic product shot (packaging, colors, style, setting) suitable for AI image generation.
+- Create ONE innovative product concept that feels like a natural fit for the brand.
+- Provide exactly 5 macro trends (supporting_trends_intro + supporting_trends array of 5 objects with "title" and "description").
+- image_prompt must describe a photorealistic product shot: packaging shape, colors, materials, and style that appeal to the target demographic ({target_demographic}). Focus on visual elements only (no text instructions). Clean studio background.
 - You MUST respond with ONLY valid JSON. No markdown, no code fences.
 
 Output exactly this JSON shape:
@@ -67,7 +72,7 @@ Output exactly this JSON shape:
     "estimated_price_usd": 29.99,
     "why_it_would_sell": "string",
     "key_ingredients": ["s1", "s2"],
-    "supporting_trends_intro": "Here are 5 macro trends that are driving the success of [this product]...",
+    "supporting_trends_intro": "Here are 5 macro trends that are driving the success of this product...",
     "supporting_trends": [
       {{"title": "Short Trend Title", "description": "Full paragraph."}},
       ... exactly 5 items
@@ -76,13 +81,14 @@ Output exactly this JSON shape:
     "image_prompt": "string"
   }}
 ]}}
-Exactly 5 objects in the "products" array. Each product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
+Exactly 1 object in the "products" array. The product must have supporting_trends_intro and exactly 5 supporting_trends with title and description."""
 
 
 # Template to refine image_prompt before sending to Titan Image Generator (used in image_generator.py)
+# Note: Titan V2 cannot render readable text on images; keep prompt focused on visual/photographic style.
 TITAN_IMAGE_PROMPT_TEMPLATE = """Professional product photography of {product_name} by {brand_name}.
 {image_prompt_from_llm}
-Clean white/gradient background, studio lighting, high-end beauty product packaging, commercial photography style, 4K quality."""
+Clean white studio background, soft studio lighting, high-end beauty product packaging, commercial photography style, 4K quality."""
 
 
 def _format_market_context(market_context: List[Dict[str, Any]]) -> str:
@@ -182,19 +188,25 @@ def generate_brand_proposal(
     bedrock_client,
     model_id: str,
     web_insights: Optional[Dict[str, Any]] = None,
+    top_product_name: str = "",
 ) -> Dict[str, Any]:
     """
     Generate a brand proposal from market context. Single Bedrock call.
     Optional web_insights (Brave search results) are injected into the prompt when provided.
+    top_product_name: name of the #1 Athena product (injected by backend, not LLM-dependent).
     Returns dict with brand_name, brand_tagline, brand_story, brand_values, etc.
     On JSON parse failure, returns a sensible default with brand_name derived from category.
     """
     market_context_text = _format_market_context(market_context)
     web_insights_section = _format_web_insights(web_insights) if web_insights else ""
+    # Resolve top product name: use explicit param or fallback to first item in market_context
+    if not top_product_name and market_context:
+        top_product_name = market_context[0].get("product_name") or "top product"
     prompt = GENERATE_BRAND_PROPOSAL.format(
         l2_category=l2_category or "Beauty",
         market_context_text=market_context_text,
         web_insights_section=web_insights_section,
+        top_product_name=top_product_name,
     )
     try:
         response = invoke_model_with_retry(
@@ -241,11 +253,13 @@ def generate_product_ideas(
     bedrock_client,
     model_id: str,
     web_insights: Optional[Dict[str, Any]] = None,
+    top_product_name: str = "",
 ) -> List[Dict[str, Any]]:
     """
-    Generate 5 product ideas from market context + brand proposal (4 based on top performers + 1 brand new). Single Bedrock call.
+    Generate 1 product concept from market context + brand proposal. Single Bedrock call.
+    top_product_name: name of the #1 Athena product (injected by backend).
     Optional web_insights (Brave search results) are injected into the prompt when provided.
-    Returns list of 5 product dicts. Pads with defaults if fewer than 5 returned.
+    Returns list of product dicts. Pads with defaults if fewer than expected.
     """
     market_context_text = _format_market_context(market_context)
     web_insights_section = _format_web_insights(web_insights) if web_insights else ""
@@ -255,6 +269,9 @@ def generate_product_ideas(
     target_demographic = brand_proposal.get("target_demographic") or ""
     brand_values = brand_proposal.get("brand_values") or []
     brand_values_str = ", ".join(brand_values) if isinstance(brand_values, list) else str(brand_values)
+    # Resolve top product name: use explicit param or fallback to first item in market_context
+    if not top_product_name and market_context:
+        top_product_name = market_context[0].get("product_name") or "top product"
 
     prompt = GENERATE_PRODUCT_IDEAS.format(
         l2_category=l2_category or "Beauty",
@@ -265,6 +282,7 @@ def generate_product_ideas(
         price_positioning=price_positioning,
         target_demographic=target_demographic,
         brand_values=brand_values_str,
+        top_product_name=top_product_name,
     )
     try:
         response = invoke_model_with_retry(

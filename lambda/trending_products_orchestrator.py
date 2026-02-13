@@ -1,7 +1,7 @@
 """
 LLM Product Innovation Engine - Lambda Orchestrator (V2).
 Async flow: POST returns 202 and invokes self; GET /report/{request_id} polls status.
-Worker: Athena top 5 -> Brand proposal -> 5 product ideas -> Titan images -> PDF -> write to report_status.
+Worker: Athena top 5 -> Brand proposal (based on top product) -> 1 product concept -> Titan image -> PDF -> write to report_status.
 """
 
 import base64
@@ -322,7 +322,7 @@ def _write_report_status_failed(request_id: str, error_message: str) -> None:
 
 def execute_report_generation(event: Dict, request_id: str) -> Dict:
     """
-    Full V2 flow: Athena top 5 -> market context -> brand proposal -> product ideas -> Titan images -> report -> PDF.
+    Full V2 flow: Athena top 5 -> market context -> brand proposal (based on top product) -> 1 product concept -> Titan image -> report -> PDF.
     Returns dict with report (for DynamoDB/storage), pdf_url, brand_name, query, category, execution_time_ms, product_count.
     """
     start_time = time.time()
@@ -435,6 +435,12 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         for i, p in enumerate(products)
     ]
 
+    # Extract top product name from Athena data (backend-injected, LLM-independent)
+    top_product_name = ""
+    if market_context:
+        top_product_name = market_context[0].get("product_name") or ""
+    print(f"[{request_id}] Top product (inspired by): {top_product_name}")
+
     # Step 4: Brand proposal
     try:
         brand_proposal = generate_brand_proposal(
@@ -443,7 +449,10 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             bedrock_client=bedrock,
             model_id=BEDROCK_PRIMARY_MODEL,
             web_insights=web_insights if web_insights else None,
+            top_product_name=top_product_name,
         )
+        # Inject inspired_by_product from Athena data (not LLM-dependent)
+        brand_proposal["inspired_by_product"] = top_product_name
         print(f"[{request_id}] Brand proposal: {brand_proposal.get('brand_name', '')}")
     except Exception as e:
         print(f"[{request_id}] Brand generation failed: {e}")
@@ -461,6 +470,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             bedrock_client=bedrock,
             model_id=BEDROCK_PRIMARY_MODEL,
             web_insights=web_insights if web_insights else None,
+            top_product_name=top_product_name,
         )
         print(f"[{request_id}] Product ideas: {len(product_ideas_raw)}")
     except Exception as e:
@@ -642,15 +652,23 @@ def format_report_v2(
             brand_out["logo_image_base64"] = base64.b64encode(brand_logo_bytes).decode("ascii")
         except Exception:
             pass
-    # Include top 5 market products for PDF "Market Research" page (name + short description)
+    # Include top 5 market products with metrics for frontend table and PDF
     market_list = []
     for p in market_context[:5]:
         name = p.get("product_name") or "Unknown"
         shop = p.get("shop_name") or ""
         rev = float(p.get("revenue_usd") or 0)
         growth = float(p.get("mom_growth_pct") or 0)
+        sold = int(p.get("item_sold") or 0)
         desc = f"Top seller at {shop}. ${rev:,.0f} revenue, {growth:.1f}% growth (Last 30 Days)." if shop else f"${rev:,.0f} revenue, {growth:.1f}% growth (Last 30 Days)."
-        market_list.append({"product_name": name, "short_description": desc})
+        market_list.append({
+            "product_name": name,
+            "shop_name": shop,
+            "revenue_usd": rev,
+            "mom_growth_pct": growth,
+            "item_sold": sold,
+            "short_description": desc,
+        })
     out = {
         "query": user_query,
         "category": l2_category,

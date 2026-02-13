@@ -63,7 +63,7 @@ def generate_pdf_report(
     brand_logo_bytes: Optional[bytes] = None,
 ) -> bytes:
     """
-    Generate Product Innovation Report PDF (V2): title, market context, brand proposal, 5 product idea pages.
+    Generate Product Innovation Report PDF (V2): title, top 5 market trends, brand proposal, 1 product concept.
     product_ideas_with_images: list of product dicts that may contain _image_bytes for embedding.
     brand_logo_bytes: optional AI-generated brand logo image (PNG) for brand proposal page.
     """
@@ -134,39 +134,75 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.set_x(pdf.l_margin)
     summary = _sanitize_pdf_text(
         f"Based on market analysis of top-performing products in {category}, this report "
-        f"presents an AI-generated brand concept and 5 product ideas (4 based on top performers, 1 brand new) with supporting trends."
+        f"presents the top 5 market trends, an AI-generated brand proposal inspired by the top product, and 1 product concept."
     )
     pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 
 
 def add_market_research_page(pdf: FPDF, report: Dict):
-    """Page 2: Market Research – title, intro sentence, Top 5 Products list with short descriptions."""
+    """Page 1 (after title): Top 5 Market Trends – table with Revenue, Growth, MoM metrics."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
     market_context = report.get("market_context") or []
 
-    # Main title: Market Research
+    # Main title
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(10)
-    pdf.cell(0, 10, "Market Research", 0, 1, "L")
+    pdf.cell(0, 10, "Top 5 Market Trends", 0, 1, "L")
 
     # Introductory sentence
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.ln(6)
-    intro = _sanitize_pdf_text("Here are your top 5 products recommended based on your prompt.")
+    intro = _sanitize_pdf_text("Top performing products in this category based on revenue, growth, and monthly momentum.")
     pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro)
+    pdf.ln(8)
 
-    # Subtitle: Top 5 Products
-    pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
-    pdf.ln(12)
-    pdf.cell(0, 10, "Top 5 Products", 0, 1, "L")
+    # Table header
+    col_rank = 12
+    col_product = cw - 12 - 35 - 30 - 25 - 20
+    col_shop = 35
+    col_revenue = 30
+    col_growth = 25
+    col_sold = 20
 
-    # Numbered list with product name and short description
-    pdf.set_font("Arial", "", FONT_SIZE_BODY)
-    pdf.ln(4)
+    pdf.set_fill_color(30, 30, 30)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+    pdf.set_x(pdf.l_margin)
+    pdf.cell(col_rank, 7, "#", 0, 0, "C", fill=True)
+    pdf.cell(col_product, 7, "Product", 0, 0, "L", fill=True)
+    pdf.cell(col_shop, 7, "Shop", 0, 0, "L", fill=True)
+    pdf.cell(col_revenue, 7, "Revenue", 0, 0, "R", fill=True)
+    pdf.cell(col_growth, 7, "Growth %", 0, 0, "R", fill=True)
+    pdf.cell(col_sold, 7, "Sold", 0, 1, "R", fill=True)
+
+    # Table rows
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
     for i, p in enumerate(market_context[:5], 1):
-        name = _sanitize_pdf_text(p.get("product_name") or "—")
+        # Alternate row background
+        if i % 2 == 0:
+            pdf.set_fill_color(245, 244, 241)
+            fill = True
+        else:
+            fill = False
+        pdf.set_x(pdf.l_margin)
+        pdf.cell(col_rank, 6, str(i), 0, 0, "C", fill=fill)
+        pdf.cell(col_product, 6, _sanitize_pdf_text((p.get("product_name") or "")[:30]), 0, 0, "L", fill=fill)
+        pdf.cell(col_shop, 6, _sanitize_pdf_text((p.get("shop_name") or "")[:18]), 0, 0, "L", fill=fill)
+        pdf.cell(col_revenue, 6, f"${float(p.get('revenue_usd') or 0):,.0f}", 0, 0, "R", fill=fill)
+        pdf.cell(col_growth, 6, f"{float(p.get('mom_growth_pct') or 0):.1f}%", 0, 0, "R", fill=fill)
+        pdf.cell(col_sold, 6, f"{int(p.get('item_sold') or 0):,}", 0, 1, "R", fill=fill)
+
+    # Short descriptions below the table
+    pdf.ln(10)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 8, "Product Highlights", 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.ln(2)
+    for i, p in enumerate(market_context[:5], 1):
+        name = _sanitize_pdf_text(p.get("product_name") or "")
         desc = _sanitize_pdf_text(p.get("short_description") or "")
         pdf.set_x(pdf.l_margin)
         pdf.set_font("Arial", "B", FONT_SIZE_BODY)
@@ -176,7 +212,7 @@ def add_market_research_page(pdf: FPDF, report: Dict):
             pdf.set_x(pdf.l_margin + 10)
             pdf.set_font("Arial", "", FONT_SIZE_SMALL)
             pdf.multi_cell(cw - 10, LINE_HEIGHT_BODY - 1, desc)
-        pdf.ln(4)
+        pdf.ln(3)
 
 
 def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
@@ -230,6 +266,14 @@ def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optiona
             print(f"PDF: failed to embed brand logo: {e}")
     pdf.set_x(pdf.l_margin)
     pdf.ln(3)
+    # Show which top product inspired the brand (client requirement)
+    inspired_by = brand_proposal.get("inspired_by_product") or ""
+    if inspired_by:
+        pdf.set_font("Arial", "I", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(f"Inspired by: {inspired_by}"))
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(5)
+
     for label, key in [
         ("Tagline", "brand_tagline"),
         ("Brand Story", "brand_story"),
