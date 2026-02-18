@@ -256,7 +256,6 @@ Full schema: [`schemas/curated_beauty_products_v1.json`](schemas/curated_beauty_
 
 **Detailed Guides:**
 - [Client Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Step-by-step deployment instructions
-- [Deployment Checklist](deployment-checklist.md) - Detailed pre-deployment checklist
 
 ---
 
@@ -401,7 +400,6 @@ FROM beauty_products_db.curated_beauty_products;
 │
 ├── athena-views.sql           # Athena view definitions
 ├── CLIENT-HANDOFF-PACKAGE.md  # Executive handoff summary
-├── deployment-checklist.md    # Detailed deployment checklist
 └── README.md                  # This file
 ```
 
@@ -451,7 +449,7 @@ aws s3 cp tests/sample-data/valid_input.csv \
 aws glue start-job-run --job-name beauty-products-etl-job
 
 # Check results
-# (See queries in deployment-checklist.md)
+# (See queries in docs/CLIENT-DEPLOYMENT-GUIDE.md and athena-views.sql)
 ```
 
 ---

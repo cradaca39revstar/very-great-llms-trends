@@ -18,7 +18,7 @@ from typing import List, Dict, Any, Optional
 import boto3
 from botocore.exceptions import ClientError
 
-from utils.athena_helper import query_athena_top_products
+from utils.athena_helper import query_athena_top_products, query_athena_l2_categories
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
 from utils.image_generator import generate_brand_logo, generate_images_parallel
 from utils.market_research_agent import search_all as market_research_search_all
@@ -42,15 +42,6 @@ cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 lambda_client = boto3.client("lambda", region_name=AWS_REGION)
 
-SUPPORTED_L2_CATEGORIES = [
-    "Skincare",
-    "Haircare & Styling",
-    "Makeup",
-    "Bath & Body Care",
-    "Fragrance",
-    "Tools & Accessories",
-]
-
 # Error codes per rulescore.mdc: [MODULE][NUMBER] (TRD = Trending)
 TRD001 = "TRD001"  # Missing query
 TRD002 = "TRD002"  # Category not found
@@ -71,11 +62,16 @@ CORS_HEADERS = {
 
 def lambda_handler(event: Dict, context: Any) -> Dict:
     """
-    Router: GET /report/{request_id} -> status; async_report -> worker; else POST -> 202 + async invoke.
+    Router: GET /report/{request_id} -> status; GET /trending-products/categories -> categories;
+    async_report -> worker; else POST /query -> 202 + async invoke.
     """
     # GET /report/{request_id} (from API Gateway)
-    if event.get("httpMethod") == "GET" and event.get("pathParameters", {}).get("request_id"):
+    if event.get("httpMethod") == "GET" and (event.get("pathParameters") or {}).get("request_id"):
         return handle_get_report_status(event)
+
+    # GET /trending-products/categories -> distinct L2 categories from latest partition
+    if event.get("httpMethod") == "GET" and "categories" in (event.get("path") or ""):
+        return handle_get_categories(event)
 
     # Background worker invocation (async self-invoke)
     if event.get("async_report") is True:
@@ -84,6 +80,35 @@ def lambda_handler(event: Dict, context: Any) -> Dict:
 
     # POST /trending-products/query from API Gateway -> return 202 and invoke self async
     return handle_post_query_async(event, context)
+
+
+def handle_get_categories(event: Dict) -> Dict:
+    """GET /trending-products/categories: return distinct L2 categories (dynamic list)."""
+    if not ATHENA_WORKGROUP or not ATHENA_DATABASE:
+        return {
+            "statusCode": HTTPStatus.OK.value,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"error": True, "message": "Athena not configured. Set ATHENA_WORKGROUP and ATHENA_DATABASE on the Lambda.", "categories": []}),
+        }
+    try:
+        categories = query_athena_l2_categories(
+            workgroup=ATHENA_WORKGROUP,
+            database=ATHENA_DATABASE,
+        )
+        return {
+            "statusCode": HTTPStatus.OK.value,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"categories": categories}),
+        }
+    except Exception as e:
+        err_msg = str(e)
+        print(f"Get categories failed: {e}", exc_info=True)
+        # Return 200 with error in body so API Gateway does not replace body with "Internal server error"
+        return {
+            "statusCode": HTTPStatus.OK.value,
+            "headers": CORS_HEADERS,
+            "body": json.dumps({"error": True, "message": err_msg, "categories": []}),
+        }
 
 
 def handle_get_report_status(event: Dict) -> Dict:
@@ -708,20 +733,16 @@ def generate_and_upload_pdf(
 
 
 def extract_l2_category(user_query: str) -> str:
-    """Extract L2 category from natural language query. Raises ValueError if not found."""
-    query_lower = user_query.lower()
-    for category in SUPPORTED_L2_CATEGORIES:
-        if category.lower() in query_lower:
-            return category
-        if category == "Haircare & Styling" and ("haircare" in query_lower or "hair care" in query_lower):
-            return category
-        if category == "Bath & Body Care" and ("bath" in query_lower or "body care" in query_lower):
-            return category
-        if category == "Tools & Accessories" and ("tools" in query_lower or "accessories" in query_lower):
-            return category
-    raise ValueError(
-        f"Category not found in query: '{user_query}'. Supported categories: {', '.join(SUPPORTED_L2_CATEGORIES)}"
-    )
+    """Extract L2 category from query (e.g. 'What are the top trending products in Skincare?' -> 'Skincare')."""
+    q = (user_query or "").strip()
+    if not q:
+        raise ValueError("Missing query")
+    # Pattern: "... in <Category>?" or "... in <Category>"
+    if " in " in q:
+        part = q.split(" in ", 1)[-1].rstrip("?").strip()
+        if part:
+            return part
+    raise ValueError("Could not determine category from query. Use the category selector or ask e.g. What are the top trending products in Skincare?")
 
 
 def extract_user_id(event: Dict) -> str:
@@ -855,6 +876,6 @@ def error_response(
             "msg_code": msg_code,
             "request_id": request_id,
             "message": msg_code[0].get("description", "") if msg_code else "",
-            "supported_categories": SUPPORTED_L2_CATEGORIES if status == HTTPStatus.BAD_REQUEST else None,
+            "supported_categories": None,
         }),
     }

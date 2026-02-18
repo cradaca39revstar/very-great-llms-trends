@@ -52,7 +52,6 @@ Daily operations, maintenance, and support procedures.
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [CLIENT-OPERATIONS-GUIDE.md](CLIENT-OPERATIONS-GUIDE.md) | Daily operations, monitoring, and common tasks | Operations team |
-| [deployment-checklist.md](../deployment-checklist.md) | Detailed pre-deployment and deployment checklist | DevOps, Engineers |
 | [runbooks/etl-job-failure.md](../runbooks/etl-job-failure.md) | ETL job failure recovery procedures | Operations, Engineers |
 | [runbooks/data-quality-investigation.md](../runbooks/data-quality-investigation.md) | Data quality issue investigation | Data stewards, Analysts |
 | [runbooks/schema-evolution.md](../runbooks/schema-evolution.md) | Schema change procedures | Engineers, Data architects |

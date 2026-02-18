@@ -2,12 +2,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'aws-amplify/auth';
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { queryTrendingProducts, getReportStatus } from '../services/api';
+import { queryTrendingProducts, getReportStatus, getCategories } from '../services/api';
 import {
   isTrendQueryError,
   isTrendQuerySuccess,
   isTrendQueryProcessing,
-  SUPPORTED_L2_CATEGORIES,
   type TrendQueryResponse,
   type TrendQuerySuccess,
   type TrendQueryError,
@@ -24,6 +23,9 @@ export function ChatPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TrendQueryResponse | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollStartRef = useRef<number>(0);
 
@@ -35,6 +37,32 @@ export function ChatPage() {
   }, []);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesError(null);
+    setCategoriesLoading(true);
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      if (!token) {
+        setCategoriesError('Not signed in');
+        setCategories([]);
+        return;
+      }
+      const { categories: list, error } = await getCategories(token);
+      setCategories(list);
+      setCategoriesError(error ?? null);
+    } catch (e) {
+      setCategories([]);
+      setCategoriesError(e instanceof Error ? e.message : 'Failed to load categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const handleConsult = async () => {
     const q = query.trim();
@@ -152,12 +180,27 @@ export function ChatPage() {
             onChange={(e) => setQuery(e.target.value || '')}
           >
             <option value="">--</option>
-            {SUPPORTED_L2_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c} value={`What are the top trending products in ${c}?`}>
                 {c}
               </option>
             ))}
           </select>
+          {categoriesLoading && categories.length === 0 && (
+            <p className="chat-query__hint" role="status">Loading categories…</p>
+          )}
+          {!categoriesLoading && categories.length === 0 && (
+            <div className="chat-query__hint" role="status">
+              <p>
+                {categoriesError
+                  ? `Could not load categories: ${categoriesError}`
+                  : 'No categories in data. Run ETL and, if needed, MSCK REPAIR TABLE in Athena.'}
+              </p>
+              <button type="button" className="chat-query__retry" onClick={loadCategories}>
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </section>
 

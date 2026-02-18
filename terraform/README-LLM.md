@@ -728,4 +728,4 @@ After successful deployment:
 
 ---
 
-**Deployment checklist complete?** See [`deployment-checklist.md`](../deployment-checklist.md) for comprehensive validation steps.
+**Deployment complete?** See [CLIENT-DEPLOYMENT-GUIDE.md](../docs/CLIENT-DEPLOYMENT-GUIDE.md) for deployment and validation.

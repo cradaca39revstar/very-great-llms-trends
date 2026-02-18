@@ -36,6 +36,7 @@ resource "aws_lambda_function" "orchestrator" {
       PDF_BUCKET               = aws_s3_bucket.pdfs[0].id
       ENVIRONMENT              = var.environment
       AWS_REGION_NAME          = var.aws_region
+      BEDROCK_LOGO_REGION      = "us-west-2"
     }
   }
 
@@ -225,6 +226,19 @@ resource "aws_iam_policy" "lambda_bedrock" {
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-image-generator-v2:0"
+        ]
+      },
+      # Logo generation: Stability SD 3.5 Large and SD3 Large (us-west-2)
+      {
+        Sid    = "BedrockStabilityLogo"
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
+        ]
+        Resource = [
+          "arn:aws:bedrock:us-west-2::foundation-model/stability.sd3-5-large-v1:0",
+          "arn:aws:bedrock:us-west-2::foundation-model/stability.sd3-large-v1:0"
         ]
       },
       {

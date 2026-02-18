@@ -56,34 +56,50 @@ def query_athena_top_products(
 def build_top_products_query(l2_category: str, database: str, limit: int = 5) -> str:
     """
     Build SQL query for top products by L2 category.
-    For poc, uses the only (year, month_num) present in the table; later can be
-    extended to validate specific date ranges.
+    Uses only the latest partition (year, month_num) so data is from the most recent
+    period (e.g. last 30 days when table is loaded monthly). One row per product, no duplicates.
+    Results ordered by revenue (desc) then growth (desc).
     """
     # Escape single quotes in category name
     safe_category = l2_category.replace("'", "''")
     table = f"{database}.curated_beauty_products"
-    # Use the only partition(s) that exist in the table (poc: one date; later: validate specific dates)
     query = f"""
-    WITH latest_partition AS (
+    WITH distinct_partitions AS (
       SELECT DISTINCT year, month_num FROM {table}
     ),
-    ranked_products AS (
-      SELECT 
-        p.product_id,
-        p.product_name,
-        p.shop_name,
-        p.l2_category,
-        p.revenue_usd,
-        p.mom_growth_pct,
-        p.item_sold,
-        ROW_NUMBER() OVER (
-          PARTITION BY p.l2_category 
-          ORDER BY p.revenue_usd DESC, p.mom_growth_pct DESC
-        ) as revenue_rank
+    ranked_partitions AS (
+      SELECT year, month_num,
+             ROW_NUMBER() OVER (ORDER BY year DESC, month_num DESC) AS rn
+      FROM distinct_partitions
+    ),
+    latest_partition AS (
+      SELECT year, month_num FROM ranked_partitions WHERE rn = 1
+    ),
+    latest_data AS (
+      SELECT p.product_id, p.product_name, p.shop_name, p.l2_category,
+             p.revenue_usd, p.mom_growth_pct, p.item_sold
       FROM {table} p
       INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
       WHERE p.l2_category = '{safe_category}'
         AND p.data_quality_score >= 0.95
+    ),
+    deduped AS (
+      SELECT product_id, product_name, shop_name, l2_category,
+             revenue_usd, mom_growth_pct, item_sold,
+             ROW_NUMBER() OVER (
+               PARTITION BY product_id, product_name, shop_name
+               ORDER BY revenue_usd DESC, mom_growth_pct DESC
+             ) AS rn
+      FROM latest_data
+    ),
+    ranked_products AS (
+      SELECT product_id, product_name, shop_name, l2_category,
+             revenue_usd, mom_growth_pct, item_sold,
+             ROW_NUMBER() OVER (
+               ORDER BY revenue_usd DESC, mom_growth_pct DESC
+             ) AS revenue_rank
+      FROM deduped
+      WHERE rn = 1
     )
     SELECT 
       product_id,
@@ -96,9 +112,48 @@ def build_top_products_query(l2_category: str, database: str, limit: int = 5) ->
       revenue_rank
     FROM ranked_products
     WHERE revenue_rank <= {limit}
-    ORDER BY revenue_rank
+    ORDER BY revenue_usd DESC, mom_growth_pct DESC
     """
     return query.strip()
+
+
+def build_distinct_categories_query(database: str) -> str:
+    """
+    Build SQL to get distinct l2_category from all partitions (case-insensitive, no duplicates).
+    Used for dynamic category list in the frontend (all categories that exist in the table).
+    """
+    table = f"{database}.curated_beauty_products"
+    return f"""
+    SELECT MIN(TRIM(p.l2_category)) AS l2_category
+    FROM {table} p
+    WHERE p.data_quality_score >= 0.95
+      AND p.l2_category IS NOT NULL
+      AND TRIM(p.l2_category) != ''
+    GROUP BY LOWER(TRIM(p.l2_category))
+    ORDER BY l2_category
+    """.strip()
+
+
+def query_athena_l2_categories(workgroup: str, database: str) -> List[str]:
+    """
+    Return sorted list of all L2 category names present in the table (all partitions).
+    Empty list on failure or no data.
+    """
+    try:
+        sql = build_distinct_categories_query(database)
+        execution_id = execute_query(sql, workgroup)
+        wait_for_query_completion(execution_id, timeout=30)
+        rows = get_query_results(execution_id)
+        categories = []
+        for row in rows:
+            # Athena may return column as "l2_category" or lowercase; fallback to first column value
+            name = (row.get("l2_category") or (list(row.values())[0] if row else "") or "").strip()
+            if name and name not in categories:
+                categories.append(name)
+        return sorted(categories)
+    except Exception as e:
+        print(f"Athena categories query failed: {e}")
+        return []
 
 
 def execute_query(sql: str, workgroup: str) -> str:
@@ -200,8 +255,8 @@ def get_query_results(execution_id: str) -> List[Dict]:
         if len(rows) < 2:  # No data rows (only header)
             return []
         
-        # Parse column names
-        columns = [col['VarCharValue'] for col in rows[0]['Data']]
+        # Parse column names (use .get in case a cell has no VarCharValue)
+        columns = [col.get('VarCharValue', '') or '' for col in rows[0]['Data']]
         
         # Parse data rows
         products = []

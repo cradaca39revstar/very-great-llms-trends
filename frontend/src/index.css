@@ -211,6 +211,31 @@ a:hover {
   color: var(--color-text);
 }
 
+.chat-query__hint {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.chat-query__hint p {
+  margin: 0 0 0.5rem 0;
+}
+
+.chat-query__retry {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-body);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chat-query__retry:hover {
+  background: var(--color-border);
+}
+
 .chat-results {
   border-top: 1px solid var(--color-border);
   padding-top: 1.75rem;

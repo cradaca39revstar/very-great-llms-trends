@@ -427,7 +427,7 @@ A: **Error** = malformed CSV, duplicates (structural issues). **Quarantine** = l
 
 - [Data Governance Charter](../governance/data-governance-charter.md)
 - [ETL Job Failure Runbook](../runbooks/etl-job-failure.md)
-- [Deployment Checklist](../deployment-checklist.md)
+- [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md)
 
 ---
 
