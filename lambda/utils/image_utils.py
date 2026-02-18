@@ -129,7 +129,10 @@ def logo_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 256) -> O
     Resize logo (PNG with alpha) to thumbnail, keep transparency. Returns base64 PNG string.
     Use for brand logo so chat shows logo without background.
     """
-    if not _PIL_AVAILABLE or not image_bytes:
+    if not _PIL_AVAILABLE:
+        print("[image_utils] logo_to_thumbnail_base64: PIL not available")
+        return None
+    if not image_bytes:
         return None
     try:
         img = Image.open(BytesIO(image_bytes))
@@ -139,7 +142,8 @@ def logo_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 256) -> O
         out = BytesIO()
         img.save(out, format="PNG")
         return base64.b64encode(out.getvalue()).decode("ascii")
-    except Exception:
+    except Exception as e:
+        print(f"[image_utils] logo_to_thumbnail_base64 failed: {e}")
         return None
 
 
@@ -149,7 +153,10 @@ def image_bytes_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 25
     Keeps response payload small so frontend can show images without timeout.
     Returns None if Pillow unavailable or resize fails.
     """
-    if not _PIL_AVAILABLE or not image_bytes:
+    if not _PIL_AVAILABLE:
+        print("[image_utils] image_bytes_to_thumbnail_base64: PIL not available")
+        return None
+    if not image_bytes:
         return None
     try:
         img = Image.open(BytesIO(image_bytes))
@@ -158,5 +165,6 @@ def image_bytes_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 25
         out = BytesIO()
         img.save(out, format="JPEG", quality=85)
         return base64.b64encode(out.getvalue()).decode("ascii")
-    except Exception:
+    except Exception as e:
+        print(f"[image_utils] image_bytes_to_thumbnail_base64 failed: {e}")
         return None

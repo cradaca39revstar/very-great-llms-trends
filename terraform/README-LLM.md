@@ -87,6 +87,20 @@ aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?m
 
 **Note**: Use `us-east-1` for this system. Model availability varies by region.
 
+### Image models (logo + product) – us-west-2
+
+Logo and product images use **Stability AI** in **us-west-2**. These are **Marketplace** models and must be enabled in the console before the Lambda can use them.
+
+1. In **AWS Console** go to **Amazon Bedrock**.
+2. Open **Model access** (or **Get access to models**).
+3. Set region to **US West (Oregon)** (`us-west-2`).
+4. Find and enable:
+   - **Stability SD 3.5 Large** (`stability.sd3-5-large-v1:0`)
+   - **Stability SD 3 Large** (`stability.sd3-large-v1:0`)
+5. Click **Request model access** / **Enable** and wait until status is **Access granted** (often 1–2 minutes).
+
+If these models are not enabled, you will see `AccessDeniedException` with "aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe" and report images (logo + product) will be missing.
+
 ### Access Control
 
 Account administrators can control model access via:

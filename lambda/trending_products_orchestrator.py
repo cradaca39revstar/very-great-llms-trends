@@ -782,7 +782,8 @@ def _report_with_thumbnail_images(
     product_ideas: List[Dict],
     brand_logo_bytes: Optional[bytes] = None,
 ) -> Dict:
-    """Return a copy of the report with thumbnail base64 for frontend; logo as PNG (transparent), product images as JPEG."""
+    """Return a copy of the report with thumbnail base64 for frontend; logo as PNG (transparent), product images as JPEG.
+    If PIL/thumbnail fails, falls back to full base64 from report so images still show in UI and PDF."""
     response_report = _report_for_dynamodb(report)
     thumb_size = 256
     if brand_logo_bytes:
@@ -790,6 +791,20 @@ def _report_with_thumbnail_images(
         if logo_b64:
             response_report.setdefault("brand_proposal", {})["logo_image_base64"] = logo_b64
             response_report["brand_proposal"]["logo_image_base64_format"] = "png"
+        else:
+            # Fallback: use full base64 from report when thumbnail fails (e.g. PIL missing or error)
+            full_logo = (report.get("brand_proposal") or {}).get("logo_image_base64")
+            if full_logo:
+                response_report.setdefault("brand_proposal", {})["logo_image_base64"] = full_logo
+                response_report["brand_proposal"]["logo_image_base64_format"] = "png"
+                print("[Report] logo thumbnail failed; using full base64 for response")
+            else:
+                try:
+                    response_report.setdefault("brand_proposal", {})["logo_image_base64"] = base64.b64encode(brand_logo_bytes).decode("ascii")
+                    response_report["brand_proposal"]["logo_image_base64_format"] = "png"
+                    print("[Report] logo thumbnail failed; using raw bytes base64 for response")
+                except Exception:
+                    pass
     for i, idea in enumerate(product_ideas):
         img_bytes = idea.get("_image_bytes")
         if img_bytes and i < len(response_report.get("product_ideas") or []):
@@ -797,6 +812,19 @@ def _report_with_thumbnail_images(
             if thumb_b64:
                 response_report["product_ideas"][i]["image_base64"] = thumb_b64
                 response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+            else:
+                # Fallback: use full base64 from report or encode bytes so UI/PDF still show image
+                full_b64 = (report.get("product_ideas") or [])[i].get("image_base64") if i < len(report.get("product_ideas") or []) else None
+                if full_b64:
+                    response_report["product_ideas"][i]["image_base64"] = full_b64
+                    response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+                else:
+                    try:
+                        response_report["product_ideas"][i]["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
+                        response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+                    except Exception:
+                        pass
+                print(f"[Report] product_ideas[{i}] thumbnail failed; using full/raw base64 for response")
     return response_report
 
 

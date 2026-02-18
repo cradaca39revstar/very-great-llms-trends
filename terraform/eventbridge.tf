@@ -19,17 +19,43 @@ resource "aws_glue_trigger" "workflow_start" {
   name          = "beauty-products-workflow-start-trigger"
   type          = "EVENT"
   workflow_name = aws_glue_workflow.beauty_products_pipeline.name
-  
+
   actions {
     job_name = aws_glue_job.beauty_products_etl.name
   }
-  
+
   # Note: EVENT triggers cannot be enabled on creation via Terraform
   # Will be enabled when EventBridge sends first event
   enabled = false
-  
+
   tags = {
     Name        = "Beauty Products Workflow Start Trigger"
+    Environment = var.environment
+    Project     = "BeautyProductsDataLake"
+  }
+}
+
+# Glue Trigger (CONDITIONAL) - Run curated crawler after ETL job succeeds so new partitions
+# are visible in Athena / LLM report without manual MSCK REPAIR TABLE
+resource "aws_glue_trigger" "after_etl_curated_crawler" {
+  name          = "beauty-products-after-etl-curated-crawler"
+  type          = "CONDITIONAL"
+  workflow_name = aws_glue_workflow.beauty_products_pipeline.name
+  enabled       = true
+
+  predicate {
+    conditions {
+      job_name = aws_glue_job.beauty_products_etl.name
+      state    = "SUCCEEDED"
+    }
+  }
+
+  actions {
+    crawler_name = aws_glue_crawler.curated_crawler.name
+  }
+
+  tags = {
+    Name        = "Beauty Products After-ETL Curated Crawler"
     Environment = var.environment
     Project     = "BeautyProductsDataLake"
   }
