@@ -96,19 +96,19 @@ def add_title_page(pdf: FPDF, report: Dict):
     brand_name = brand_proposal.get("brand_name", "")
     brand_tagline = brand_proposal.get("brand_tagline", "")
 
-    # Title and category (only once)
+    # Title and category (only once) – category in smaller font
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(20)
     pdf.cell(0, 10, "Product Innovation Report", 0, 1, "C")
-    pdf.set_font("Arial", "", 18)
+    pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
     w_label = pdf.get_string_width("Category: ")
-    pdf.set_font("Arial", "B", 18)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     w_cat = pdf.get_string_width(_sanitize_pdf_text(category))
     pdf.set_x((pdf.w - w_label - w_cat) / 2)
-    pdf.set_font("Arial", "", 18)
-    pdf.cell(w_label, 10, "Category: ", 0, 0, "L")
-    pdf.set_font("Arial", "B", 18)
-    pdf.cell(w_cat, 10, _sanitize_pdf_text(category), 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
+    pdf.cell(w_label, 8, "Category: ", 0, 0, "L")
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(w_cat, 8, _sanitize_pdf_text(category), 0, 1, "L")
 
     # Proposed Brand: Name (bold+italic) and Tagline (italic)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
@@ -117,10 +117,10 @@ def add_title_page(pdf: FPDF, report: Dict):
     if brand_name:
         pdf.set_font("Arial", "BI", FONT_SIZE_HEADING)
         pdf.ln(4)
-        pdf.cell(0, 8, _sanitize_pdf_text(f"Brand: {brand_name}"), 0, 1, "C")
+        pdf.cell(0, 8, _sanitize_pdf_text(brand_name), 0, 1, "C")
         if brand_tagline:
-            pdf.set_font("Arial", "I", FONT_SIZE_HEADING)
-            pdf.cell(0, 8, _sanitize_pdf_text(brand_tagline), 0, 1, "C")
+            pdf.set_font("Arial", "I", FONT_SIZE_SUBHEADING)
+            pdf.cell(0, 6, _sanitize_pdf_text(brand_tagline), 0, 1, "C")
 
     # Generated and Data Period
     pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
