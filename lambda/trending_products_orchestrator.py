@@ -507,7 +507,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
     image_bytes_list: List[Optional[bytes]] = []
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
-            future_logo = executor.submit(generate_brand_logo, brand_name, brand_tagline, bedrock)
+            future_logo = executor.submit(generate_brand_logo, brand_name, brand_tagline, l2_category, bedrock)
             future_images = executor.submit(
                 generate_images_parallel,
                 product_ideas_raw,
@@ -733,7 +733,12 @@ def generate_and_upload_pdf(
 
 
 def extract_l2_category(user_query: str) -> str:
-    """Extract L2 category from query (e.g. 'What are the top trending products in Skincare?' -> 'Skincare')."""
+    """Extract L2 category from query.
+
+    Accepts:
+      - Full question: "What are the top trending products in Skincare?" -> "Skincare"
+      - Plain category: "Skincare", "Skin care", "Makeup" -> used as-is
+    """
     q = (user_query or "").strip()
     if not q:
         raise ValueError("Missing query")
@@ -742,7 +747,8 @@ def extract_l2_category(user_query: str) -> str:
         part = q.split(" in ", 1)[-1].rstrip("?").strip()
         if part:
             return part
-    raise ValueError("Could not determine category from query. Use the category selector or ask e.g. What are the top trending products in Skincare?")
+    # Plain category name (no " in "): use entire query as category
+    return q
 
 
 def extract_user_id(event: Dict) -> str:

@@ -1,7 +1,7 @@
 """
 Image Generator Module.
 Logo and product images both use Stability SD 3.5 Large (primary) and SD3 Large (fallback) in us-west-2.
-Same logic: region, retries, fallback, color palette, and style preset.
+Same logic: region, retries, fallback, and style preset. Color palette removed — model chooses colors freely.
 """
 
 import base64
@@ -41,75 +41,6 @@ def get_style_reference(brand_name: str) -> str:
         return "Elegant geometric symbol or abstract mark"
 
 
-# --- Premium color palettes (logos) ---
-
-PREMIUM_COLOR_PALETTES = {
-    "classic_gold": ["#C9A961", "#000000"],
-    "noir_elegance": ["#1A1A1A", "#FFFFFF"],
-    "champagne": ["#D4AF37", "#2C2C2C"],
-    "rose_gold": ["#B76E79", "#FFFFFF"],
-    "emerald": ["#0C4B33", "#E8DCC8"],
-    "navy_prestige": ["#1B2845", "#D4AF37"],
-    "burgundy": ["#6B1C23", "#F5E6D3"],
-    "platinum": ["#4A4A4A", "#E5E4E2"],
-    "bronze": ["#8B6914", "#FFFFFF"],
-    "sage": ["#87906F", "#F8F6F0"],
-}
-
-
-def get_random_premium_palette() -> List[str]:
-    """Returns a random premium palette (list of hex colors) for logo generation."""
-    return list(random.choice(list(PREMIUM_COLOR_PALETTES.values())))
-
-
-# --- Hex to descriptive color name for SD prompt (Improvement 5) ---
-
-_HEX_TO_NAME = {
-    "#c9a961": "gold",
-    "#d4af37": "gold",
-    "#000000": "black",
-    "#1a1a1a": "black",
-    "#2c2c2c": "black",
-    "#ffffff": "white",
-    "#f5e6d3": "cream",
-    "#f8f6f0": "cream",
-    "#b76e79": "rose gold",
-    "#0c4b33": "emerald green",
-    "#1b2845": "navy blue",
-    "#6b1c23": "burgundy",
-    "#4a4a4a": "silver",
-    "#e5e4e2": "platinum",
-    "#8b6914": "bronze",
-    "#87906f": "sage green",
-    "#e8dcc8": "cream",
-}
-
-
-def _hex_to_color_name(hex_color: str) -> str:
-    """
-    Convert hex color to descriptive name for better model understanding.
-    Returns a friendly name (e.g. 'gold', 'black') or the hex if unknown.
-    """
-    if not hex_color or not isinstance(hex_color, str):
-        return "neutral"
-    h = hex_color.strip().lower()
-    if not h.startswith("#"):
-        h = "#" + h
-    return _HEX_TO_NAME.get(h, h)
-
-
-def _palette_to_color_scheme_text(hex_list: List[str]) -> str:
-    """Build color scheme sentence for the prompt from a list of hex colors."""
-    names = []
-    for h in (hex_list or [])[:4]:  # cap at 4 to keep prompt clean
-        n = _hex_to_color_name(h)
-        if n and n not in names:
-            names.append(n)
-    if not names:
-        return "Color scheme: elegant neutral tones, solid flat colors, no gradients."
-    return "Color scheme: " + " and ".join(names) + ", solid flat colors, no gradients."
-
-
 # --- Dynamic style preset for logo prompt (Improvement 2) ---
 
 
@@ -128,28 +59,31 @@ def _get_sdxl_style_preset(brand_name: str) -> str:
     return "line-art"
 
 
-# --- Logo prompt template (Improvement 3) ---
+# --- Logo prompt template: luxury product pack shot with brand mark on packaging (client feedback) ---
 
 SD_LOGO_PROMPT_TEMPLATE = (
-    "Professional minimalist logo design for luxury {brand_name} brand. {style_reference} as the central iconic element. "
-    "Design composition: centered, balanced, symmetrical layout on white background. "
-    "Art style: flat vector illustration, clean geometric shapes, minimal details, {style_preset} style. "
-    "{color_scheme} "
-    "Premium brand identity: timeless, refined, award-winning design quality. "
-    "High-end emblem suitable for luxury packaging. "
-    "Icon symbol only - absolutely no text, letters, or words of any kind."
+    "Professional product photography of luxury {brand_name} {category} packaging. "
+    "The hero is the physical product — bottle, jar, or packaging appropriate for {category} — with premium materials: "
+    "soft-touch matte finish, subtle embossing, hot foil accents. "
+    "Elegant, cohesive color palette of the model's choice for luxury beauty. "
+    "The brand mark featuring {style_reference} is clearly visible and prominently displayed on the packaging — "
+    "centered or dominant, {style_preset} in style — embossed, foil-stamped, or printed so the brand mark is a focal element. "
+    "Studio-quality lighting: soft diffused key light, gentle fill, clean white or neutral background. "
+    "Composition: 3/4 angle product shot showcasing product form, material quality, and the brand mark. "
+    "Quality bar: Aesop, Le Labo, Bottega Veneta — minimalist, premium, editorial. "
+    "Photorealistic, commercial beauty packaging photography, 4K."
 )
 
 SD_LOGO_NEGATIVE_PROMPT = (
-    "text, letters, words, font, tagline, gradient, texture, watercolor, sketch, blur, 3D, shadow, "
-    "complex background, cluttered, low quality, distorted"
+    "watermark, blur, distorted, low quality, cluttered, cartoon, illustration, flat vector, "
+    "isolated icon on white, logo floating alone, gradient texture, sketch, amateur"
 )
 
 # --- Product image prompt (same model and region as logo) ---
 SD_PRODUCT_PROMPT_TEMPLATE = (
     "Professional product photography of {product_name} by {brand_name}. "
     "{image_prompt_from_llm} "
-    "{color_scheme} "
+    "Elegant, cohesive color palette of the model's choice for luxury beauty. "
     "Clean white studio background, soft studio lighting, high-end beauty product packaging, "
     "commercial photography style, photorealistic, {style_preset} style, 4K quality."
 )
@@ -165,6 +99,7 @@ SD_PRODUCT_NEGATIVE_PROMPT = (
 def _generate_logo_with_model(
     brand_name: str,
     brand_tagline: str,
+    l2_category: str,
     model_id: str,
     region: str,
 ) -> Optional[bytes]:
@@ -187,27 +122,22 @@ def _generate_logo_with_model(
 
     style_ref = get_style_reference(brand_name_safe)
     style_preset = _get_sdxl_style_preset(brand_name_safe)
-    palette = get_random_premium_palette()
-    color_scheme = _palette_to_color_scheme_text(palette)
+    category = (l2_category or "Beauty").strip()
 
     prompt = SD_LOGO_PROMPT_TEMPLATE.format(
         brand_name=brand_name_safe,
+        category=category,
         style_reference=style_ref,
         style_preset=style_preset,
-        color_scheme=color_scheme,
     ).strip()
 
     body = {
         "prompt": prompt,
         "negative_prompt": SD_LOGO_NEGATIVE_PROMPT,
         "seed": random.randint(0, 4294967293),
-        "aspect_ratio": "1:1",
+        "aspect_ratio": "4:5",
         "output_format": "png",
     }
-
-    # Log full prompt for debugging
-    print(f"[Logo] model_id={model_id} region={region} prompt_length={len(prompt)}")
-    print(f"[Logo] prompt={prompt[:200]}...")
 
     client = boto3.client("bedrock-runtime", region_name=region)
 
@@ -262,7 +192,7 @@ def _generate_product_image_with_model(
 ) -> Optional[bytes]:
     """
     Generate one product image using a Stability model (SD 3.5 Large or SD3 Large).
-    Uses same API as logo: prompt, negative_prompt, seed, aspect_ratio. Includes color_scheme and style_preset.
+    Uses same API as logo: prompt, negative_prompt, seed, aspect_ratio. Includes style_preset; model chooses colors.
     """
     import boto3
 
@@ -271,15 +201,12 @@ def _generate_product_image_with_model(
     image_prompt_safe = (image_prompt or "Product packaging, professional shot.").strip()
 
     style_preset = _get_sdxl_style_preset(brand_name_safe)
-    palette = get_random_premium_palette()
-    color_scheme = _palette_to_color_scheme_text(palette)
 
     prompt = SD_PRODUCT_PROMPT_TEMPLATE.format(
         product_name=product_name_safe,
         brand_name=brand_name_safe,
         image_prompt_from_llm=image_prompt_safe,
         style_preset=style_preset,
-        color_scheme=color_scheme,
     ).strip()
 
     body = {
@@ -289,9 +216,6 @@ def _generate_product_image_with_model(
         "aspect_ratio": "4:5",
         "output_format": "png",
     }
-
-    print(f"[Product] model_id={model_id} region={region} prompt_length={len(prompt)}")
-    print(f"[Product] prompt={prompt[:200]}...")
 
     client = boto3.client("bedrock-runtime", region_name=region)
 
@@ -336,7 +260,7 @@ def generate_product_image(
 ) -> Optional[bytes]:
     """
     Generate a single product image using Stability SD 3.5 Large (primary) or SD3 Large (fallback).
-    Same logic as logo: region us-west-2, color palette and style preset in prompt. Same signature for
+    Same logic as logo: region us-west-2, style preset in prompt; model chooses colors. Same signature for
     backward compatibility; bedrock_client is not used (we use BEDROCK_IMAGE_REGION).
     Returns PNG bytes or None on failure.
     """
@@ -369,17 +293,23 @@ def generate_product_image(
 # --- Brand logo: SD 3.5 Large with SD3 fallback (Improvements 1–4, 6) ---
 
 
-def generate_brand_logo(brand_name: str, brand_tagline: str, bedrock_client) -> Optional[bytes]:
+def generate_brand_logo(
+    brand_name: str,
+    brand_tagline: str,
+    l2_category: str,
+    bedrock_client,
+) -> Optional[bytes]:
     """
     Generate a brand logo using Stability SD 3.5 Large (primary) or SD3 Large (fallback).
     Same model/region/fallback as product images. bedrock_client unused (we use BEDROCK_IMAGE_REGION).
+    l2_category: L2 product category (e.g. Skincare, Makeup) for category-specific product type.
     Returns PNG bytes or None on failure.
     """
     region = BEDROCK_IMAGE_REGION
 
     try:
         logo_bytes = _generate_logo_with_model(
-            brand_name, brand_tagline, SD_IMAGE_MODEL_ID, region
+            brand_name, brand_tagline, l2_category, SD_IMAGE_MODEL_ID, region
         )
         if logo_bytes is not None:
             print(f"[Logo] succeeded with model_id={SD_IMAGE_MODEL_ID}")
@@ -389,7 +319,7 @@ def generate_brand_logo(brand_name: str, brand_tagline: str, bedrock_client) -> 
 
     try:
         logo_bytes = _generate_logo_with_model(
-            brand_name, brand_tagline, SD_IMAGE_FALLBACK_MODEL_ID, region
+            brand_name, brand_tagline, l2_category, SD_IMAGE_FALLBACK_MODEL_ID, region
         )
         if logo_bytes is not None:
             print(f"[Logo] succeeded with fallback model_id={SD_IMAGE_FALLBACK_MODEL_ID}")

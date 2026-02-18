@@ -6,9 +6,15 @@ Creates Product Innovation Report PDF: market context, brand proposal, product i
 import os
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import boto3
 from fpdf import FPDF
+
+try:
+    from PIL import Image
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
 
 # -----------------------------------------------------------------------------
 # Layout constants (tweak here for global layout changes)
@@ -258,14 +264,15 @@ def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optiona
     pdf.ln(3)
     if logo_bytes:
         try:
+            img_w_mm, img_h_mm = _image_dimensions_mm(logo_bytes, 50.0)
             img_io = BytesIO(logo_bytes)
-            pdf.image(img_io, x=pdf.l_margin, y=pdf.get_y(), w=50, type="PNG")
-            pdf.set_y(pdf.get_y() + 50)
-            pdf.ln(5)
+            y0 = pdf.get_y()
+            pdf.image(img_io, x=pdf.l_margin, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
+            pdf.set_y(y0 + img_h_mm)
+            pdf.ln(8)
         except Exception as e:
             print(f"PDF: failed to embed brand logo: {e}")
     pdf.set_x(pdf.l_margin)
-    pdf.ln(3)
     # Show which top product inspired the brand (client requirement)
     inspired_by = brand_proposal.get("inspired_by_product") or ""
     if inspired_by:
@@ -392,17 +399,21 @@ def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes]
     pdf.ln(3)
     if image_bytes:
         try:
+            img_w_mm, img_h_mm = _image_dimensions_mm(image_bytes, 60.0)
             img_io = BytesIO(image_bytes)
-            pdf.image(img_io, x=pdf.l_margin, y=pdf.get_y(), w=60, type="PNG")
-            pdf.set_y(pdf.get_y() + 60)
-            pdf.ln(5)
+            y0 = pdf.get_y()
+            pdf.image(img_io, x=pdf.l_margin, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
+            pdf.set_y(y0 + img_h_mm)
+            pdf.ln(8)
         except Exception as e:
             print(f"PDF: failed to embed product image: {e}")
     pdf.set_x(pdf.l_margin)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, _sanitize_pdf_text(product.get("product_name", "") or "-"), 0, 1, "L")
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
-    pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(product.get("description", "") or "-"))
+    pdf.set_x(pdf.l_margin)
+    desc_text = _sanitize_pdf_text(product.get("description", "") or "-")
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, desc_text, 0, "L")
     pdf.set_x(pdf.l_margin)
     pdf.ln(3)
     pdf.set_font("Arial", "B", FONT_SIZE_BODY)
@@ -489,6 +500,21 @@ def _sanitize_pdf_text(s: str) -> str:
 def _content_width(pdf: FPDF) -> float:
     """Full content width (epw) for body text. Use after set_x(l_margin) for consistent wrapping."""
     return pdf.epw
+
+
+def _image_dimensions_mm(img_bytes: bytes, width_mm: float) -> Tuple[float, float]:
+    """Return (width_mm, height_mm) for embedding; height computed from aspect ratio. Fallback: width_mm x width_mm (square)."""
+    if not _PIL_AVAILABLE or not img_bytes:
+        return (width_mm, width_mm)
+    try:
+        img = Image.open(BytesIO(img_bytes))
+        w, h = img.size
+        if w and h:
+            height_mm = width_mm * (h / w)
+            return (width_mm, height_mm)
+    except Exception:
+        pass
+    return (width_mm, width_mm)
 
 
 def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
