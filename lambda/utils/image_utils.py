@@ -147,10 +147,16 @@ def logo_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 256) -> O
         return None
 
 
-def image_bytes_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 256) -> Optional[str]:
+def image_bytes_to_thumbnail_base64(
+    image_bytes: Optional[bytes],
+    size: int = 256,
+    output_format: str = "jpeg",
+    quality: int = 85,
+) -> Optional[str]:
     """
-    Resize image to a square thumbnail and return as base64 string (JPEG).
-    Keeps response payload small so frontend can show images without timeout.
+    Resize image to a square thumbnail and return as base64 string.
+    output_format: "jpeg" (smaller) or "png" (crisper, no compression artifacts).
+    quality: used only when output_format="jpeg". Use 95 for sharper text/edges.
     Returns None if Pillow unavailable or resize fails.
     """
     if not _PIL_AVAILABLE:
@@ -163,7 +169,10 @@ def image_bytes_to_thumbnail_base64(image_bytes: Optional[bytes], size: int = 25
         img = img.convert("RGB")
         img.thumbnail((size, size), Image.LANCZOS)
         out = BytesIO()
-        img.save(out, format="JPEG", quality=85)
+        if output_format.lower() == "png":
+            img.save(out, format="PNG")
+        else:
+            img.save(out, format="JPEG", quality=min(100, max(1, quality)))
         return base64.b64encode(out.getvalue()).decode("ascii")
     except Exception as e:
         print(f"[image_utils] image_bytes_to_thumbnail_base64 failed: {e}")

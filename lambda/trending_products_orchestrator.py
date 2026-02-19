@@ -20,7 +20,7 @@ from botocore.exceptions import ClientError
 
 from utils.athena_helper import query_athena_top_products, query_athena_l2_categories
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
-from utils.image_generator import generate_brand_logo, generate_images_parallel
+from utils.image_generator import generate_brand_logo, generate_images_parallel, overlay_logo_on_product
 from utils.market_research_agent import search_all as market_research_search_all
 from utils.image_utils import image_bytes_to_thumbnail_base64, logo_remove_background, logo_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
@@ -504,6 +504,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
 
     # Step 6: Brand logo + product images in parallel
     brand_logo_bytes = None
+    composed_logo_for_overlay: Optional[bytes] = None
     image_bytes_list: List[Optional[bytes]] = []
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -518,15 +519,21 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             for future in as_completed([future_logo, future_images]):
                 if future == future_logo:
                     try:
-                        brand_logo_bytes = future.result()
-                        if brand_logo_bytes:
-                            # Remove light/grey background so PDF and UI show logo only (transparent PNG)
+                        logo_result = future.result()
+                        if logo_result is not None:
+                            symbol_only_bytes, composed_logo_bytes = logo_result
+                            # Brand image on card = symbol only (no letters; label is shown below)
+                            brand_logo_bytes = symbol_only_bytes
                             cleaned = logo_remove_background(brand_logo_bytes)
                             if cleaned is not None:
                                 brand_logo_bytes = cleaned
+                            composed_logo_for_overlay = composed_logo_bytes
+                        else:
+                            composed_logo_for_overlay = None
                         print(f"[{request_id}] Brand logo: ok={brand_logo_bytes is not None}")
                     except Exception as e:
                         print(f"[{request_id}] Brand logo failed: {e}")
+                        composed_logo_for_overlay = None
                 else:
                     try:
                         image_bytes_list = future.result()
@@ -536,6 +543,21 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
     except Exception as e:
         print(f"[{request_id}] Image step failed: {e}")
         raise RuntimeError(f"Image generation failed: {str(e)}") from e
+
+    # Overlay composed logo (symbol + brand name) onto each product image
+    logo_for_overlay = composed_logo_for_overlay if composed_logo_for_overlay else brand_logo_bytes
+    if logo_for_overlay:
+        overlaid: List[Optional[bytes]] = []
+        for raw_img in image_bytes_list:
+            if raw_img is not None:
+                try:
+                    overlaid.append(overlay_logo_on_product(raw_img, logo_for_overlay))
+                except Exception as e:
+                    print(f"[{request_id}] overlay_logo_on_product failed: {e}; using raw product image")
+                    overlaid.append(raw_img)
+            else:
+                overlaid.append(None)
+        image_bytes_list = overlaid
 
     # Attach image bytes and build product_ideas for report
     product_ideas = []
@@ -782,12 +804,13 @@ def _report_with_thumbnail_images(
     product_ideas: List[Dict],
     brand_logo_bytes: Optional[bytes] = None,
 ) -> Dict:
-    """Return a copy of the report with thumbnail base64 for frontend; logo as PNG (transparent), product images as JPEG.
+    """Return a copy of the report with thumbnail base64 for frontend; logo as PNG (transparent), product images as PNG at 512px for crisp display.
     If PIL/thumbnail fails, falls back to full base64 from report so images still show in UI and PDF."""
     response_report = _report_for_dynamodb(report)
-    thumb_size = 256
+    thumb_size_logo = 256
+    thumb_size_product = 512
     if brand_logo_bytes:
-        logo_b64 = logo_to_thumbnail_base64(brand_logo_bytes, size=thumb_size)
+        logo_b64 = logo_to_thumbnail_base64(brand_logo_bytes, size=thumb_size_logo)
         if logo_b64:
             response_report.setdefault("brand_proposal", {})["logo_image_base64"] = logo_b64
             response_report["brand_proposal"]["logo_image_base64_format"] = "png"
@@ -808,20 +831,20 @@ def _report_with_thumbnail_images(
     for i, idea in enumerate(product_ideas):
         img_bytes = idea.get("_image_bytes")
         if img_bytes and i < len(response_report.get("product_ideas") or []):
-            thumb_b64 = image_bytes_to_thumbnail_base64(img_bytes, size=thumb_size)
+            thumb_b64 = image_bytes_to_thumbnail_base64(img_bytes, size=thumb_size_product, output_format="png")
             if thumb_b64:
                 response_report["product_ideas"][i]["image_base64"] = thumb_b64
-                response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+                response_report["product_ideas"][i]["image_base64_format"] = "png"
             else:
                 # Fallback: use full base64 from report or encode bytes so UI/PDF still show image
                 full_b64 = (report.get("product_ideas") or [])[i].get("image_base64") if i < len(report.get("product_ideas") or []) else None
                 if full_b64:
                     response_report["product_ideas"][i]["image_base64"] = full_b64
-                    response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+                    response_report["product_ideas"][i]["image_base64_format"] = "png"
                 else:
                     try:
                         response_report["product_ideas"][i]["image_base64"] = base64.b64encode(img_bytes).decode("ascii")
-                        response_report["product_ideas"][i]["image_base64_format"] = "jpeg"
+                        response_report["product_ideas"][i]["image_base64_format"] = "png"
                     except Exception:
                         pass
                 print(f"[Report] product_ideas[{i}] thumbnail failed; using full/raw base64 for response")
