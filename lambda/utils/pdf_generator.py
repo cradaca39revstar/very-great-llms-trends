@@ -69,7 +69,7 @@ def generate_pdf_report(
     brand_logo_bytes: Optional[bytes] = None,
 ) -> bytes:
     """
-    Generate Product Innovation Report PDF (V2): title, top 5 market trends, brand proposal, 1 product concept.
+    Generate Product Innovation Report PDF (V2): title, top 5 market trends (highlights only, no table), brand proposal, product ideas.
     product_ideas_with_images: list of product dicts that may contain _image_bytes for embedding.
     brand_logo_bytes: optional AI-generated brand logo image (PNG) for brand proposal page.
     """
@@ -146,7 +146,7 @@ def add_title_page(pdf: FPDF, report: Dict):
 
 
 def add_market_research_page(pdf: FPDF, report: Dict):
-    """Page 1 (after title): Top 5 Market Trends – table with Revenue, Growth, MoM metrics."""
+    """Page 1 (after title): Top 5 Market Trends – intro and Product Highlights list (no table)."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
@@ -162,46 +162,6 @@ def add_market_research_page(pdf: FPDF, report: Dict):
     pdf.ln(6)
     intro = _sanitize_pdf_text("Top performing products in this category based on revenue, growth, and monthly momentum.")
     pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro)
-    pdf.ln(8)
-
-    # Table header
-    col_rank = 12
-    col_product = cw - 12 - 35 - 30 - 25 - 20
-    col_shop = 35
-    col_revenue = 30
-    col_growth = 25
-    col_sold = 20
-
-    pdf.set_fill_color(30, 30, 30)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
-    pdf.set_x(pdf.l_margin)
-    pdf.cell(col_rank, 7, "#", 0, 0, "C", fill=True)
-    pdf.cell(col_product, 7, "Product", 0, 0, "L", fill=True)
-    pdf.cell(col_shop, 7, "Shop", 0, 0, "L", fill=True)
-    pdf.cell(col_revenue, 7, "Revenue", 0, 0, "R", fill=True)
-    pdf.cell(col_growth, 7, "Growth %", 0, 0, "R", fill=True)
-    pdf.cell(col_sold, 7, "Sold", 0, 1, "R", fill=True)
-
-    # Table rows
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
-    for i, p in enumerate(market_context[:5], 1):
-        # Alternate row background
-        if i % 2 == 0:
-            pdf.set_fill_color(245, 244, 241)
-            fill = True
-        else:
-            fill = False
-        pdf.set_x(pdf.l_margin)
-        pdf.cell(col_rank, 6, str(i), 0, 0, "C", fill=fill)
-        pdf.cell(col_product, 6, _sanitize_pdf_text((p.get("product_name") or "")[:30]), 0, 0, "L", fill=fill)
-        pdf.cell(col_shop, 6, _sanitize_pdf_text((p.get("shop_name") or "")[:18]), 0, 0, "L", fill=fill)
-        pdf.cell(col_revenue, 6, f"${float(p.get('revenue_usd') or 0):,.0f}", 0, 0, "R", fill=fill)
-        pdf.cell(col_growth, 6, f"{float(p.get('mom_growth_pct') or 0):.1f}%", 0, 0, "R", fill=fill)
-        pdf.cell(col_sold, 6, f"{int(p.get('item_sold') or 0):,}", 0, 1, "R", fill=fill)
-
-    # Short descriptions below the table
     pdf.ln(10)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, "Product Highlights", 0, 1, "L")

@@ -106,18 +106,19 @@ SD_LOGO_NEGATIVE_PROMPT = (
     "bottle, jar, product, packaging, gradient texture, sketch, amateur"
 )
 
-# --- Product prompt: blank white label area for programmatic logo overlay ---
+# --- Product prompt: integrated label area (no white rectangle) for natural logo overlay ---
 SD_PRODUCT_PROMPT_TEMPLATE = (
     "Professional product photography of {product_name} beauty product. "
     "{image_prompt_from_llm} "
-    "The packaging has a clean, completely blank white rectangular label area — no text, no logo printed on it. "
+    "The packaging has a smooth, integrated label area on the front — same material or finish as the bottle, no text, no logo, no separate white sticker. "
+    "Label zone should look part of the product, not a pasted rectangle. "
     "Elegant, cohesive color palette of the model's choice for luxury beauty. "
     "Clean white studio background, soft studio lighting, high-end beauty product packaging, "
     "commercial photography style, photorealistic, {style_preset} style, 4K quality."
 )
 SD_PRODUCT_NEGATIVE_PROMPT = (
     "text, letters, words, brand name, typography, font, logo printed on label, "
-    "watermark, blur, distorted, low quality, cluttered background, "
+    "white rectangular sticker, white label patch, watermark, blur, distorted, low quality, cluttered background, "
     "cartoon, illustration, drawing"
 )
 
@@ -197,21 +198,48 @@ def compose_logo(
     return buf.getvalue()
 
 
+def _logo_with_transparent_background(logo_img) -> "Image.Image":
+    """
+    Return logo as RGBA with white/near-white pixels made transparent.
+    Only the actual mark and text (dark pixels) remain visible — no white rectangle.
+    """
+    from PIL import Image
+
+    img = logo_img.convert("RGBA")
+    data = img.getdata()
+    # Luminance threshold: above this we treat as background (transparent)
+    WHITE_THRESHOLD = 250
+    new_data = []
+    for item in data:
+        r, g, b, a = item
+        lum = (r * 299 + g * 587 + b * 114) / 1000
+        if lum >= WHITE_THRESHOLD:
+            new_data.append((r, g, b, 0))
+        else:
+            # Keep dark pixels fully opaque so logo reads clearly
+            new_data.append((r, g, b, 255))
+    img.putdata(new_data)
+    return img
+
+
 def overlay_logo_on_product(
     product_image_bytes: bytes,
     logo_image_bytes: bytes,
     label_box: Optional[Tuple[int, int, int, int]] = None,
 ) -> bytes:
     """
-    Overlay the composed logo onto the product image at the label area.
-    Pipeline: product image (blank label) + composed logo → final product concept with logo on packaging.
+    Overlay only the logo mark and text onto the product (no white background).
+    White/near-white pixels in the logo are made transparent so the logo appears
+    as part of the packaging, not a pasted rectangle. No extra shadows or white label.
     If label_box is None, defaults to centered, middle-lower third: 30% width, 18% height, y at 52%.
     Returns PNG bytes of the composited image.
     """
     from PIL import Image
 
     product = Image.open(io.BytesIO(product_image_bytes)).convert("RGBA")
-    logo = Image.open(io.BytesIO(logo_image_bytes)).convert("RGBA")
+    logo = Image.open(io.BytesIO(logo_image_bytes)).convert("RGB")
+    # Strip white background so we only draw the logo, not a rectangle
+    logo = _logo_with_transparent_background(logo)
 
     img_w, img_h = product.size
 
@@ -238,7 +266,7 @@ def overlay_logo_on_product(
 
     logo_resized = logo.resize((fit_w, fit_h), Image.LANCZOS)
 
-    # Center logo within label box
+    # Center logo within label box; paste using alpha so only logo (no white) is applied
     paste_x = lx + (lw - fit_w) // 2
     paste_y = ly + (lh - fit_h) // 2
 

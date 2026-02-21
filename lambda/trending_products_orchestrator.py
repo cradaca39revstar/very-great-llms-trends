@@ -42,6 +42,9 @@ cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 lambda_client = boto3.client("lambda", region_name=AWS_REGION)
 
+# Top N market products for table and PDF (must match "Top 5 Market Trends" in frontend)
+TOP_MARKET_PRODUCTS = 5
+
 # Error codes per rulescore.mdc: [MODULE][NUMBER] (TRD = Trending)
 TRD001 = "TRD001"  # Missing query
 TRD002 = "TRD002"  # Category not found
@@ -380,6 +383,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
                 l2_category=l2_category,
                 workgroup=ATHENA_WORKGROUP,
                 database=ATHENA_DATABASE,
+                limit=TOP_MARKET_PRODUCTS,
             )
             return (prods, None, (time.time() - start) * 1000)
         except Exception as e:
@@ -701,7 +705,7 @@ def format_report_v2(
             pass
     # Include top 5 market products with metrics for frontend table and PDF
     market_list = []
-    for p in market_context[:5]:
+    for p in market_context[:TOP_MARKET_PRODUCTS]:
         name = p.get("product_name") or "Unknown"
         shop = p.get("shop_name") or ""
         rev = float(p.get("revenue_usd") or 0)

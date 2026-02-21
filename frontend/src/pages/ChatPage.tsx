@@ -267,32 +267,6 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
           <p className="market-research__intro">
             Top performing products by revenue, growth, and monthly momentum.
           </p>
-          <div className="market-research__table-wrap">
-            <table className="market-research__table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Product</th>
-                  <th>Shop</th>
-                  <th className="text-right">Revenue</th>
-                  <th className="text-right">Growth %</th>
-                  <th className="text-right">Sold</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.market_context.slice(0, 5).map((p, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    <td>{p.product_name}</td>
-                    <td>{p.shop_name || '—'}</td>
-                    <td className="text-right">${(p.revenue_usd ?? 0).toLocaleString()}</td>
-                    <td className="text-right">{(p.mom_growth_pct ?? 0).toFixed(1)}%</td>
-                    <td className="text-right">{(p.item_sold ?? 0).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           <h3 className="market-research__subtitle">Product Highlights</h3>
           <ol className="market-research__list">
             {report.market_context.slice(0, 5).map((p, i) => (
