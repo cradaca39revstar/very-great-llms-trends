@@ -80,7 +80,7 @@ def build_top_products_query(l2_category: str, database: str, limit: int = 5) ->
              p.revenue_usd, p.mom_growth_pct, p.item_sold
       FROM {table} p
       INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
-      WHERE p.l2_category = '{safe_category}'
+      WHERE LOWER(TRIM(p.l2_category)) = LOWER(TRIM('{safe_category}'))
         AND p.data_quality_score >= 0.95
     ),
     deduped AS (

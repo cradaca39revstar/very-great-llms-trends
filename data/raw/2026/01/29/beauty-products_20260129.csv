@@ -1,0 +1,81 @@
+Month,Product Id,Product Name,Shop Name,L1 category,L2 category,L3 category,Item Sold,Revenue,Avg. Unit Price,MoM Growth %
+1/29/2026,1729383941730701675,Sample Product Bath & Body Care #1,BeautyChoiceUSA,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"1,455","$57,455.00 ",$39.49 ,-42%
+1/29/2026,1729383941730701676,Sample Product Bath & Body Care #2,GlamourStore,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"1,955","$72,455.00 ",$37.06 ,10%
+1/29/2026,1729383941730701677,Sample Product Bath & Body Care #3,NaturalBeauty,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"2,455","$87,455.00 ",$35.62 ,23%
+1/29/2026,1729383941730701678,Sample Product Bath & Body Care #4,Revolve,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"2,955","$102,455.00 ",$34.67 ,-12%
+1/29/2026,1729383941730701679,Sample Product Bath & Body Care #5,cocomintbeauty,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"3,455","$117,455.00 ",$34.0 ,67%
+1/29/2026,1729383941730701680,Sample Product Bath & Body Care #6,BeautyChoiceUSA,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"3,955","$132,455.00 ",$33.49 ,8%
+1/29/2026,1729383941730701681,Sample Product Bath & Body Care #7,GlamourStore,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"4,455","$147,455.00 ",$33.1 ,-24%
+1/29/2026,1729383941730701682,Sample Product Bath & Body Care #8,NaturalBeauty,Beauty & Personal Care,Bath & Body Care,Bathing Accessories,"4,955","$162,455.00 ",$32.79 ,39%
+1/29/2026,1729383941730701683,Sample Product Fragrance #1,BeautyChoiceUSA,Beauty & Personal Care,Fragrance,Unisex Fragrance,"1,131","$56,631.00 ",$50.07 ,-42%
+1/29/2026,1729383941730701684,Sample Product Fragrance #2,GlamourStore,Beauty & Personal Care,Fragrance,Unisex Fragrance,"1,631","$71,631.00 ",$43.92 ,10%
+1/29/2026,1729383941730701685,Sample Product Fragrance #3,NaturalBeauty,Beauty & Personal Care,Fragrance,Unisex Fragrance,"2,131","$86,631.00 ",$40.65 ,23%
+1/29/2026,1729383941730701686,Sample Product Fragrance #4,Revolve,Beauty & Personal Care,Fragrance,Unisex Fragrance,"2,631","$101,631.00 ",$38.63 ,-12%
+1/29/2026,1729383941730701687,Sample Product Fragrance #5,cocomintbeauty,Beauty & Personal Care,Fragrance,Unisex Fragrance,"3,131","$116,631.00 ",$37.25 ,67%
+1/29/2026,1729383941730701688,Sample Product Fragrance #6,BeautyChoiceUSA,Beauty & Personal Care,Fragrance,Unisex Fragrance,"3,631","$131,631.00 ",$36.25 ,8%
+1/29/2026,1729383941730701689,Sample Product Fragrance #7,GlamourStore,Beauty & Personal Care,Fragrance,Unisex Fragrance,"4,131","$146,631.00 ",$35.5 ,-24%
+1/29/2026,1729383941730701690,Sample Product Fragrance #8,NaturalBeauty,Beauty & Personal Care,Fragrance,Unisex Fragrance,"4,631","$161,631.00 ",$34.9 ,39%
+1/29/2026,1729383941730701691,Sample Product Haircare & Styling #1,BeautyChoiceUSA,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"1,063","$58,063.00 ",$54.62 ,-42%
+1/29/2026,1729383941730701692,Sample Product Haircare & Styling #2,GlamourStore,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"1,563","$73,063.00 ",$46.75 ,10%
+1/29/2026,1729383941730701693,Sample Product Haircare & Styling #3,NaturalBeauty,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"2,063","$88,063.00 ",$42.69 ,23%
+1/29/2026,1729383941730701694,Sample Product Haircare & Styling #4,Revolve,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"2,563","$103,063.00 ",$40.21 ,-12%
+1/29/2026,1729383941730701695,Sample Product Haircare & Styling #5,cocomintbeauty,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"3,063","$118,063.00 ",$38.54 ,67%
+1/29/2026,1729383941730701696,Sample Product Haircare & Styling #6,BeautyChoiceUSA,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"3,563","$133,063.00 ",$37.35 ,8%
+1/29/2026,1729383941730701697,Sample Product Haircare & Styling #7,GlamourStore,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"4,063","$148,063.00 ",$36.44 ,-24%
+1/29/2026,1729383941730701698,Sample Product Haircare & Styling #8,NaturalBeauty,Beauty & Personal Care,Haircare & Styling,Hair Brushes & Combs,"4,563","$163,063.00 ",$35.74 ,39%
+1/29/2026,1729383941730701699,"Sample Product Hand, Foot & Nail Ca #1",BeautyChoiceUSA,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"1,393","$59,393.00 ",$42.64 ,-42%
+1/29/2026,1729383941730701700,"Sample Product Hand, Foot & Nail Ca #2",GlamourStore,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"1,893","$74,393.00 ",$39.3 ,10%
+1/29/2026,1729383941730701701,"Sample Product Hand, Foot & Nail Ca #3",NaturalBeauty,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"2,393","$89,393.00 ",$37.36 ,23%
+1/29/2026,1729383941730701702,"Sample Product Hand, Foot & Nail Ca #4",Revolve,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"2,893","$104,393.00 ",$36.08 ,-12%
+1/29/2026,1729383941730701703,"Sample Product Hand, Foot & Nail Ca #5",cocomintbeauty,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"3,393","$119,393.00 ",$35.19 ,67%
+1/29/2026,1729383941730701704,"Sample Product Hand, Foot & Nail Ca #6",BeautyChoiceUSA,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"3,893","$134,393.00 ",$34.52 ,8%
+1/29/2026,1729383941730701705,"Sample Product Hand, Foot & Nail Ca #7",GlamourStore,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"4,393","$149,393.00 ",$34.01 ,-24%
+1/29/2026,1729383941730701706,"Sample Product Hand, Foot & Nail Ca #8",NaturalBeauty,Beauty & Personal Care,"Hand, Foot & Nail Care",Nail Treatments,"4,893","$164,393.00 ",$33.6 ,39%
+1/29/2026,1729383941730701707,Sample Product Makeup #1,BeautyChoiceUSA,Beauty & Personal Care,Makeup,Makeup Base and Primers,"1,316","$52,816.00 ",$40.13 ,-42%
+1/29/2026,1729383941730701708,Sample Product Makeup #2,GlamourStore,Beauty & Personal Care,Makeup,Makeup Base and Primers,"1,816","$67,816.00 ",$37.34 ,10%
+1/29/2026,1729383941730701709,Sample Product Makeup #3,NaturalBeauty,Beauty & Personal Care,Makeup,Makeup Base and Primers,"2,316","$82,816.00 ",$35.76 ,23%
+1/29/2026,1729383941730701710,Sample Product Makeup #4,Revolve,Beauty & Personal Care,Makeup,Makeup Base and Primers,"2,816","$97,816.00 ",$34.74 ,-12%
+1/29/2026,1729383941730701711,Sample Product Makeup #5,cocomintbeauty,Beauty & Personal Care,Makeup,Makeup Base and Primers,"3,316","$112,816.00 ",$34.02 ,67%
+1/29/2026,1729383941730701712,Sample Product Makeup #6,BeautyChoiceUSA,Beauty & Personal Care,Makeup,Makeup Base and Primers,"3,816","$127,816.00 ",$33.49 ,8%
+1/29/2026,1729383941730701713,Sample Product Makeup #7,GlamourStore,Beauty & Personal Care,Makeup,Makeup Base and Primers,"4,316","$142,816.00 ",$33.09 ,-24%
+1/29/2026,1729383941730701714,Sample Product Makeup #8,NaturalBeauty,Beauty & Personal Care,Makeup,Makeup Base and Primers,"4,816","$157,816.00 ",$32.77 ,39%
+1/29/2026,1729383941730701715,Sample Product Men's Care #1,BeautyChoiceUSA,Beauty & Personal Care,Men's Care,Shaving & Grooming,"1,352","$58,852.00 ",$43.53 ,-42%
+1/29/2026,1729383941730701716,Sample Product Men's Care #2,GlamourStore,Beauty & Personal Care,Men's Care,Shaving & Grooming,"1,852","$73,852.00 ",$39.88 ,10%
+1/29/2026,1729383941730701717,Sample Product Men's Care #3,NaturalBeauty,Beauty & Personal Care,Men's Care,Shaving & Grooming,"2,352","$88,852.00 ",$37.78 ,23%
+1/29/2026,1729383941730701718,Sample Product Men's Care #4,Revolve,Beauty & Personal Care,Men's Care,Shaving & Grooming,"2,852","$103,852.00 ",$36.41 ,-12%
+1/29/2026,1729383941730701719,Sample Product Men's Care #5,cocomintbeauty,Beauty & Personal Care,Men's Care,Shaving & Grooming,"3,352","$118,852.00 ",$35.46 ,67%
+1/29/2026,1729383941730701720,Sample Product Men's Care #6,BeautyChoiceUSA,Beauty & Personal Care,Men's Care,Shaving & Grooming,"3,852","$133,852.00 ",$34.75 ,8%
+1/29/2026,1729383941730701721,Sample Product Men's Care #7,GlamourStore,Beauty & Personal Care,Men's Care,Shaving & Grooming,"4,352","$148,852.00 ",$34.2 ,-24%
+1/29/2026,1729383941730701722,Sample Product Men's Care #8,NaturalBeauty,Beauty & Personal Care,Men's Care,Shaving & Grooming,"4,852","$163,852.00 ",$33.77 ,39%
+1/29/2026,1729383941730701723,Sample Product Nasal & Oral Care #1,BeautyChoiceUSA,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"1,491","$52,491.00 ",$35.21 ,-42%
+1/29/2026,1729383941730701724,Sample Product Nasal & Oral Care #2,GlamourStore,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"1,991","$67,491.00 ",$33.9 ,10%
+1/29/2026,1729383941730701725,Sample Product Nasal & Oral Care #3,NaturalBeauty,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"2,491","$82,491.00 ",$33.12 ,23%
+1/29/2026,1729383941730701726,Sample Product Nasal & Oral Care #4,Revolve,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"2,991","$97,491.00 ",$32.59 ,-12%
+1/29/2026,1729383941730701727,Sample Product Nasal & Oral Care #5,cocomintbeauty,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"3,491","$112,491.00 ",$32.22 ,67%
+1/29/2026,1729383941730701728,Sample Product Nasal & Oral Care #6,BeautyChoiceUSA,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"3,991","$127,491.00 ",$31.94 ,8%
+1/29/2026,1729383941730701729,Sample Product Nasal & Oral Care #7,GlamourStore,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"4,491","$142,491.00 ",$31.73 ,-24%
+1/29/2026,1729383941730701730,Sample Product Nasal & Oral Care #8,NaturalBeauty,Beauty & Personal Care,Nasal & Oral Care,Teeth Whitening,"4,991","$157,491.00 ",$31.55 ,39%
+1/29/2026,1729383941730701731,Sample Product Personal Care Applia #1,BeautyChoiceUSA,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"1,086","$56,586.00 ",$52.1 ,-42%
+1/29/2026,1729383941730701732,Sample Product Personal Care Applia #2,GlamourStore,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"1,586","$71,586.00 ",$45.14 ,10%
+1/29/2026,1729383941730701733,Sample Product Personal Care Applia #3,NaturalBeauty,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"2,086","$86,586.00 ",$41.51 ,23%
+1/29/2026,1729383941730701734,Sample Product Personal Care Applia #4,Revolve,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"2,586","$101,586.00 ",$39.28 ,-12%
+1/29/2026,1729383941730701735,Sample Product Personal Care Applia #5,cocomintbeauty,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"3,086","$116,586.00 ",$37.78 ,67%
+1/29/2026,1729383941730701736,Sample Product Personal Care Applia #6,BeautyChoiceUSA,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"3,586","$131,586.00 ",$36.69 ,8%
+1/29/2026,1729383941730701737,Sample Product Personal Care Applia #7,GlamourStore,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"4,086","$146,586.00 ",$35.88 ,-24%
+1/29/2026,1729383941730701738,Sample Product Personal Care Applia #8,NaturalBeauty,Beauty & Personal Care,Personal Care Appliances,Curlers & Straighteners,"4,586","$161,586.00 ",$35.23 ,39%
+1/29/2026,1729383941730701739,Sample Product Skincare #1,BeautyChoiceUSA,Beauty & Personal Care,Skincare,Serums & Essences,"1,335","$67,335.00 ",$50.44 ,-42%
+1/29/2026,1729383941730701740,Sample Product Skincare #2,GlamourStore,Beauty & Personal Care,Skincare,Serums & Essences,"1,835","$82,335.00 ",$44.87 ,10%
+1/29/2026,1729383941730701741,Sample Product Skincare #3,NaturalBeauty,Beauty & Personal Care,Skincare,Serums & Essences,"2,335","$97,335.00 ",$41.69 ,23%
+1/29/2026,1729383941730701742,Sample Product Skincare #4,Revolve,Beauty & Personal Care,Skincare,Serums & Essences,"2,835","$112,335.00 ",$39.62 ,-12%
+1/29/2026,1729383941730701743,Sample Product Skincare #5,cocomintbeauty,Beauty & Personal Care,Skincare,Serums & Essences,"3,335","$127,335.00 ",$38.18 ,67%
+1/29/2026,1729383941730701744,Sample Product Skincare #6,BeautyChoiceUSA,Beauty & Personal Care,Skincare,Serums & Essences,"3,835","$142,335.00 ",$37.11 ,8%
+1/29/2026,1729383941730701745,Sample Product Skincare #7,GlamourStore,Beauty & Personal Care,Skincare,Serums & Essences,"4,335","$157,335.00 ",$36.29 ,-24%
+1/29/2026,1729383941730701746,Sample Product Skincare #8,NaturalBeauty,Beauty & Personal Care,Skincare,Serums & Essences,"4,835","$172,335.00 ",$35.64 ,39%
+1/29/2026,1729383941730701747,Sample Product Special Personal Car #1,BeautyChoiceUSA,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"1,409","$51,909.00 ",$36.84 ,-42%
+1/29/2026,1729383941730701748,Sample Product Special Personal Car #2,GlamourStore,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"1,909","$66,909.00 ",$35.05 ,10%
+1/29/2026,1729383941730701749,Sample Product Special Personal Car #3,NaturalBeauty,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"2,409","$81,909.00 ",$34.0 ,23%
+1/29/2026,1729383941730701750,Sample Product Special Personal Car #4,Revolve,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"2,909","$96,909.00 ",$33.31 ,-12%
+1/29/2026,1729383941730701751,Sample Product Special Personal Car #5,cocomintbeauty,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"3,409","$111,909.00 ",$32.83 ,67%
+1/29/2026,1729383941730701752,Sample Product Special Personal Car #6,BeautyChoiceUSA,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"3,909","$126,909.00 ",$32.47 ,8%
+1/29/2026,1729383941730701753,Sample Product Special Personal Car #7,GlamourStore,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"4,409","$141,909.00 ",$32.19 ,-24%
+1/29/2026,1729383941730701754,Sample Product Special Personal Car #8,NaturalBeauty,Beauty & Personal Care,Special Personal Care,Personal Care Kits,"4,909","$156,909.00 ",$31.96 ,39%

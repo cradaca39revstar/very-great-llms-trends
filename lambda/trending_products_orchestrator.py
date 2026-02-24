@@ -444,7 +444,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         print(f"[{request_id}] Athena failed: {athena_error}")
         raise RuntimeError(f"Athena query failed: {str(athena_error)}")
     if not products:
-        raise ValueError(f"No trending products found in category '{l2_category}' for the last 30 days")
+        raise ValueError("Category not found in last 30 days")
     print(f"[{request_id}] Athena: {len(products)} products, {athena_duration:.0f}ms")
 
     # Step 3: Market context
