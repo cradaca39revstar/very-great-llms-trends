@@ -19,7 +19,7 @@ GENERATE_BRAND_PROPOSAL = """You are a brand strategist. Based on REAL market da
 
 L2 Category: {l2_category}
 
-Market context (top 5 real products by revenue, last 30 days):
+Market context (top real products by revenue, last 30 days):
 {market_context_text}
 {web_insights_section}
 
@@ -42,7 +42,7 @@ GENERATE_PRODUCT_IDEAS = """You are a product innovator. Based on REAL market da
 
 L2 Category: {l2_category}
 
-Market context (top 5 real products by revenue):
+Market context (top real products by revenue):
 {market_context_text}
 {web_insights_section}
 

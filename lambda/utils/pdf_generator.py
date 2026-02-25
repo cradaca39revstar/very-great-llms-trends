@@ -138,36 +138,46 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.ln(15)
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.set_x(pdf.l_margin)
+    mc_count = len(report.get("market_context") or [])
     summary = _sanitize_pdf_text(
         f"Based on market analysis of top-performing products in {category}, this report "
-        f"presents the top 5 market trends, an AI-generated brand proposal inspired by the top product, and 1 product concept."
+        f"presents the top {mc_count} market trend{'s' if mc_count != 1 else ''}, an AI-generated brand proposal inspired by the top product, and 1 product concept."
     )
     pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 
 
 def add_market_research_page(pdf: FPDF, report: Dict):
-    """Page 1 (after title): Top 5 Market Trends – intro and Product Highlights list (no table)."""
+    """Page 1 (after title): Top N Market Trends – intro and Product Highlights list (no table)."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
     market_context = report.get("market_context") or []
+    count = len(market_context)
 
-    # Main title
+    # Main title – reflect actual count instead of hard-coded 5
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(10)
-    pdf.cell(0, 10, "Top 5 Market Trends", 0, 1, "L")
+    pdf.cell(0, 10, f"Top {count} Market Trend{'s' if count != 1 else ''}", 0, 1, "L")
 
     # Introductory sentence
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.ln(6)
     intro = _sanitize_pdf_text("Top performing products in this category based on revenue, growth, and monthly momentum.")
     pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro)
+
+    if count < 5:
+        pdf.ln(4)
+        notice = _sanitize_pdf_text(f"Note: Only {count} product{'s were' if count != 1 else ' was'} found in the last 30 days for this category.")
+        pdf.set_font("Arial", "I", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, notice)
+        pdf.set_font("Arial", "", FONT_SIZE_BODY)
+
     pdf.ln(10)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, "Product Highlights", 0, 1, "L")
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.ln(2)
-    for i, p in enumerate(market_context[:5], 1):
+    for i, p in enumerate(market_context, 1):
         name = _sanitize_pdf_text(p.get("product_name") or "")
         desc = _sanitize_pdf_text(p.get("short_description") or "")
         pdf.set_x(pdf.l_margin)
@@ -182,12 +192,13 @@ def add_market_research_page(pdf: FPDF, report: Dict):
 
 
 def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
-    """V2: Market Analysis - top 5 real products."""
+    """V2: Market Analysis - top N real products."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
+    count = len(market_context)
     pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
-    pdf.cell(0, 10, "Market Analysis - Current Top Performers", 0, 1, "L")
+    pdf.cell(0, 10, f"Market Analysis - Current Top {count} Performer{'s' if count != 1 else ''}", 0, 1, "L")
     pdf.ln(3)
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(
@@ -203,7 +214,7 @@ def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
     pdf.cell(20, LINE_HEIGHT_BODY, "Growth%", 1, 0, "R")
     pdf.cell(20, LINE_HEIGHT_BODY, "Sold", 1, 1, "R")
     pdf.set_font("Arial", "", FONT_SIZE_SMALL)
-    for p in market_context[:5]:
+    for p in market_context:
         pdf.set_x(pdf.l_margin)
         pdf.cell(12, LINE_HEIGHT_BODY, str(p.get("revenue_rank", "")), 1, 0, "L")
         pdf.cell(50, LINE_HEIGHT_BODY, _sanitize_pdf_text((p.get("product_name") or "")[:28]), 1, 0, "L")

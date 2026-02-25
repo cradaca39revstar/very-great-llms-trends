@@ -42,7 +42,7 @@ cloudwatch = boto3.client("cloudwatch", region_name=AWS_REGION)
 bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 lambda_client = boto3.client("lambda", region_name=AWS_REGION)
 
-# Top N market products for table and PDF (must match "Top 5 Market Trends" in frontend)
+# Max market products for table and PDF; actual count may be less
 TOP_MARKET_PRODUCTS = 5
 
 # Error codes per rulescore.mdc: [MODULE][NUMBER] (TRD = Trending)

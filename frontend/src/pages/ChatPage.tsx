@@ -263,13 +263,20 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
 
       {report.market_context && report.market_context.length > 0 && (
         <section className="market-research">
-          <h2 className="market-research__title">Top 5 Market Trends</h2>
+          <h2 className="market-research__title">
+            Top {report.market_context.length} Market Trend{report.market_context.length !== 1 ? 's' : ''}
+          </h2>
           <p className="market-research__intro">
             Top performing products by revenue, growth, and monthly momentum.
           </p>
+          {report.market_context.length < 5 && (
+            <p className="market-research__notice">
+              Only {report.market_context.length} product{report.market_context.length !== 1 ? 's were' : ' was'} found in the last 30 days for this category.
+            </p>
+          )}
           <h3 className="market-research__subtitle">Product Highlights</h3>
           <ol className="market-research__list">
-            {report.market_context.slice(0, 5).map((p, i) => (
+            {report.market_context.map((p, i) => (
               <li key={i} className="market-research__item">
                 <strong className="market-research__name">{p.product_name}</strong>
                 {p.short_description && (

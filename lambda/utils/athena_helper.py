@@ -119,24 +119,40 @@ def build_top_products_query(l2_category: str, database: str, limit: int = 5) ->
 
 def build_distinct_categories_query(database: str) -> str:
     """
-    Build SQL to get distinct l2_category from all partitions (case-insensitive, no duplicates).
-    Used for dynamic category list in the frontend (all categories that exist in the table).
+    Build SQL to get distinct l2_category from the latest partition only (last 30 days).
+    Used for dynamic category list in the frontend — only categories with data in the most recent period.
     """
     table = f"{database}.curated_beauty_products"
     return f"""
-    SELECT MIN(TRIM(p.l2_category)) AS l2_category
-    FROM {table} p
-    WHERE p.data_quality_score >= 0.95
-      AND p.l2_category IS NOT NULL
-      AND TRIM(p.l2_category) != ''
-    GROUP BY LOWER(TRIM(p.l2_category))
+    WITH distinct_partitions AS (
+      SELECT DISTINCT year, month_num FROM {table}
+    ),
+    ranked_partitions AS (
+      SELECT year, month_num,
+             ROW_NUMBER() OVER (ORDER BY year DESC, month_num DESC) AS rn
+      FROM distinct_partitions
+    ),
+    latest_partition AS (
+      SELECT year, month_num FROM ranked_partitions WHERE rn = 1
+    ),
+    latest_data AS (
+      SELECT p.l2_category
+      FROM {table} p
+      INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
+      WHERE p.data_quality_score >= 0.95
+        AND p.l2_category IS NOT NULL
+        AND TRIM(p.l2_category) != ''
+    )
+    SELECT MIN(TRIM(l2_category)) AS l2_category
+    FROM latest_data
+    GROUP BY LOWER(TRIM(l2_category))
     ORDER BY l2_category
     """.strip()
 
 
 def query_athena_l2_categories(workgroup: str, database: str) -> List[str]:
     """
-    Return sorted list of all L2 category names present in the table (all partitions).
+    Return sorted list of L2 category names that have data in the latest partition (last 30 days).
     Empty list on failure or no data.
     """
     try:

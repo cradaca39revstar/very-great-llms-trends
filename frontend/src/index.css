@@ -342,6 +342,17 @@ a:hover {
   line-height: 1.5;
 }
 
+.market-research__notice {
+  font-size: 0.95rem;
+  color: #856404;
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+}
+
 .market-research__subtitle {
   font-family: var(--font-heading);
   font-size: 1.125rem;
