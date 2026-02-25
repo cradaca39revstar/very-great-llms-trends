@@ -408,13 +408,8 @@ def generate_product_image(
         except Exception as e:
             print(f"[Product] logo overlay skipped for '{product_name}': {e}")
 
-    try:
-        out = _overlay_branding_text(raw, brand_name, product_name)
-        print(f"[Product] text overlay applied for '{product_name}'")
-        return out
-    except Exception as e:
-        print(f"[Product] text overlay failed, returning raw: {e}")
-        return raw
+    # No bottom text bar (client: no barra blanca con nombre/marca al final)
+    return raw
 
 
 def generate_images_parallel(
@@ -424,7 +419,7 @@ def generate_images_parallel(
     max_workers: int = 5,
     logo_bytes: Optional[bytes] = None,
 ) -> List[Optional[bytes]]:
-    """Generate product images in parallel. Each: product photo + logo overlay (clear) + text bar."""
+    """Generate product images in parallel. Each: product photo + logo overlay (no bottom text bar)."""
     brand_name = brand_name or ""
     results: List[Optional[bytes]] = [None] * len(product_ideas)
 
