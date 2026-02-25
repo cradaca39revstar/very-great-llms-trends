@@ -20,7 +20,7 @@ from botocore.exceptions import ClientError
 
 from utils.athena_helper import query_athena_top_products, query_athena_l2_categories
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
-from utils.image_generator import generate_images_parallel
+from utils.image_generator import generate_brand_logo, generate_images_parallel
 from utils.market_research_agent import search_all as market_research_search_all
 from utils.image_utils import image_bytes_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
@@ -557,8 +557,23 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         print(f"[{request_id}] Product ideas failed: {e}")
         raise RuntimeError(f"Product ideas generation failed: {str(e)}") from e
 
-    # Step 6: Product-first images — one cohesive image per product (packaging + logo style + text bar)
-    # No separate logo generation; logo style is described in the product prompt so the AI draws it on the packaging.
+    # Step 6a: Generate logo independently (symbol + composed with brand name) — must be clearly visible on each product
+    brand_logo_bytes: Optional[bytes] = None
+    try:
+        brand_logo_bytes = generate_brand_logo(
+            brand_name,
+            brand_proposal.get("brand_tagline", ""),
+            l2_category,
+            bedrock,
+        )
+        if brand_logo_bytes:
+            print(f"[{request_id}] Brand logo: composed ok")
+        else:
+            print(f"[{request_id}] Brand logo: generation returned None")
+    except Exception as e:
+        print(f"[{request_id}] Brand logo failed (non-fatal): {e}")
+
+    # Step 6b: Product images with logo overlay (clear) + text bar
     image_bytes_list: List[Optional[bytes]] = []
     try:
         image_bytes_list = generate_images_parallel(
@@ -566,6 +581,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             brand_name,
             bedrock,
             max_workers=4,
+            logo_bytes=brand_logo_bytes,
         )
     except Exception as e:
         print(f"[{request_id}] Product images failed: {e}")
@@ -599,7 +615,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         market_context=market_context,
         brand_proposal=brand_proposal,
         product_ideas=product_ideas,
-        brand_logo_bytes=None,
+        brand_logo_bytes=brand_logo_bytes,
         web_search_insights=web_insights,
         web_search_disclaimer=web_search_disclaimer,
     )
@@ -610,7 +626,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         pdf_url = generate_and_upload_pdf(
             report, request_id, l2_category,
             product_ideas_with_images=product_ideas,
-            brand_logo_bytes=None,
+            brand_logo_bytes=brand_logo_bytes,
         )
         pdf_duration = (time.time() - pdf_start) * 1000
         print(f"[{request_id}] PDF: {pdf_duration:.0f}ms, URL: {pdf_url}")
@@ -659,7 +675,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
 
     # Report with thumbnail images for frontend (stored in report_status)
     response_report = _report_with_thumbnail_images(
-        report, product_ideas=product_ideas, brand_logo_bytes=None
+        report, product_ideas=product_ideas, brand_logo_bytes=brand_logo_bytes
     )
     return {
         "report": response_report,
@@ -822,7 +838,7 @@ def _report_with_thumbnail_images(
     thumb_size_logo = 256
     thumb_size_product = 512
     if brand_logo_bytes:
-        logo_b64 = logo_to_thumbnail_base64(brand_logo_bytes, size=thumb_size_logo)
+        logo_b64 = image_bytes_to_thumbnail_base64(brand_logo_bytes, size=thumb_size_logo, output_format="png")
         if logo_b64:
             response_report.setdefault("brand_proposal", {})["logo_image_base64"] = logo_b64
             response_report["brand_proposal"]["logo_image_base64_format"] = "png"
