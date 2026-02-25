@@ -87,18 +87,23 @@ SD_LOGO_NEGATIVE_PROMPT = (
 )
 
 # --- Product: consistent composition so logo (fixed position) always lands on the product ---
+# Logo is overlaid at ~46% from top, centered. That band must have NO product text so logo never overlaps copy.
 SD_PRODUCT_PROMPT_TEMPLATE = (
     "Professional commercial product photography. Single product only, centered in the frame. "
     "The product is the main subject, same composition for every shot: product in the center of the image, "
     "vertical orientation, product body occupying the central area so a label would sit in the middle of the frame. "
     "\"{product_name}\". {image_prompt_from_llm} "
     "Bottle, jar, or package clearly in focus, consistent framing. "
-    "The packaging has a smooth, elegant label area on the front — same material or finish as the product, no text, no logo. "
+    "The packaging has a front label. The center band of the label (middle third of the label, where a logo will be placed) "
+    "must be completely blank: no text, no writing, no ingredients, no small print in that central band. "
+    "Product name or tagline may appear only above or below this central band, never in the middle band. "
+    "Smooth, elegant label; same material or finish as the product; no logo or watermark on the packaging. "
     "Premium, cohesive color palette. Clean white studio background, soft studio lighting, "
     "high-end product packaging, commercial photography, photorealistic, {style_preset} style, 4K quality."
 )
 SD_PRODUCT_NEGATIVE_PROMPT = (
-    "text, words, letters, numbers, writing, brand name, typography, logo on label, watermark, stamp, "
+    "text in center of label, writing in middle of label, ingredients in center, small print in logo area, "
+    "words, letters, numbers, brand name on packaging, typography on label center, logo on label, watermark, stamp, "
     "blur, distorted, low quality, cluttered background, cartoon, illustration, drawing, amateur"
 )
 
