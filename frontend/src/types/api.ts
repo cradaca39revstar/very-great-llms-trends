@@ -29,6 +29,8 @@ export interface BrandProposal {
   /** Base64 thumbnail (JPEG or PNG). Use as data URL for <img>. */
   logo_image_base64?: string | null;
   logo_image_base64_format?: 'jpeg' | 'png' | null;
+  /** S3 presigned URL for logo (used when base64 exceeds DynamoDB limits). */
+  logo_image_url?: string | null;
 }
 
 /** One macro trend: title + paragraph description. */

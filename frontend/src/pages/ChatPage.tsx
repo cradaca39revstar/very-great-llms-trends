@@ -305,14 +305,14 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
 
 function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandName: string }) {
   const logoFormat = brand.logo_image_base64_format || 'png';
-  const logoDataUrl = brand.logo_image_base64
+  const logoSrc = brand.logo_image_base64
     ? `data:image/${logoFormat};base64,${brand.logo_image_base64}`
-    : null;
+    : brand.logo_image_url || null;
   return (
     <article className="brand-card">
-      {logoDataUrl && (
+      {logoSrc && (
         <div className="brand-card__logo-wrap">
-          <img src={logoDataUrl} alt={`${brandName || brand.brand_name} logo`} className="brand-card__logo" />
+          <img src={logoSrc} alt={`${brandName || brand.brand_name} logo`} className="brand-card__logo" />
         </div>
       )}
       <h3 className="brand-card__name">{brandName || brand.brand_name}</h3>

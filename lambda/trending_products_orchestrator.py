@@ -301,6 +301,56 @@ def run_report_worker(event: Dict) -> None:
         _write_report_status_failed(request_id, str(e))
 
 
+def _upload_image_to_s3(b64_data: str, request_id: str, name: str, fmt: str = "png") -> Optional[str]:
+    """Upload a base64-encoded image to S3 and return a presigned URL (1 h)."""
+    if not PDF_BUCKET or not b64_data:
+        return None
+    try:
+        img_bytes = base64.b64decode(b64_data)
+        date_path = datetime.now(timezone.utc).strftime("%Y/%m/%d")
+        s3_key = f"images/{date_path}/{request_id}/{name}.{fmt}"
+        s3_client = boto3.client("s3", region_name=AWS_REGION)
+        s3_client.put_object(
+            Bucket=PDF_BUCKET, Key=s3_key, Body=img_bytes,
+            ContentType=f"image/{fmt}",
+        )
+        url = s3_client.generate_presigned_url(
+            "get_object", Params={"Bucket": PDF_BUCKET, "Key": s3_key}, ExpiresIn=3600,
+        )
+        return url
+    except Exception as exc:
+        print(f"[{request_id}] Failed to upload image {name}: {exc}")
+        return None
+
+
+def _report_images_to_s3(report: Dict, request_id: str) -> Dict:
+    """Replace image base64 with S3 presigned URLs so the item fits in DynamoDB."""
+    out = dict(report)
+    bp = out.get("brand_proposal")
+    if isinstance(bp, dict):
+        bp = dict(bp)
+        logo_b64 = bp.pop("logo_image_base64", None)
+        fmt = bp.pop("logo_image_base64_format", "png") or "png"
+        if logo_b64:
+            url = _upload_image_to_s3(logo_b64, request_id, "brand-logo", fmt)
+            if url:
+                bp["logo_image_url"] = url
+        out["brand_proposal"] = bp
+    ideas = out.get("product_ideas") or []
+    new_ideas = []
+    for i, p in enumerate(ideas):
+        p = dict(p) if isinstance(p, dict) else {}
+        img_b64 = p.pop("image_base64", None)
+        fmt = p.pop("image_base64_format", "png") or "png"
+        if img_b64:
+            url = _upload_image_to_s3(img_b64, request_id, f"product-{i}", fmt)
+            if url:
+                p["image_url"] = url
+        new_ideas.append(p)
+    out["product_ideas"] = new_ideas
+    return out
+
+
 def _write_report_status_completed(request_id: str, result: Dict) -> None:
     if not REPORT_STATUS_TABLE:
         return
@@ -321,7 +371,8 @@ def _write_report_status_completed(request_id: str, result: Dict) -> None:
         }
         report = result.get("report")
         if report is not None:
-            item["report"] = _float_to_decimal(report)
+            safe_report = _report_images_to_s3(report, request_id)
+            item["report"] = _float_to_decimal(safe_report)
         table.put_item(Item=item)
         print(f"[{request_id}] Report status updated to completed")
     except Exception as e:
