@@ -20,9 +20,9 @@ from botocore.exceptions import ClientError
 
 from utils.athena_helper import query_athena_top_products, query_athena_l2_categories
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
-from utils.image_generator import generate_brand_logo, generate_images_parallel, overlay_logo_on_product
+from utils.image_generator import generate_images_parallel
 from utils.market_research_agent import search_all as market_research_search_all
-from utils.image_utils import image_bytes_to_thumbnail_base64, logo_remove_background, logo_to_thumbnail_base64
+from utils.image_utils import image_bytes_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
 
 # Environment variables
@@ -557,62 +557,19 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         print(f"[{request_id}] Product ideas failed: {e}")
         raise RuntimeError(f"Product ideas generation failed: {str(e)}") from e
 
-    # Step 6: Brand logo + product images in parallel
-    brand_logo_bytes = None
-    composed_logo_for_overlay: Optional[bytes] = None
+    # Step 6: Product-first images — one cohesive image per product (packaging + logo style + text bar)
+    # No separate logo generation; logo style is described in the product prompt so the AI draws it on the packaging.
     image_bytes_list: List[Optional[bytes]] = []
     try:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_logo = executor.submit(generate_brand_logo, brand_name, brand_tagline, l2_category, bedrock)
-            future_images = executor.submit(
-                generate_images_parallel,
-                product_ideas_raw,
-                brand_name,
-                bedrock,
-                max_workers=4,
-            )
-            for future in as_completed([future_logo, future_images]):
-                if future == future_logo:
-                    try:
-                        logo_result = future.result()
-                        if logo_result is not None:
-                            symbol_only_bytes, composed_logo_bytes = logo_result
-                            # Brand image on card = symbol only (no letters; label is shown below)
-                            brand_logo_bytes = symbol_only_bytes
-                            cleaned = logo_remove_background(brand_logo_bytes)
-                            if cleaned is not None:
-                                brand_logo_bytes = cleaned
-                            composed_logo_for_overlay = composed_logo_bytes
-                        else:
-                            composed_logo_for_overlay = None
-                        print(f"[{request_id}] Brand logo: ok={brand_logo_bytes is not None}")
-                    except Exception as e:
-                        print(f"[{request_id}] Brand logo failed: {e}")
-                        composed_logo_for_overlay = None
-                else:
-                    try:
-                        image_bytes_list = future.result()
-                    except Exception as e:
-                        print(f"[{request_id}] Product images failed: {e}")
-                        raise RuntimeError(f"Image generation failed: {str(e)}") from e
+        image_bytes_list = generate_images_parallel(
+            product_ideas_raw,
+            brand_name,
+            bedrock,
+            max_workers=4,
+        )
     except Exception as e:
-        print(f"[{request_id}] Image step failed: {e}")
+        print(f"[{request_id}] Product images failed: {e}")
         raise RuntimeError(f"Image generation failed: {str(e)}") from e
-
-    # Overlay composed logo (symbol + brand name) onto each product image
-    logo_for_overlay = composed_logo_for_overlay if composed_logo_for_overlay else brand_logo_bytes
-    if logo_for_overlay:
-        overlaid: List[Optional[bytes]] = []
-        for raw_img in image_bytes_list:
-            if raw_img is not None:
-                try:
-                    overlaid.append(overlay_logo_on_product(raw_img, logo_for_overlay))
-                except Exception as e:
-                    print(f"[{request_id}] overlay_logo_on_product failed: {e}; using raw product image")
-                    overlaid.append(raw_img)
-            else:
-                overlaid.append(None)
-        image_bytes_list = overlaid
 
     # Attach image bytes and build product_ideas for report
     product_ideas = []
@@ -642,7 +599,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         market_context=market_context,
         brand_proposal=brand_proposal,
         product_ideas=product_ideas,
-        brand_logo_bytes=brand_logo_bytes,
+        brand_logo_bytes=None,
         web_search_insights=web_insights,
         web_search_disclaimer=web_search_disclaimer,
     )
@@ -653,7 +610,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         pdf_url = generate_and_upload_pdf(
             report, request_id, l2_category,
             product_ideas_with_images=product_ideas,
-            brand_logo_bytes=brand_logo_bytes,
+            brand_logo_bytes=None,
         )
         pdf_duration = (time.time() - pdf_start) * 1000
         print(f"[{request_id}] PDF: {pdf_duration:.0f}ms, URL: {pdf_url}")
@@ -702,7 +659,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
 
     # Report with thumbnail images for frontend (stored in report_status)
     response_report = _report_with_thumbnail_images(
-        report, product_ideas=product_ideas, brand_logo_bytes=brand_logo_bytes
+        report, product_ideas=product_ideas, brand_logo_bytes=None
     )
     return {
         "report": response_report,
