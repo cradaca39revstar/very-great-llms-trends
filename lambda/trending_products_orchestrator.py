@@ -20,7 +20,7 @@ from botocore.exceptions import ClientError
 
 from utils.athena_helper import query_athena_top_products, query_athena_l2_categories
 from utils.bedrock_helper import generate_brand_proposal, generate_product_ideas
-from utils.image_generator import generate_brand_logo, generate_images_parallel
+from utils.image_generator import generate_images_parallel
 from utils.market_research_agent import search_all as market_research_search_all
 from utils.image_utils import image_bytes_to_thumbnail_base64
 from utils.pdf_generator import generate_pdf_report, upload_pdf_to_s3
@@ -557,23 +557,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
         print(f"[{request_id}] Product ideas failed: {e}")
         raise RuntimeError(f"Product ideas generation failed: {str(e)}") from e
 
-    # Step 6a: Generate logo independently (symbol + composed with brand name) — must be clearly visible on each product
-    brand_logo_bytes: Optional[bytes] = None
-    try:
-        brand_logo_bytes = generate_brand_logo(
-            brand_name,
-            brand_proposal.get("brand_tagline", ""),
-            l2_category,
-            bedrock,
-        )
-        if brand_logo_bytes:
-            print(f"[{request_id}] Brand logo: composed ok")
-        else:
-            print(f"[{request_id}] Brand logo: generation returned None")
-    except Exception as e:
-        print(f"[{request_id}] Brand logo failed (non-fatal): {e}")
-
-    # Step 6b: Product images with logo overlay (clear) + text bar
+    # Step 6: Product images — SD 3.5 holistic (product + packaging + logo icon + brand name in one shot)
     image_bytes_list: List[Optional[bytes]] = []
     try:
         image_bytes_list = generate_images_parallel(
@@ -581,11 +565,13 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             brand_name,
             bedrock,
             max_workers=4,
-            logo_bytes=brand_logo_bytes,
         )
     except Exception as e:
         print(f"[{request_id}] Product images failed: {e}")
         raise RuntimeError(f"Image generation failed: {str(e)}") from e
+
+    # No independent logo — the logo is part of the product image; brand card shows no separate logo
+    brand_logo_bytes: Optional[bytes] = None
 
     # Attach image bytes and build product_ideas for report
     product_ideas = []
