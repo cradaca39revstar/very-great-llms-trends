@@ -565,6 +565,7 @@ def execute_report_generation(event: Dict, request_id: str) -> Dict:
             brand_name,
             bedrock,
             max_workers=4,
+            l2_category=l2_category,
         )
     except Exception as e:
         print(f"[{request_id}] Product images failed: {e}")

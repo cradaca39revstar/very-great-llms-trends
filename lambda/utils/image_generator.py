@@ -25,28 +25,90 @@ SD_IMAGE_RETRY_DELAY_SEC = 2
 # ============================================================================
 # Style helpers — concrete, drawable icon shapes that SD 3.5 reliably renders
 # ============================================================================
-def get_logo_icon(brand_name: str) -> str:
+_BRAND_ICON_MAP = [
+    (["nature", "terra", "green", "eco", "natural", "organic", "botan", "herb", "plant"],
+     "a golden leaf embossed on"),
+    (["royal", "crown", "king", "queen", "regal", "majest", "noble"],
+     "a golden crown embossed on"),
+    (["star", "celeste", "sky", "luna", "stella", "astral", "cosmic"],
+     "a golden five-pointed star embossed on"),
+    (["ocean", "aqua", "marine", "wave", "sea", "tide", "coral"],
+     "a silver water droplet embossed on"),
+    (["aura", "glow", "light", "lux", "lumina", "illumina", "radi", "bright", "lumin"],
+     "a golden sunburst circle embossed on"),
+    (["silk", "soft", "velvet", "smooth", "satin", "petal", "blossom", "flora", "bloom"],
+     "a golden lotus flower embossed on"),
+    (["derma", "derm", "skin", "clinic", "medic", "pharm", "scienc"],
+     "a silver geometric hexagon embossed on"),
+    (["hydra", "moist", "dew", "fresh", "rain", "mist", "spring"],
+     "a silver water droplet embossed on"),
+    (["pure", "zen", "calm", "serene", "tranquil", "balance", "harmony"],
+     "a golden mandala circle embossed on"),
+    (["vita", "vital", "energy", "power", "boost", "reviv", "renew", "rejuv"],
+     "a golden rising sun embossed on"),
+    (["luxe", "luxury", "elegant", "premium", "prestige", "opul"],
+     "a golden diamond embossed on"),
+    (["curl", "wave", "coil", "spiral", "twist", "strand", "lock"],
+     "a golden spiral embossed on"),
+    (["shield", "protect", "guard", "defense", "barrier", "armor"],
+     "a silver shield embossed on"),
+    (["honey", "gold", "amber", "nectar", "bee"],
+     "a golden honeycomb hexagon embossed on"),
+    (["crystal", "gem", "jewel", "prism", "clear", "glass"],
+     "a silver crystal prism embossed on"),
+    (["moon", "night", "noir", "midnight", "eclipse"],
+     "a silver crescent moon embossed on"),
+    (["fire", "flame", "heat", "warm", "blaze", "ember"],
+     "a golden flame embossed on"),
+    (["feather", "air", "breeze", "cloud", "float", "wind"],
+     "a silver feather embossed on"),
+]
+
+_DEFAULT_FALLBACK_ICONS = [
+    "a golden sunburst circle embossed on",
+    "a golden five-pointed star embossed on",
+    "a golden diamond embossed on",
+    "a silver geometric hexagon embossed on",
+    "a golden rising sun embossed on",
+    "a silver crystal prism embossed on",
+]
+
+_CATEGORY_FALLBACK_ICONS = {
+    "skincare": [
+        "a golden sunburst circle embossed on",
+        "a golden lotus flower embossed on",
+        "a silver geometric hexagon embossed on",
+        "a golden mandala circle embossed on",
+        "a golden diamond embossed on",
+        "a silver water droplet embossed on",
+    ],
+    "haircare & styling": [
+        "a golden spiral embossed on",
+        "a golden leaf embossed on",
+        "a golden five-pointed star embossed on",
+        "a golden rising sun embossed on",
+        "a silver feather embossed on",
+        "a silver crystal prism embossed on",
+    ],
+}
+
+
+def get_logo_icon(brand_name: str, l2_category: str = "") -> str:
     """
-    Return a concrete, simple icon description. Must be a shape SD 3.5 knows
-    how to draw (like the sunburst that worked perfectly for dermaluxe).
-    All descriptions follow the same pattern: color + recognizable shape + "embossed on".
+    Return a concrete, drawable icon for the logo. Geometric, elegant, and related
+    to the brand name and category. If no keyword matches the brand, picks from a
+    category-specific pool using a hash of the brand name for deterministic variety.
     """
     name = (brand_name or "").lower().replace("haircare", "").replace("hair", "").strip()
-    if any(w in name for w in ["nature", "terra", "green", "eco", "natural", "organic"]):
-        return "a golden leaf embossed on"
-    if any(w in name for w in ["royal", "crown", "king", "queen", "regal"]):
-        return "a golden crown embossed on"
-    if any(w in name for w in ["star", "celeste", "sky", "luna", "stella"]):
-        return "a golden star embossed on"
-    if any(w in name for w in ["ocean", "aqua", "marine", "wave", "sea"]):
-        return "a silver water droplet embossed on"
-    if any(w in name for w in ["aura", "glow", "light", "lux", "pure", "lumina", "illumina", "radi"]):
-        return "a golden sunburst circle embossed on"
-    if any(w in name for w in ["silk", "soft", "velvet", "smooth", "satin"]):
-        return "a golden lotus flower embossed on"
-    if any(w in name for w in ["derma", "skin", "derm", "hydra", "moist"]):
-        return "a golden sunburst circle embossed on"
-    return "a golden sunburst circle embossed on"
+
+    for keywords, icon in _BRAND_ICON_MAP:
+        if any(w in name for w in keywords):
+            return icon
+
+    cat = (l2_category or "").lower()
+    pool = _CATEGORY_FALLBACK_ICONS.get(cat, _DEFAULT_FALLBACK_ICONS)
+    idx = hash(brand_name or "") % len(pool)
+    return pool[idx]
 
 
 def _get_style_preset(brand_name: str) -> str:
@@ -78,16 +140,17 @@ def build_product_prompt(
     product_name: str,
     image_prompt: str = "",
     key_ingredients: Optional[List[str]] = None,
+    l2_category: str = "",
 ) -> str:
     """
     Build a holistic SD 3.5 prompt. The icon/logo is described FIRST so the model
     prioritizes rendering it. Uses concrete shapes (sunburst, leaf, crown, droplet)
-    that SD 3.5 reliably draws.
+    that SD 3.5 reliably draws. Icon varies by brand name + category.
     """
     brand = (brand_name or "Brand").strip()
     product = (product_name or "Product").strip()
     visual_desc = (image_prompt or "premium skincare bottle on a clean background, luxury cosmetic aesthetic").strip()
-    logo_icon = get_logo_icon(brand)
+    logo_icon = get_logo_icon(brand, l2_category)
     style_preset = _get_style_preset(brand)
 
     benefit_line = ""
@@ -152,6 +215,7 @@ def generate_product_image(
     image_prompt: str,
     bedrock_client=None,
     key_ingredients: Optional[List[str]] = None,
+    l2_category: str = "",
 ) -> Optional[bytes]:
     """
     Generate a holistic product image via SD 3.5 Large: product + packaging + label +
@@ -163,6 +227,7 @@ def generate_product_image(
         product_name=product_name,
         image_prompt=image_prompt,
         key_ingredients=key_ingredients,
+        l2_category=l2_category,
     )
 
     for model_id in (SD_IMAGE_MODEL_ID, SD_IMAGE_FALLBACK_MODEL_ID):
@@ -180,6 +245,7 @@ def generate_images_parallel(
     brand_name: str,
     bedrock_client=None,
     max_workers: int = 4,
+    l2_category: str = "",
 ) -> List[Optional[bytes]]:
     """Generate holistic product images in parallel via SD 3.5 Large."""
     brand_name = brand_name or ""
@@ -190,7 +256,7 @@ def generate_images_parallel(
         prompt = idea.get("image_prompt") or ""
         ingredients = idea.get("key_ingredients") if isinstance(idea.get("key_ingredients"), list) else None
         start = time.time()
-        img = generate_product_image(name, brand_name, prompt, None, ingredients)
+        img = generate_product_image(name, brand_name, prompt, None, ingredients, l2_category)
         elapsed = (time.time() - start) * 1000
         print(f"[Product] image {i + 1} done in {elapsed:.0f}ms (ok={img is not None})")
         return (i, img)
