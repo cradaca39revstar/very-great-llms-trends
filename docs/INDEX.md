@@ -1,8 +1,8 @@
 # Documentation Index
 ## Beauty Products Data Lake
 
-**Version:** 1.0.0  
-**Last Updated:** January 26, 2026
+**Version:** 2.0.0  
+**Last Updated:** February 26, 2026
 
 ---
 
@@ -38,9 +38,9 @@ Essential documents for understanding and deploying the system.
 | [README.md](../README.md) | Main project overview, features, and quick start | All users |
 | [CLIENT-HANDOFF-PACKAGE.md](../CLIENT-HANDOFF-PACKAGE.md) | Executive summary and handoff information | Management, Project Leads |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Data Lake system architecture, components, and data flow | Technical teams |
-| [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) | LLM Trending Products Report Generator architecture | Technical teams, Stakeholders |
-| [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md) | Step-by-step deployment instructions | DevOps, Engineers |
-| [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md) | Generate client link via AWS Amplify Hosting (LLM frontend) | DevOps, Project leads |
+| [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) | LLM Product Innovation Engine V2 architecture | Technical teams, Stakeholders |
+| [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md) | Step-by-step deployment instructions (Data Lake + LLM) | DevOps, Engineers |
+| [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md) | Frontend URL, login, and Cognito user management | All users, Project leads |
 | [CLIENT-HANDOFF-CHECKLIST.md](CLIENT-HANDOFF-CHECKLIST.md) | Knowledge transfer tracking checklist | Project managers |
 
 ---
@@ -51,7 +51,7 @@ Daily operations, maintenance, and support procedures.
 
 | Document | Description | Audience |
 |----------|-------------|----------|
-| [CLIENT-OPERATIONS-GUIDE.md](CLIENT-OPERATIONS-GUIDE.md) | Daily operations, monitoring, and common tasks | Operations team |
+| [CLIENT-OPERATIONS-GUIDE.md](CLIENT-OPERATIONS-GUIDE.md) | Daily operations, monitoring, user management, and troubleshooting | Operations team |
 | [runbooks/etl-job-failure.md](../runbooks/etl-job-failure.md) | ETL job failure recovery procedures | Operations, Engineers |
 | [runbooks/data-quality-investigation.md](../runbooks/data-quality-investigation.md) | Data quality issue investigation | Data stewards, Analysts |
 | [runbooks/schema-evolution.md](../runbooks/schema-evolution.md) | Schema change procedures | Engineers, Data architects |
@@ -222,5 +222,5 @@ For questions about documentation:
 
 ---
 
-**Last Updated:** January 26, 2026  
-**Maintained By:** Data Engineering Team
+**Last Updated:** February 26, 2026  
+**Maintained By:** Revstar DATA AI Team

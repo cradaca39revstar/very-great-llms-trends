@@ -1,7 +1,7 @@
 # LLM Trending Products System - Terraform Deployment Guide
 
-**Version:** 1.1.0  
-**Last Updated:** January 30, 2026
+**Version:** 2.0.0  
+**Last Updated:** February 26, 2026
 
 ---
 
@@ -9,21 +9,22 @@
 
 This guide provides step-by-step instructions for deploying the LLM Trending Products Report Generator infrastructure using Terraform. The system includes API Gateway, Cognito authentication, Lambda orchestrator, DynamoDB logging, S3 PDF storage, and AWS Bedrock integration.
 
-### Orchestrator flow (with web-backed enrichment)
+### Orchestrator flow (V2 — Product Innovation Engine)
 
-- **Cognito → API Gateway → Orchestrator Lambda** (unchanged).
-- **Step 1:** Extract L2 category from user query.
-- **Step 2:** Query Athena for top 5 products (no URL/image in data).
-- **Step 3:** For each product (in parallel):  
-  - Generate brand name (Bedrock).  
-  - If **SCRAPER_FUNCTION_NAME** is set: invoke Scraper Lambda with brand, product name, L2 category; merge returned `url`, `image_url`, `trends_text`, optional `description` into product.  
-  - Call **search_product_info_via_bedrock** (optionally tries Knowledge Base first if **KNOWLEDGE_BASE_ID** is set; else LLM) for URL/image/description fallback; pass **l2_category** from product.  
-  - Generate 5 supporting trends (Bedrock), using **trends_text** from scraper/KB as context when present.  
-- **Step 4:** Format report.  
-- **Step 5:** Generate PDF, upload to S3.  
-- **Step 6:** Log to DynamoDB, publish CloudWatch metrics, return response.  
+- **Cognito → API Gateway → Orchestrator Lambda** (async: POST returns 202 + `request_id`).
+- **Step 1:** Extract L2 category from user query (e.g. "What are the top trending products in Skincare?" → `Skincare`).
+- **Step 2:** Athena query + web insights run **in parallel**:
+  - Athena: top 5 products by revenue for the L2 category (last 30 days, `data_quality_score >= 0.95`)
+  - Web insights: Brave Search market data for the category (cached in DynamoDB for 6 hours)
+- **Step 3:** Generate **brand proposal** (Bedrock Nova Pro) — one brand inspired by the top market product: name, tagline, story, values, positioning.
+- **Step 4:** Generate **5 product ideas** (Bedrock Nova Pro) — each with description, estimated price, key ingredients, supporting trends, competitive advantage, inspired by brand and market context.
+- **Step 5:** Generate **product concept images** in parallel (Stability SD 3.5 Large, `us-west-2`) — one holistic image per product (product + packaging + logo icon + brand name, all in one generation).
+- **Step 6:** Format V2 report — market context table, brand proposal, 5 product ideas with images.
+- **Step 7:** Generate PDF and upload to S3 (presigned URL, 1-hour expiry).
+- **Step 8:** Write result to `report_status` DynamoDB table; log to audit table; publish CloudWatch metrics.
+- **Client polls** `GET /report/{request_id}` until `status` is `"completed"` or `"failed"`.
 
-The Scraper Lambda is internal only (invoked by the orchestrator via `lambda:InvokeFunction`); no new public APIs.
+The Scraper Lambda is optional (`enable_scraper_lambda = false` by default) and is not part of the main V2 flow.
 
 ---
 
@@ -87,19 +88,19 @@ aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?m
 
 **Note**: Use `us-east-1` for this system. Model availability varies by region.
 
-### Image models (logo + product) – us-west-2
+### Image models (product concept images) – us-west-2
 
-Logo and product images use **Stability AI** in **us-west-2**. These are **Marketplace** models and must be enabled in the console before the Lambda can use them.
+Product concept images use **Stability AI SD 3.5 Large** in **us-west-2**. These are **Marketplace** models and must be enabled in the console before the Lambda can use them.
 
 1. In **AWS Console** go to **Amazon Bedrock**.
 2. Open **Model access** (or **Get access to models**).
-3. Set region to **US West (Oregon)** (`us-west-2`).
+3. **Change region to US West (Oregon)** (`us-west-2`).
 4. Find and enable:
-   - **Stability SD 3.5 Large** (`stability.sd3-5-large-v1:0`)
-   - **Stability SD 3 Large** (`stability.sd3-large-v1:0`)
+   - **Stability AI SD3.5 Large** (`stability.sd3-5-large-v1:0`) — primary
+   - **Stability AI SD3 Large** (`stability.sd3-large-v1:0`) — fallback
 5. Click **Request model access** / **Enable** and wait until status is **Access granted** (often 1–2 minutes).
 
-If these models are not enabled, you will see `AccessDeniedException` with "aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe" and report images (logo + product) will be missing.
+If these models are not enabled, you will see `AccessDeniedException` with "aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe" and product concept images will be missing from the report and PDF.
 
 ### Access Control
 

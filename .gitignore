@@ -145,6 +145,3 @@ terraform/test-*.csv
 # Uncomment the line below to ignore all CSV files in data/raw/
 # data/raw/**/*.csv
 # Keep small sample files (under 1MB) - add specific files to git if needed
-CLIENT-HANDOFF-PACKAGE.md
-docs/CLIENT-DEPLOYMENT-GUIDE.md
-docs/CLIENT-HANDOFF-CHECKLIST.md
