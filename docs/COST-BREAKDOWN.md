@@ -28,25 +28,6 @@
 
 Comparison of this project's estimated cost with the budget defined in the AWS Pricing Calculator documents (VeryGreat-aws-cost-calc-llmops.pdf and VeryGreat-aws-cost-calc-datalake.pdf).
 
-### Budget per documents (AWS Pricing Calculator)
-
-| Document | Concept | Monthly cost (USD) | Assumed scale |
-|----------|----------|---------------------|----------------|
-| **VeryGreat-aws-cost-calc-llmops.pdf** | LLM Ops (Bedrock Ohio, Lambda, DynamoDB, API Gateway, Cognito, Amplify) | **15,053** | 40 req/min Bedrock 24×7; 5M Lambda invocations/month |
-| **VeryGreat-aws-cost-calc-datalake.pdf** | Data Lake (Glue, Athena, S3, Lambda, CloudWatch) | **15,007** | 22,000 Athena queries/day; 3 GB/query; 50 TB S3; 30 crawlers |
-| **Total budgeted** | LLM Ops + Data Lake | **~30,060** | Enterprise / high-volume usage |
-
-### Comparison table: current cost vs. budget
-
-| Scenario | Reports/month | Current cost (this project) | Budget (documents) | Within budget? |
-|----------|----------------|------------------------------|--------------------|----------------|
-| POC / Demo | 50 | **~$25–40** | ~$30,060 | Yes (well under) |
-| Low | 100 | **~$35–55** | ~$30,060 | Yes (well under) |
-| Medium | 1,000 | **~$280–420** | ~$30,060 | Yes (well under) |
-| High | 10,000 | **~$2,600–4,000** | ~$30,060 | Yes (well under) |
-
-**Note:** Current cost includes fixed infrastructure (small Data Lake: Glue, S3, Athena, CloudWatch) plus variable cost per report (Stability SD 3.5 in Ohio: 2 images; Athena top 5; Brave Search; Lambda; DynamoDB; S3 PDF). The calculator documents assume much higher usage (millions of invocations, 22K Athena queries/day, 50 TB S3, etc.), so the monthly budget is on the order of **~$30K USD**. In all current usage scenarios, the estimated cost remains **well under** that budget.
-
 ---
 
 ## Part 1 — Fixed Monthly Costs (Data Lake Infrastructure)
@@ -198,37 +179,8 @@ The system uses Brave Search for web market insights. Results are cached in Dyna
 
 ---
 
-## Part 5 — Cost Optimization Opportunities
 
-### High Impact
-
-| Optimization | How | Estimated Savings |
-|-------------|-----|-----------------|
-| **Current: 1 product image + 1 logo** | Pipeline already uses 2 SD 3.5 images per report (not 5) | Already applied in v2.1 |
-| **Disable images for some categories** | Add a config flag for image-optional reports | Up to ~80% cost reduction per report |
-| **Longer web insights cache** | Increase DynamoDB TTL from 6h to 24h | Fewer Brave Search API calls |
-| **Use lower-resolution images** | Keep aspect_ratio 1:1; output_format PNG (already set) | Minimal — quality vs. cost trade-off |
-
-### Medium Impact
-
-| Optimization | How | Estimated Savings |
-|-------------|-----|-----------------|
-| **Lambda memory tuning** | Test with 512 MB instead of 1,024 MB (may increase duration) | ~30% Lambda cost reduction |
-| **Shorter PDF retention** | Reduce `pdf_expiration_days` from 7 to 1 | Minimal S3 savings |
-| **Athena query caching** | Enable Athena result reuse (same query within 7 days) | Reduces Athena cost for repeat category queries |
-| **Lambda provisioned concurrency** | Eliminates cold starts but adds ~$10–20/month fixed cost | Worthwhile at >500 reports/month |
-
-### Low Impact (but good practice)
-
-| Optimization | How | Savings |
-|-------------|-----|---------|
-| S3 Intelligent-Tiering | Auto-move infrequently accessed data to cheaper tiers | <$1/month at POC scale |
-| Reserved capacity for Glue | Purchase Glue flex plans | ~20% Glue savings at high volume |
-| CloudWatch log retention | Set log group retention to 30 days instead of forever | <$1/month |
-
----
-
-## Part 6 — Cost Monitoring
+## Part 5 — Cost Monitoring
 
 ### AWS Cost Explorer
 
@@ -243,7 +195,7 @@ Filter by tag: Project = BeautyProductsDataLake
 
 Set up a billing alarm to get notified when costs exceed a threshold:
 
-```bash
+```sh
 aws cloudwatch put-metric-alarm \
   --alarm-name "monthly-cost-alert" \
   --alarm-description "Alert when monthly spend exceeds $100" \
@@ -269,7 +221,7 @@ aws cloudwatch put-metric-alarm \
 
 ---
 
-## Part 7 — Pricing References
+## Part 6 — Pricing References
 
 | Service | Pricing Page |
 |---------|-------------|
