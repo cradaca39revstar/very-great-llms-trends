@@ -110,6 +110,8 @@ Project history, changes, and planning documents.
 |----------|-------------|----------|
 | [CHANGELOG.md](../CHANGELOG.md) | Version history and changes | All users |
 | [CLIENT-HANDOFF-PACKAGE.md](../CLIENT-HANDOFF-PACKAGE.md) | Handoff summary and deliverables | Management, Project leads |
+| [COST-BREAKDOWN.md](COST-BREAKDOWN.md) | AWS cost breakdown by service and usage scenario | Management, Finance, Project leads |
+| [POTENTIAL-ENHANCEMENTS.md](POTENTIAL-ENHANCEMENTS.md) | Recommended next-phase enhancements and roadmap | Management, Stakeholders, Project leads |
 
 ---
 
