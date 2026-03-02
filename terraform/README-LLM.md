@@ -1,13 +1,30 @@
 # LLM Trending Products System - Terraform Deployment Guide
 
-**Version:** 1.0.0  
-**Last Updated:** January 26, 2026
+**Version:** 2.0.0  
+**Last Updated:** February 26, 2026
 
 ---
 
 ## Overview
 
 This guide provides step-by-step instructions for deploying the LLM Trending Products Report Generator infrastructure using Terraform. The system includes API Gateway, Cognito authentication, Lambda orchestrator, DynamoDB logging, S3 PDF storage, and AWS Bedrock integration.
+
+### Orchestrator flow (V2 — Product Innovation Engine)
+
+- **Cognito → API Gateway → Orchestrator Lambda** (async: POST returns 202 + `request_id`).
+- **Step 1:** Extract L2 category from user query (e.g. "What are the top trending products in Skincare?" → `Skincare`).
+- **Step 2:** Athena query + web insights run **in parallel**:
+  - Athena: top 5 products by revenue for the L2 category (last 30 days, `data_quality_score >= 0.95`)
+  - Web insights: Brave Search market data for the category (cached in DynamoDB for 6 hours)
+- **Step 3:** Generate **brand proposal** (Bedrock Nova Pro) — one brand inspired by the top market product: name, tagline, story, values, positioning.
+- **Step 4:** Generate **5 product ideas** (Bedrock Nova Pro) — each with description, estimated price, key ingredients, supporting trends, competitive advantage, inspired by brand and market context.
+- **Step 5:** Generate **product concept images** in parallel (Stability SD 3.5 Large, `us-west-2`) — one holistic image per product (product + packaging + logo icon + brand name, all in one generation).
+- **Step 6:** Format V2 report — market context table, brand proposal, 5 product ideas with images.
+- **Step 7:** Generate PDF and upload to S3 (presigned URL, 1-hour expiry).
+- **Step 8:** Write result to `report_status` DynamoDB table; log to audit table; publish CloudWatch metrics.
+- **Client polls** `GET /report/{request_id}` until `status` is `"completed"` or `"failed"`.
+
+The Scraper Lambda is optional (`enable_scraper_lambda = false` by default) and is not part of the main V2 flow.
 
 ---
 
@@ -50,50 +67,40 @@ This guide provides step-by-step instructions for deploying the LLM Trending Pro
 
 ## Bedrock Model Access Setup
 
-**UPDATE (January 2026)**: The "Model access" page has been retired. Models are now automatically enabled.
+**UPDATE (January 2026)**: The system uses **Amazon Nova Pro** in **us-east-1** only. Serverless foundation models are automatically enabled when first invoked.
 
-### Automatic Model Activation
+### Model in Use
 
-**Good News**: Serverless foundation models are now **automatically enabled** when first invoked in your account. You no longer need to manually activate model access.
-
-### First-Time Access for Anthropic Models
-
-**Important**: For **Anthropic models** (including Claude 3.7 Sonnet, our primary model), first-time users may need to submit use case details before accessing the model.
-
-**How to Enable Anthropic Models**:
-
-1. **Option 1: Via Bedrock Playground (Recommended)**
-   - Navigate to: https://console.aws.amazon.com/bedrock/
-   - Click "Playground" in left navigation
-   - Select "Text" or "Chat" playground
-   - Choose "Claude 3.7 Sonnet" from model dropdown
-   - If prompted, fill out the use case form:
-     - Use case: "Business Intelligence / Analytics"
-     - Description: "Generating trending product reports with AI-enhanced insights"
-   - Submit and wait for approval (usually instant to a few minutes)
-
-2. **Option 2: Via API (Automatic)**
-   - When Lambda first invokes the model, if access is needed, you'll see an error
-   - Check CloudWatch logs for specific instructions
-   - Complete the use case form in Bedrock Console if prompted
+- **Primary and fallback**: `amazon.nova-pro-v1:0` (Amazon Nova Pro)
+- **Region**: us-east-1 only (no cross-region inference profiles)
+- **Why Nova Pro**: AWS Bedrock now requires inference profiles for newer Claude models (3.5/4/4.5), which route traffic across regions. Using Nova Pro with direct foundation model ID keeps all inference in us-east-1 for predictable latency and simpler IAM.
 
 ### Verify Model Access
 
-After enabling (or to check if already enabled):
-
 ```bash
-# List available models
-aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?contains(modelId, 'claude-3-7') || contains(modelId, 'nova-pro') || contains(modelId, 'command-r-plus')]"
+# List available models (Nova Pro)
+aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?contains(modelId, 'nova-pro')]"
 
 # Test model invocation (will auto-enable if needed)
-aws bedrock-runtime invoke-model \
-  --model-id anthropic.claude-3-7-sonnet-20240229-v1:0 \
-  --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":10,"messages":[{"role":"user","content":"test"}]}' \
-  --region us-east-1 \
-  response.json
+# Nova uses a different request body format; see Lambda code for full payload.
+aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?modelId=='amazon.nova-pro-v1:0']"
 ```
 
-**Note**: Model availability varies by AWS region. Use `us-east-1` for maximum model selection.
+**Note**: Use `us-east-1` for this system. Model availability varies by region.
+
+### Image models (product concept images) – us-west-2
+
+Product concept images use **Stability AI SD 3.5 Large** in **us-west-2**. These are **Marketplace** models and must be enabled in the console before the Lambda can use them.
+
+1. In **AWS Console** go to **Amazon Bedrock**.
+2. Open **Model access** (or **Get access to models**).
+3. **Change region to US West (Oregon)** (`us-west-2`).
+4. Find and enable:
+   - **Stability AI SD3.5 Large** (`stability.sd3-5-large-v1:0`) — primary
+   - **Stability AI SD3 Large** (`stability.sd3-large-v1:0`) — fallback
+5. Click **Request model access** / **Enable** and wait until status is **Access granted** (often 1–2 minutes).
+
+If these models are not enabled, you will see `AccessDeniedException` with "aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe" and product concept images will be missing from the report and PDF.
 
 ### Access Control
 
@@ -124,8 +131,8 @@ lambda_memory_size    = 1024  # MB
 lambda_timeout        = 60    # seconds
 pdf_expiration_days   = 7     # days
 
-# Bedrock models
-bedrock_primary_model   = "anthropic.claude-3-7-sonnet-20240229-v1:0"
+# Bedrock models (us-east-1 only; Nova Pro supports direct foundation model ID)
+bedrock_primary_model   = "amazon.nova-pro-v1:0"
 bedrock_fallback_model  = "amazon.nova-pro-v1:0"
 ```
 
@@ -385,11 +392,11 @@ For the E2E test against real AWS, set `RUN_INTEGRATION_TESTS=1` and ensure AWS 
 **Error**: `AccessDeniedException: User is not authorized to perform: bedrock:InvokeModel`
 
 **Solution**: 
-1. For Anthropic models: Complete use case form in Bedrock Playground (see "Bedrock Model Access Setup" above)
-2. Verify IAM role has Bedrock permissions (`bedrock:InvokeModel` action)
-3. Check model IDs are correct in variables
-4. Verify model is available in your region: `aws bedrock list-foundation-models --region us-east-1`
-5. Models auto-enable on first invocation, but Anthropic models may require use case approval first
+1. Verify IAM role has Bedrock permissions (`bedrock:InvokeModel` on `foundation-model/amazon.nova-*`)
+2. Check Lambda environment variables (BEDROCK_PRIMARY_MODEL, BEDROCK_FALLBACK_MODEL)
+3. Verify model ID in terraform.tfvars: `amazon.nova-pro-v1:0`
+4. Verify model is available in us-east-1: `aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?modelId=='amazon.nova-pro-v1:0']"`
+5. Models auto-enable on first invocation
 
 ---
 
@@ -474,7 +481,7 @@ Request increase for:
 - Tokens per minute
 ```
 
-**Temporary workaround**: System automatically retries with fallback model (Nova)
+**Temporary workaround**: System automatically retries with same model (Nova Pro)
 
 ---
 
@@ -527,7 +534,7 @@ aws dynamodb scan \
 **Low Usage** (100 queries/month):
 - API Gateway: $0.50
 - Lambda: $5-10
-- Bedrock (Claude 3.7): $15-25
+- Bedrock (Nova Pro): $8-15
 - DynamoDB: $2
 - S3 PDFs: $1
 - **Total**: ~$25-40/month
@@ -535,7 +542,7 @@ aws dynamodb scan \
 **Medium Usage** (1,000 queries/month):
 - API Gateway: $5
 - Lambda: $30-50
-- Bedrock (Claude 3.7): $150-250
+- Bedrock (Nova Pro): $80-150
 - DynamoDB: $10
 - S3 PDFs: $5
 - **Total**: ~$200-320/month
@@ -543,13 +550,13 @@ aws dynamodb scan \
 **High Usage** (10,000 queries/month):
 - API Gateway: $35
 - Lambda: $200-300
-- Bedrock (Claude 3.7): $1,500-2,500
+- Bedrock (Nova Pro): $800-1,500
 - DynamoDB: $75
 - S3 PDFs: $25
 - **Total**: ~$1,800-3,000/month
 
 **Cost Optimization Tips**:
-- Use Amazon Nova instead of Claude for simpler tasks (50% cheaper)
+- System uses Amazon Nova Pro (cost-effective; us-east-1 only)
 - Enable query result caching (reduces Athena costs)
 - Configure shorter PDF retention (reduces S3 costs)
 - Use reserved capacity for high usage (reduces Lambda costs)
@@ -736,4 +743,4 @@ After successful deployment:
 
 ---
 
-**Deployment checklist complete?** See [`deployment-checklist.md`](../deployment-checklist.md) for comprehensive validation steps.
+**Deployment complete?** See [CLIENT-DEPLOYMENT-GUIDE.md](../docs/CLIENT-DEPLOYMENT-GUIDE.md) for deployment and validation.

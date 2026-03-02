@@ -61,6 +61,19 @@ htmlcov/
 .pytype/
 cython_debug/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+package-lock.json
+yarn.lock
+
+# Lambda build artifacts (regenerated on deploy)
+lambda/function.zip
+
 # AWS
 .aws/
 *.pem

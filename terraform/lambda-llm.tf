@@ -24,15 +24,19 @@ resource "aws_lambda_function" "orchestrator" {
   # Environment variables
   environment {
     variables = {
-      ATHENA_WORKGROUP        = "beauty-products-athena-${var.environment}"
-      ATHENA_DATABASE         = "beauty_products_db"
-      ATHENA_RESULT_BUCKET    = aws_s3_bucket.athena_results.id
-      BEDROCK_PRIMARY_MODEL   = var.bedrock_primary_model
-      BEDROCK_FALLBACK_MODEL  = var.bedrock_fallback_model
-      DYNAMODB_LOGS_TABLE     = aws_dynamodb_table.prompt_logs[0].name
-      PDF_BUCKET              = aws_s3_bucket.pdfs[0].id
-      ENVIRONMENT             = var.environment
-      AWS_REGION_NAME         = var.aws_region
+      ATHENA_WORKGROUP         = "beauty-products-athena-${var.environment}"
+      ATHENA_DATABASE          = "beauty_products_db"
+      ATHENA_RESULT_BUCKET     = aws_s3_bucket.athena_results.id
+      BEDROCK_PRIMARY_MODEL    = var.bedrock_primary_model
+      BEDROCK_FALLBACK_MODEL   = var.bedrock_fallback_model
+      BRAVE_SEARCH_API_KEY     = var.brave_search_api_key
+      DYNAMODB_LOGS_TABLE      = aws_dynamodb_table.prompt_logs[0].name
+      REPORT_STATUS_TABLE      = aws_dynamodb_table.report_status[0].name
+      WEB_INSIGHTS_CACHE_TABLE = aws_dynamodb_table.web_insights_cache[0].name
+      PDF_BUCKET               = aws_s3_bucket.pdfs[0].id
+      ENVIRONMENT              = var.environment
+      AWS_REGION_NAME          = var.aws_region
+      BEDROCK_LOGO_REGION      = "us-west-2"
     }
   }
 
@@ -216,9 +220,25 @@ resource "aws_iam_policy" "lambda_bedrock" {
           "bedrock:InvokeModelWithResponseStream"
         ]
         Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-7-sonnet-*",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-sonnet-4*",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-*",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*"
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/cohere.command-*",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-image-generator-v2:0"
+        ]
+      },
+      # Logo generation: Stability SD 3.5 Large and SD3 Large (us-west-2)
+      {
+        Sid    = "BedrockStabilityLogo"
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
+        ]
+        Resource = [
+          "arn:aws:bedrock:us-west-2::foundation-model/stability.sd3-5-large-v1:0",
+          "arn:aws:bedrock:us-west-2::foundation-model/stability.sd3-large-v1:0"
         ]
       },
       {
@@ -256,17 +276,36 @@ resource "aws_iam_policy" "lambda_dynamodb" {
           aws_dynamodb_table.prompt_logs[0].arn,
           "${aws_dynamodb_table.prompt_logs[0].arn}/index/*"
         ]
+      },
+      {
+        Sid    = "DynamoDBWebInsightsCache"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem"
+        ]
+        Resource = [aws_dynamodb_table.web_insights_cache[0].arn]
+      },
+      {
+        Sid    = "DynamoDBReportStatus"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [aws_dynamodb_table.report_status[0].arn]
       }
     ]
   })
 }
 
-# IAM Policy: CloudWatch Logs
-resource "aws_iam_policy" "lambda_cloudwatch" {
+# IAM Policy: CloudWatch Logs + Metrics + X-Ray (single policy to stay under 10 policies-per-role quota)
+resource "aws_iam_policy" "lambda_observability" {
   count = var.enable_llm_system ? 1 : 0
 
-  name        = "beauty-products-llm-cloudwatch-${var.environment}"
-  description = "CloudWatch Logs access for LLM orchestrator"
+  name        = "beauty-products-llm-observability-${var.environment}"
+  description = "CloudWatch Logs, metrics and X-Ray tracing for LLM orchestrator"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -295,21 +334,7 @@ resource "aws_iam_policy" "lambda_cloudwatch" {
             "cloudwatch:namespace" = "BeautyProducts/LLM"
           }
         }
-      }
-    ]
-  })
-}
-
-# IAM Policy: X-Ray Tracing
-resource "aws_iam_policy" "lambda_xray" {
-  count = var.enable_llm_system ? 1 : 0
-
-  name        = "beauty-products-llm-xray-${var.environment}"
-  description = "X-Ray tracing for LLM orchestrator"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Sid    = "XRayTracing"
         Effect = "Allow"
@@ -342,6 +367,36 @@ resource "aws_iam_policy" "lambda_lakeformation" {
         Resource = "*"
       }
     ]
+  })
+}
+
+# IAM Policy: Invoke self + optional scraper (single policy to stay under 10 policies-per-role quota)
+resource "aws_iam_policy" "lambda_invoke" {
+  count = var.enable_llm_system ? 1 : 0
+
+  name        = "beauty-products-llm-invoke-async-${var.environment}"
+  description = "Allow orchestrator to invoke itself (async report) and optionally scraper Lambda"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = concat(
+      [
+        {
+          Sid      = "InvokeSelfAsync"
+          Effect   = "Allow"
+          Action   = ["lambda:InvokeFunction"]
+          Resource = [aws_lambda_function.orchestrator[0].arn]
+        }
+      ],
+      var.enable_scraper_lambda ? [
+        {
+          Sid      = "InvokeScraperLambda"
+          Effect   = "Allow"
+          Action   = ["lambda:InvokeFunction"]
+          Resource = [aws_lambda_function.scraper[0].arn]
+        }
+      ] : []
+    )
   })
 }
 
@@ -388,18 +443,11 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
   policy_arn = aws_iam_policy.lambda_dynamodb[0].arn
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_cloudwatch" {
+resource "aws_iam_role_policy_attachment" "lambda_observability" {
   count = var.enable_llm_system ? 1 : 0
 
   role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_cloudwatch[0].arn
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_xray" {
-  count = var.enable_llm_system ? 1 : 0
-
-  role       = aws_iam_role.lambda_orchestrator[0].name
-  policy_arn = aws_iam_policy.lambda_xray[0].arn
+  policy_arn = aws_iam_policy.lambda_observability[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
@@ -407,6 +455,13 @@ resource "aws_iam_role_policy_attachment" "lambda_lakeformation" {
 
   role       = aws_iam_role.lambda_orchestrator[0].name
   policy_arn = aws_iam_policy.lambda_lakeformation[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_invoke" {
+  count = var.enable_llm_system ? 1 : 0
+
+  role       = aws_iam_role.lambda_orchestrator[0].name
+  policy_arn = aws_iam_policy.lambda_invoke[0].arn
 }
 
 # CloudWatch Log Group for Lambda

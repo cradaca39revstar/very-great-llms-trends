@@ -1,9 +1,11 @@
 # PowerShell script to package and deploy Lambda code for LLM Trending Products
-# Usage: .\deploy-lambda-llm.ps1 [-Environment "poc"] [-FunctionName "beauty-products-llm-orchestrator-poc"]
+# Usage: .\deploy-lambda-llm.ps1 [-Environment "poc"] [-FunctionName "beauty-products-llm-orchestrator-poc"] [-UseDocker $true]
+# UseDocker: build deps in Linux container so Pillow works in Lambda (required when building on Windows).
 
 param(
     [string]$Environment = "poc",
-    [string]$FunctionName = ""
+    [string]$FunctionName = "",
+    [bool]$UseDocker = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,29 +41,57 @@ if (-not (Test-Path $LambdaDir)) {
 
 Push-Location $LambdaDir
 
+$reqFile = "requirements-lambda.txt"
+if (-not (Test-Path $reqFile)) {
+    Write-Host "Error: $reqFile not found." -ForegroundColor Red
+    exit 1
+}
+
 try {
     Write-Host "`nStep 1: Installing dependencies..." -ForegroundColor Cyan
-    
-    # Check if Python is available
-    $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $pythonCmd) {
-        Write-Host "Warning: Python not found in PATH. Skipping dependency installation." -ForegroundColor Yellow
-        Write-Host "Make sure dependencies are installed in lambda/ directory before packaging." -ForegroundColor Yellow
-    } else {
-        # Use requirements-lambda.txt (excludes boto3/botocore; Lambda runtime provides them).
-        # Bundling them can cause "ast.NodeVisitor" errors from stdlib shadowing.
-        $reqFile = "requirements-lambda.txt"
-        if (-not (Test-Path $reqFile)) {
-            Write-Host "Error: $reqFile not found. Use requirements.txt fallback only if needed." -ForegroundColor Red
-            exit 1
+    $depsOk = $false
+    if ($UseDocker) {
+        try {
+            $null = docker info 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Using Docker (Lambda-compatible Linux for Pillow)..." -ForegroundColor Yellow
+                $lambdaAbs = (Get-Location).Path.Replace('\', '/')
+                docker run --rm --platform linux/amd64 `
+                    -v "${lambdaAbs}:/src" `
+                    -w /src `
+                    public.ecr.aws/lambda/python:3.10 `
+                    pip install -r requirements-lambda.txt -t . --quiet
+                if ($LASTEXITCODE -eq 0) {
+                    $depsOk = $true
+                    Write-Host "Dependencies installed via Docker" -ForegroundColor Green
+                }
+            }
+        } catch {
+            Write-Host "Docker failed: $_" -ForegroundColor Yellow
         }
-        Write-Host "Installing packages from $reqFile to lambda/ ..." -ForegroundColor Yellow
-        python -m pip install -r $reqFile -t . --quiet
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
-            exit 1
+    }
+    if (-not $depsOk) {
+        $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $pythonCmd) {
+            Write-Host "Warning: Python not found in PATH. Skipping dependency installation." -ForegroundColor Yellow
+        } else {
+            Write-Host "Step 1a: Pillow for Lambda (Linux x86_64)..." -ForegroundColor Yellow
+            if (Test-Path "PIL") { Remove-Item -Recurse -Force "PIL" }
+            Get-ChildItem -Directory -Filter "Pillow*.dist-info" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+            python -m pip install Pillow -t . --quiet --platform manylinux2014_x86_64 --implementation cp --python-version 3.10 --only-binary=:all: --upgrade
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Error: Failed to install Pillow for Linux" -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "Step 1b: fpdf2, python-dateutil, requests (pure Python)..." -ForegroundColor Yellow
+            python -m pip install fpdf2 python-dateutil requests -t . --quiet
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Error: Failed to install dependencies" -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "Dependencies installed (Pillow=Linux, rest=pure Python)" -ForegroundColor Green
+            $depsOk = $true
         }
-        Write-Host "Dependencies installed successfully" -ForegroundColor Green
     }
     
     Write-Host "`nStep 2: Creating deployment package..." -ForegroundColor Cyan

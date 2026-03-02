@@ -1,433 +1,219 @@
 # Client Handoff Package
+## Beauty Products Data Lake + LLM Product Innovation Engine
 
-## Beauty Products Data Lake
-
-**Version:** 1.0.0
-**Handoff Date:** 29/01/2026
-**Status:** Production Ready
-**Framework:** DAMA-DMBOK Aligned
+**Version:** 2.0.0  
+**Handoff Date:** February 26, 2026  
+**Prepared By:** Revstar DATA AI Team  
+**Environment:** dev (POC)
 
 ---
 
 ## Executive Summary
 
-The Beauty Products Data Lake is a production-ready, enterprise-grade data pipeline solution built on AWS. This system ingests, transforms, and curates beauty product sales data with comprehensive data quality checks, governance controls, and monitoring capabilities.
+Revstar has designed, built, and deployed a two-tier data and AI platform for beauty product market intelligence:
 
-**Key Highlights:**
+1. **Beauty Products Data Lake (V1):** An AWS-native ETL pipeline that ingests beauty product sales CSVs, applies 20+ data quality rules, and stores curated Parquet data in Amazon S3 for analytics via Athena.
 
-- ✅ **Production Ready**: Fully tested and validated (10/10 integration tests passing)
-- ✅ **Enterprise Grade**: DAMA-DMBOK aligned governance framework
-- ✅ **Comprehensive Quality**: 20+ validation rules with per-record scoring
-- ✅ **Fully Automated**: Scheduled daily processing with automated monitoring
-- ✅ **Well Documented**: Complete documentation package included
+2. **LLM Product Innovation Engine (V2):** An AI-powered report generator that reads the top 5 market products from the Data Lake and uses Amazon Bedrock (Nova Pro) to produce one brand proposal and five product concepts, complete with AI-generated concept images (Stability SD 3.5) and a downloadable professional PDF — in 15–25 seconds.
+
+The system is **production-ready** and deployed on your AWS account in the `dev` environment.
 
 ---
 
-## Project Summary
+## What Was Delivered
 
-### Solution Overview
+### Infrastructure (AWS, Terraform-managed)
 
-The Beauty Products Data Lake transforms raw CSV files into curated, query-ready data using AWS services:
+| Component | AWS Service | Purpose |
+|-----------|-------------|---------|
+| Raw data zone | Amazon S3 | Immutable source CSV storage |
+| Curated data zone | Amazon S3 + Parquet | Cleaned, validated data for analytics |
+| ETL pipeline | AWS Glue (Spark) | CSV → Parquet transformation with quality scoring |
+| Data catalog | AWS Glue Catalog | Schema metadata and discoverability |
+| Query engine | Amazon Athena | SQL analytics on curated data |
+| Scheduling | Amazon EventBridge | Daily ETL trigger (2 AM UTC) |
+| Monitoring | Amazon CloudWatch | Dashboards, alarms, and metrics |
+| Notifications | Amazon SNS | Email/SMS alerts for failures |
+| AI orchestration | AWS Lambda (Python 3.10) | Async report generation |
+| Text AI | Amazon Bedrock — Nova Pro | Brand and product idea generation |
+| Image AI | Amazon Bedrock — Stability SD 3.5 | Product concept image generation |
+| API | Amazon API Gateway (REST) | Authenticated HTTP endpoint |
+| Authentication | Amazon Cognito | User Pool with email/password auth |
+| Report storage | Amazon S3 | PDF storage with 7-day lifecycle |
+| Audit logs | Amazon DynamoDB | Request logs and report status |
+| Web insights cache | Amazon DynamoDB | 6-hour web insights cache |
+| Frontend | AWS Amplify Hosting | React SPA with Cognito auth |
+| Permissions | AWS IAM + Lake Formation | Least-privilege access control |
 
-- **Ingestion**: CSV files uploaded to S3 Raw Zone
-- **Processing**: AWS Glue ETL job with PySpark transformations
-- **Storage**: Curated Parquet files in S3 with partitioning
-- **Analytics**: Amazon Athena for SQL queries
-- **Monitoring**: CloudWatch dashboards and alarms
+### Code Deliverables
 
-### Version Information
-
-- **Version**: 1.0.0
-- **Release Date**: January 17, 2026
-- **Status**: Production Ready
-- **Framework Alignment**: DAMA-DMBOK
-
-### Key Metrics
-
-- **Test Coverage**: 10 integration tests (100% passing)
-- **Quality Target**: Pass rate >= 95%, Average quality score >= 0.95
-- **Performance**: Job execution 5-8 minutes (10K records), Query response < 5 seconds
-- **Compression**: ~80% storage reduction (Parquet/Snappy vs CSV)
-
----
-
-## What's Included
-
-### 1. Infrastructure (AWS Services)
-
-**Deployed Services:**
-
-- ✅ 3 S3 Buckets (Raw, Curated, Metadata zones)
-- ✅ AWS Glue ETL Job with scheduling
-- ✅ AWS Glue Data Catalog (2 databases, 6 tables)
-- ✅ AWS Glue Crawlers (2 crawlers)
-- ✅ Amazon Athena Workgroup
-- ✅ EventBridge scheduling rule
-- ✅ CloudWatch Dashboard with 8 widgets
-- ✅ CloudWatch Alarms (3 alarms)
-- ✅ SNS Topic for alerts
-- ✅ IAM Roles and Policies
-
-**Infrastructure as Code:**
-
-- Terraform configuration for all resources
-- Environment-based naming and tagging
-- Security best practices implemented
-
-### 2. ETL Pipeline
-
-**Features:**
-
-- ✅ CSV parsing with error handling
-- ✅ 20+ data quality validation rules
-- ✅ Per-record quality scoring (0.0000 - 1.0000)
-- ✅ Deduplication logic
-- ✅ Quality-based routing (pass/warn/fail)
-- ✅ Anomaly detection
-- ✅ Quality report generation
-- ✅ Lineage tracking
-
-**Quality Framework:**
-
-- 8 quality flag types
-- 3 quality tiers (PASS/WARN/FAIL)
-- Configurable thresholds
-- Comprehensive reporting
-
-### 3. Documentation
-
-**Client-Focused Documents:**
-
-- ✅ CLIENT-HANDOFF-PACKAGE.md (this document)
-- ✅ docs/ARCHITECTURE.md - System architecture
-- ✅ docs/CLIENT-DEPLOYMENT-GUIDE.md - Deployment instructions
-- ✅ docs/CLIENT-OPERATIONS-GUIDE.md - Daily operations
-- ✅ docs/CLIENT-HANDOFF-CHECKLIST.md - Knowledge transfer checklist
-- ✅ docs/INDEX.md - Documentation index
-
-**Technical Documentation:**
-
-- ✅ README.md - Project overview
-- ✅ CHANGELOG.md - Version history
-- ✅ deployment-checklist.md - Detailed deployment steps
-- ✅ athena-views.sql - SQL view definitions
-- ✅ docs/s3-bucket-structure.md - Storage organization
-
-**Operational Documentation:**
-
-- ✅ runbooks/etl-job-failure.md - Job failure recovery
-- ✅ runbooks/data-quality-investigation.md - Quality troubleshooting
-- ✅ runbooks/schema-evolution.md - Schema changes
-- ✅ runbooks/validation-and-testing.md - Testing procedures
-
-**Governance Documentation:**
-
-- ✅ governance/data-governance-charter.md - Governance framework
-- ✅ governance/business-glossary.csv - Terms and definitions
-- ✅ governance/source-to-target-mapping.xlsx - Data lineage
-
-### 4. Testing
-
-**Test Suite:**
-
-- ✅ 10 integration tests (all passing)
-- ✅ Sample data files (valid and malformed)
-- ✅ Docker-based testing environment
-- ✅ Test coverage: Core functionality validated
-
-**Test Results:**
-
-- All 10 tests passing
-- Test execution time: ~50 seconds
-- Environment: AWS Glue Docker container
-
-### 5. Support Materials
-
-**Runbooks:**
-
-- ETL Job Failure Recovery
-- Data Quality Investigation
-- Schema Evolution Procedures
-- Validation and Testing
-
-**Quick References:**
-
-- Architecture diagrams
-- Schema definitions
-- SQL query examples
-- Common task procedures
-
----
-
-## Quick Start
-
-### 5-Minute Overview
-
-1. **System Purpose**: Transforms CSV files into query-ready Parquet data with quality checks
-2. **Key Components**: S3 (storage), Glue (processing), Athena (analytics), CloudWatch (monitoring)
-3. **Data Flow**: CSV → Raw S3 → Glue ETL → Curated S3 → Athena Queries
-4. **Schedule**: Daily processing at 2 AM UTC
-5. **Monitoring**: CloudWatch dashboard and email alerts
-
-### First Steps After Handoff
-
-**Week 1:**
-
-1. Review [CLIENT-DEPLOYMENT-GUIDE.md](docs/CLIENT-DEPLOYMENT-GUIDE.md) if deploying to new environment
-2. Complete [CLIENT-HANDOFF-CHECKLIST.md](docs/CLIENT-HANDOFF-CHECKLIST.md) knowledge transfer sessions
-3. Verify access to all AWS services
-4. Upload sample data and verify processing
-5. Review first quality report
-
-**Week 2-4:**
-
-1. Begin regular data uploads
-2. Monitor daily job executions
-3. Review quality reports regularly
-4. Practice common tasks from operations guide
-5. Familiarize team with troubleshooting procedures
-
-**Month 2-3:**
-
-1. Conduct monthly quality review
-2. Optimize query performance
-3. Review costs and optimize
-4. Complete governance review
-5. Transition to full client ownership
-
----
-
-## Where to Get Help
+| Component | Location | Description |
+|-----------|----------|-------------|
+| ETL script | `scripts/beauty_products_etl.py` | Glue Spark ETL (1,191 lines) |
+| Lambda orchestrator | `lambda/trending_products_orchestrator.py` | Async report engine (954 lines) |
+| Bedrock helpers | `lambda/utils/bedrock_helper.py` | Brand and product generation |
+| Image generator | `lambda/utils/image_generator.py` | SD 3.5 parallel image generation |
+| PDF generator | `lambda/utils/pdf_generator.py` | Professional PDF with images |
+| Athena helpers | `lambda/utils/athena_helper.py` | Top-5 product queries |
+| Market research | `lambda/utils/market_research_agent.py` | Web insights via Brave Search |
+| Frontend SPA | `frontend/` | React + TypeScript + Vite + Amplify Auth |
+| Infrastructure | `terraform/` | 22 Terraform files, complete IaC |
+| Tests | `tests/` | Unit + integration test suite |
 
 ### Documentation
 
-1. **Start Here**: [docs/INDEX.md](docs/INDEX.md) - Complete documentation index
-2. **Operations**: [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md) - Daily tasks and troubleshooting
-3. **Deployment**: [docs/CLIENT-DEPLOYMENT-GUIDE.md](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Deployment procedures
-4. **Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design
-
-### Support Contacts
-
-**Technical Support:**
-
-- Primary: _______________ (Email: _______________)
-- Secondary: _______________ (Email: _______________)
-
-**Data Governance:**
-
-- Data Steward: _______________ (Email: _______________)
-
-**Infrastructure:**
-
-- AWS Support: _______________ (if applicable)
-
-### Common Resources
-
-- **Runbooks**: [runbooks/](runbooks/) - Detailed troubleshooting procedures
-- **Quick Reference**: [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md#common-tasks) - Common tasks
-- **Troubleshooting**: [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md#troubleshooting) - Common issues
+| Document | Location |
+|----------|----------|
+| Architecture — Data Lake | `docs/ARCHITECTURE.md` |
+| Architecture — LLM System | `docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md` |
+| Deployment Guide | `docs/CLIENT-DEPLOYMENT-GUIDE.md` |
+| Operations Guide | `docs/CLIENT-OPERATIONS-GUIDE.md` |
+| Frontend Access | `docs/AMPLIFY-CLIENT-LINK.md` |
+| Handoff Checklist | `docs/CLIENT-HANDOFF-CHECKLIST.md` |
+| Documentation Index | `docs/INDEX.md` |
+| Runbooks (7 total) | `runbooks/` |
+| Data Governance Charter | `governance/data-governance-charter.md` |
+| Business Glossary | `governance/business-glossary.csv` |
+| Source-to-Target Mapping | `governance/source-to-target-mapping.xlsx` |
 
 ---
 
-## Next Steps
+## Access Information
 
-### Recommended Actions: First Week
+### Frontend Application
 
-- [ ] Complete knowledge transfer sessions (see [CLIENT-HANDOFF-CHECKLIST.md](docs/CLIENT-HANDOFF-CHECKLIST.md))
-- [ ] Verify all AWS access and permissions
-- [ ] Upload and process sample data
-- [ ] Review first quality report
-- [ ] Test Athena queries
-- [ ] Verify CloudWatch dashboard
-- [ ] Confirm alert notifications working
-- [ ] Document any environment-specific configurations
+| Item | Value |
+|------|-------|
+| URL | https://amplify-versio.d32yhcl4pif1yr.amplifyapp.com/ |
+| Demo user | `verygreat@test.com` |
+| Demo password | `VeryGreat123!` |
 
-### Recommended Actions: First Month
+### AWS Environment
 
-- [ ] Establish regular data upload schedule
-- [ ] Set up daily monitoring routine
-- [ ] Conduct weekly quality reviews
-- [ ] Train additional team members
-- [ ] Document any custom procedures
-- [ ] Review and optimize costs
-- [ ] Test disaster recovery procedures
+| Item | Value |
+|------|-------|
+| AWS Region | `us-east-1` |
+| Environment | `dev` |
+| Terraform state | Local (`.terraform/` on deployment machine) |
 
-### Long-Term Considerations
+### Key AWS Resources
 
-- **Scalability**: System can scale horizontally (more Glue workers) and vertically (larger worker types)
-- **Maintenance**: Monthly quality reviews, quarterly schema reviews, annual governance reviews
-- **Evolution**: Follow [runbooks/schema-evolution.md](runbooks/schema-evolution.md) for schema changes
-- **Optimization**: Monitor costs, query performance, and job execution times
-- **Governance**: Maintain data governance charter and business glossary
+Run `cd terraform && terraform output` to retrieve all endpoint values, including:
+- API Gateway URL
+- Cognito User Pool ID and Client ID  
+- Lambda function name
+- S3 bucket names
+- CloudWatch dashboard URL
 
 ---
 
 ## System Capabilities
 
-### Data Processing
+### Data Lake (V1)
 
-- **Input Format**: CSV (11 columns)
-- **Output Format**: Parquet with Snappy compression
-- **Processing**: AWS Glue 4.0 (Python 3.10, Spark 3.5.4)
-- **Throughput**: ~2,000 records/minute
-- **Partitioning**: By year and month for query optimization
+- Ingests beauty product CSV files (Month, Product, Shop, Category, Revenue, Items Sold, Growth %)
+- Applies 20+ data quality validation rules per record
+- Quality scoring: PASS (≥0.95) → curated; WARN (0.70–0.95) → curated flagged; FAIL (<0.70) → quarantine
+- Partitioned Parquet output (year/month) optimized for Athena queries
+- Quality reports per job run in JSON format
+- Automated daily scheduling via EventBridge (2 AM UTC)
+- 5 pre-built Athena views for common analytics
 
-### Data Quality
+### LLM Product Innovation Engine (V2)
 
-- **Quality Rules**: 20+ validation rules
-- **Scoring System**: Per-record scoring (0.0000 - 1.0000)
-- **Quality Tiers**: PASS (>=0.95), WARN (0.70-0.95), FAIL (<0.70)
-- **Quality Flags**: 8 types (INVALID_DATE, SYNTHETIC_PRODUCT_ID, etc.)
-- **Reporting**: JSON quality reports for each job run
-
-### Analytics
-
-- **Query Engine**: Amazon Athena (Presto-based)
-- **Views**: 5 pre-built views for common queries
-- **Performance**: < 5 seconds for standard aggregations
-- **Partition Pruning**: Automatic optimization with year/month filters
-
-### Monitoring
-
-- **Dashboard**: CloudWatch dashboard with 8 widgets
-- **Alarms**: 3 alarms (job failure, low quality, high error rate)
-- **Notifications**: Email and optional SMS alerts
-- **Logs**: CloudWatch Logs for job execution
+- Authenticated REST API (Cognito Bearer token)
+- Async flow: returns `202` immediately with `request_id`; client polls `/report/{request_id}`
+- Queries Athena for real top-5 products by revenue (last 30 days) for selected L2 category
+- Generates brand proposal (name, tagline, brand story, values, positioning) via Nova Pro
+- Generates 5 product ideas (description, price, ingredients, trends, competitive advantage)
+- Generates AI product concept images via Stability SD 3.5 Large (us-west-2) in parallel
+- Creates professional PDF report (~15–25 seconds total)
+- Web market insights via Brave Search with 6-hour DynamoDB cache
+- Audit logging to DynamoDB (90-day TTL) and CloudWatch metrics
 
 ---
 
-## Technical Specifications
+## Data Flow Summary
 
-### Infrastructure
-
-- **AWS Region**: Configurable (default: us-east-1)
-- **Environment**: Supports dev, staging, prod, poc
-- **Storage**: S3 with versioning and lifecycle policies
-- **Encryption**: AES-256 (SSE-S3) at rest, TLS 1.2+ in transit
-- **Access Control**: IAM with least privilege principle
-
-### ETL Job
-
-- **Worker Type**: G.1X (configurable to G.2X)
-- **Workers**: 2 (configurable)
-- **Timeout**: 60 minutes
-- **Max Retries**: 2
-- **Schedule**: Daily at 2 AM UTC
-
-### Data Schema
-
-- **Source**: 11 columns (all STRING for schema-on-read)
-- **Curated**: 21 columns (business data + governance metadata)
-- **Partitions**: year (INT), month_num (INT)
-- **Schema Version**: v1.0.0
+```
+CSV Upload → S3 Raw
+    → AWS Glue ETL (quality scoring, deduplication)
+    → S3 Curated (Parquet, partitioned)
+    → Amazon Athena (SQL queries, 5 views)
+    → Lambda Orchestrator (top 5 products)
+    → Amazon Bedrock Nova Pro (brand + product ideas)
+    → Stability SD 3.5 (product images, us-west-2)
+    → PDF Generation → S3 PDFs (7-day lifecycle)
+    → API Response → Frontend (React/Amplify)
+```
 
 ---
 
-## Success Criteria
+## Data Quality Framework
 
-### Deployment Success
+Aligned with DAMA-DMBOK framework:
 
-- ✅ All AWS resources created successfully
-- ✅ Glue job executes without errors
-- ✅ Data appears in curated bucket
-- ✅ Quality reports are generated
-- ✅ Athena queries return results
-- ✅ CloudWatch metrics are populated
-- ✅ Alarms are configured and tested
+| Quality Dimension | Implementation |
+|------------------|----------------|
+| Accuracy | Business rule validation per field |
+| Completeness | Required field checks |
+| Consistency | Format normalization |
+| Validity | Range and pattern validation |
+| Uniqueness | Natural key deduplication |
+| Timeliness | Freshness check (< 4 hours) |
 
-### Operational Success
-
-- ✅ Daily job runs complete successfully
-- ✅ Quality metrics meet targets (>= 95% pass rate)
-- ✅ Query performance meets SLA (< 5 seconds)
-- ✅ Alerts trigger appropriately
-- ✅ Team can operate system independently
+Quality flags: `INVALID_DATE`, `SYNTHETIC_PRODUCT_ID`, `MISSING_PRODUCT_NAME`, `INVALID_REVENUE`, `INVALID_AVG_PRICE`, `MISSING_ITEMS`, `SUSPICIOUS_GROWTH`, `DUPLICATE_RECORD`
 
 ---
 
-## Deliverables Checklist
+## Cost Estimate
 
-### Code and Infrastructure
+| Usage Level | Estimated Monthly Cost |
+|-------------|----------------------|
+| Low (100 queries/month) | ~$25–40 |
+| Medium (1,000 queries/month) | ~$200–320 |
+| High (10,000 queries/month) | ~$1,800–3,000 |
 
-- [X] ETL script (beauty_products_etl.py)
-- [X] Terraform infrastructure code
-- [X] Utility scripts and modules
-- [X] Test suite and sample data
-- [X] Requirements and dependencies
-
-### Documentation
-
-- [X] Client handoff package (this document)
-- [X] Architecture documentation
-- [X] Deployment guide
-- [X] Operations guide
-- [X] Handoff checklist
-- [X] Documentation index
-- [X] Runbooks for common scenarios
-- [X] Governance documentation
-
-### Knowledge Transfer
-
-- [ ] Architecture walkthrough completed
-- [ ] Deployment demonstration completed
-- [ ] Operations training completed
-- [ ] Troubleshooting training completed
-- [ ] Access and permissions verified
+Main cost drivers: Amazon Bedrock (Nova Pro), Stability AI inference (us-west-2), Lambda execution, Glue ETL.
 
 ---
 
-## Important Notes
+## Recommended Next Steps
 
-### Environment Configuration
+### Immediate (Client Actions)
 
-- All resources are environment-specific (dev, staging, prod, poc)
-- Bucket names include environment suffix
-- Terraform variables control environment configuration
-- Separate deployments for each environment recommended
+1. **Test the application** — Log in at the Amplify URL with the demo account
+2. **Create production user accounts** in Cognito for your team (see `docs/AMPLIFY-CLIENT-LINK.md`)
+3. **Upload production data** — Load your beauty product CSV files to S3 raw zone
+4. **Review CloudWatch dashboards** — Familiarize your team with monitoring
 
-### Data Retention
+### Short-Term
 
-- **Raw Zone**: 90 days Standard, then Glacier; delete after 1 year
-- **Curated Zone**: 7 years (configurable)
-- **Metadata Zone**: 90 days (Athena results)
+5. **Change demo user password** — Rotate `VeryGreat123!` for the demo account
+6. **Configure alert email** — Update `alert_email` in `terraform.tfvars` to your ops team
+7. **Review governance charter** — `governance/data-governance-charter.md`
 
-### Cost Considerations
+### Medium-Term (Production Hardening)
 
-- **S3 Storage**: Pay for storage and requests
-- **Glue Jobs**: Pay per DPU-hour (G.1X = 1 DPU per worker)
-- **Athena**: Pay per query (data scanned)
-- **CloudWatch**: Pay for metrics, logs, and alarms
-- **Estimated Monthly Cost**: Varies by data volume and usage
-
-### Security
-
-- All S3 buckets have public access blocked
-- IAM roles follow least privilege principle
-- Encryption enabled at rest and in transit
-- CloudTrail enabled for audit logging
-- Lake Formation integration available (optional)
+8. Enable MFA on Cognito User Pool
+9. Configure WAF on API Gateway
+10. Move to a production environment (`environment = "prod"`) with Terraform
+11. Enable provisioned concurrency on Lambda for consistent latency
+12. Set up a custom domain for the API Gateway
 
 ---
 
-## Related Documentation
+## Support and Handoff
 
-### Essential Reading
-
-1. [README.md](README.md) - Project overview and features
-2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
-3. [docs/CLIENT-DEPLOYMENT-GUIDE.md](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Deployment procedures
-4. [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md) - Daily operations
-
-### Reference Documentation
-
-- [docs/INDEX.md](docs/INDEX.md) - Complete documentation index
-- [CHANGELOG.md](CHANGELOG.md) - Version history
-- [deployment-checklist.md](deployment-checklist.md) - Detailed checklist
-- [athena-views.sql](athena-views.sql) - SQL views
-
-**For questions or support, refer to [docs/CLIENT-OPERATIONS-GUIDE.md](docs/CLIENT-OPERATIONS-GUIDE.md#support-contacts)**
+| Resource | Location |
+|----------|----------|
+| Operations Guide | `docs/CLIENT-OPERATIONS-GUIDE.md` |
+| Troubleshooting Runbooks | `runbooks/` |
+| Architecture Reference | `docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md` |
+| Knowledge Transfer Checklist | `docs/CLIENT-HANDOFF-CHECKLIST.md` |
 
 ---
 
-**Package Version:** 1.0.0
-**Last Updated:** January 26, 2026
+**Delivered by:** Revstar DATA AI Team  
+**Version:** 2.0.0  
+**Date:** February 26, 2026

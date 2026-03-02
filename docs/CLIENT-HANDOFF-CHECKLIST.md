@@ -1,455 +1,173 @@
 # Client Handoff Checklist
-## Beauty Products Data Lake
+## Beauty Products Data Lake + LLM Product Innovation Engine
 
-**Version:** 1.0.0  
-**Handoff Date:** _______________  
-**Handoff Team:** _______________  
-**Client Team:** _______________
+**Version:** 2.0.0  
+**Handoff Date:** February 26, 2026  
+**Environment:** dev (POC)
 
----
-
-## Purpose
-
-This checklist ensures complete knowledge transfer and successful handoff of the Beauty Products Data Lake to the client team. Use this document to track progress and verify all handoff activities are completed.
+Use this checklist during the knowledge transfer session. Mark each item as the session progresses.
 
 ---
 
-## Pre-Handoff Preparation
+## Section 1 — System Access
 
-### Documentation Review
-
-- [ ] All documentation is complete and reviewed
-- [ ] Architecture diagrams are included and accurate
-- [ ] Deployment guide is tested and verified
-- [ ] Operations guide is comprehensive
-- [ ] All runbooks are complete
-- [ ] Code comments are clear and helpful
-- [ ] No development artifacts remain in repository
-
-### Code Review
-
-- [ ] All code is production-ready
-- [ ] No hardcoded credentials or sensitive data
-- [ ] All paths are parameterized
-- [ ] Error handling is comprehensive
-- [ ] Code follows best practices
-- [ ] Tests are passing (10/10 integration tests)
-
-### Infrastructure Review
-
-- [ ] Terraform code is reviewed and validated
-- [ ] All resources are properly tagged
-- [ ] IAM permissions follow least privilege
-- [ ] Security best practices are implemented
-- [ ] Cost estimates are provided
-- [ ] Backup and recovery procedures documented
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1.1 | Client has AWS Console access to the deployment account | ☐ | |
+| 1.2 | Client can access the Amplify frontend URL | ☐ | https://amplify-versio.d32yhcl4pif1yr.amplifyapp.com/ |
+| 1.3 | Client has received demo account credentials | ☐ | verygreat@test.com |
+| 1.4 | Client can sign in to the frontend and generate a report | ☐ | |
+| 1.5 | Client has been shown how to download the PDF report | ☐ | |
+| 1.6 | Client has received Terraform outputs (API URL, Cognito IDs, etc.) | ☐ | |
 
 ---
 
-## Knowledge Transfer Sessions
+## Section 2 — Architecture Walkthrough
 
-### Session 1: Architecture Overview
-
-**Date:** _______________  
-**Duration:** 60 minutes  
-**Attendees:** _______________
-
-**Topics Covered:**
-- [ ] System architecture and components
-- [ ] Data flow from ingestion to analytics
-- [ ] Quality framework and scoring
-- [ ] Monitoring and alerting
-- [ ] Security and compliance
-
-**Deliverables:**
-- [ ] Architecture diagram walkthrough
-- [ ] Component interaction explanation
-- [ ] Q&A session
-
-**Status:** ☐ Completed / ☐ Pending
+| # | Topic | Status | Notes |
+|---|-------|--------|-------|
+| 2.1 | Data Lake architecture explained (S3 zones, Glue, Athena) | ☐ | See `docs/ARCHITECTURE.md` |
+| 2.2 | LLM system architecture explained (Lambda, Bedrock, API GW, Cognito) | ☐ | See `docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md` |
+| 2.3 | Async flow explained: POST → 202 → polling GET → completed | ☐ | |
+| 2.4 | AI image generation explained (Stability SD 3.5, us-west-2) | ☐ | |
+| 2.5 | Data quality framework explained (scoring, tiers, flags) | ☐ | See `README.md#data-quality` |
+| 2.6 | Web insights cache explained (Brave Search + DynamoDB 6h TTL) | ☐ | |
 
 ---
 
-### Session 2: Deployment and Configuration
+## Section 3 — Data Operations
 
-**Date:** _______________  
-**Duration:** 90 minutes  
-**Attendees:** _______________
-
-**Topics Covered:**
-- [ ] Terraform configuration
-- [ ] Environment setup
-- [ ] Deployment procedures
-- [ ] Initial configuration
-- [ ] Verification steps
-
-**Hands-On Activities:**
-- [ ] Terraform initialization
-- [ ] Infrastructure deployment (dev/test environment)
-- [ ] ETL script upload
-- [ ] Athena views creation
-- [ ] Sample data upload and processing
-
-**Deliverables:**
-- [ ] Deployment guide walkthrough
-- [ ] Hands-on deployment exercise
-- [ ] Configuration documentation
-
-**Status:** ☐ Completed / ☐ Pending
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 3.1 | Client knows how to upload CSV files to S3 raw zone | ☐ | See Operations Guide §1.2 |
+| 3.2 | Client understands the required CSV column format (11 columns) | ☐ | |
+| 3.3 | Client knows ETL runs automatically at 2 AM UTC | ☐ | |
+| 3.4 | Client knows how to trigger ETL job manually | ☐ | `aws glue start-job-run` |
+| 3.5 | Client can view ETL job status and logs in CloudWatch | ☐ | |
+| 3.6 | Client has been shown data quality report structure | ☐ | |
+| 3.7 | Client understands quality tiers (PASS/WARN/FAIL) and routing | ☐ | |
 
 ---
 
-### Session 3: Daily Operations
+## Section 4 — Athena Analytics
 
-**Date:** _______________  
-**Duration:** 90 minutes  
-**Attendees:** _______________
-
-**Topics Covered:**
-- [ ] Data upload procedures
-- [ ] Job monitoring
-- [ ] Quality report review
-- [ ] Athena querying
-- [ ] Common tasks
-
-**Hands-On Activities:**
-- [ ] Upload sample data file
-- [ ] Monitor job execution
-- [ ] Review quality report
-- [ ] Execute Athena queries
-- [ ] Use CloudWatch dashboard
-
-**Deliverables:**
-- [ ] Operations guide walkthrough
-- [ ] Hands-on practice
-- [ ] Quick reference guide
-
-**Status:** ☐ Completed / ☐ Pending
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 4.1 | Client can open Athena Query Editor | ☐ | |
+| 4.2 | Client knows which workgroup to use | ☐ | `beauty-products-athena-dev` |
+| 4.3 | Client has been shown the 5 pre-built views | ☐ | `vw_high_quality_products`, etc. |
+| 4.4 | Client understands the top-5 query that feeds the LLM | ☐ | |
+| 4.5 | Client knows how to add partition filters for performance | ☐ | |
 
 ---
 
-### Session 4: Troubleshooting and Support
+## Section 5 — LLM Product Innovation Engine
 
-**Date:** _______________  
-**Duration:** 60 minutes  
-**Attendees:** _______________
-
-**Topics Covered:**
-- [ ] Common issues and solutions
-- [ ] Runbook procedures
-- [ ] Log access and analysis
-- [ ] Alert response procedures
-- [ ] Escalation procedures
-
-**Hands-On Activities:**
-- [ ] Access CloudWatch logs
-- [ ] Review error scenarios
-- [ ] Practice runbook execution
-- [ ] Test alert procedures
-
-**Deliverables:**
-- [ ] Troubleshooting guide
-- [ ] Runbook walkthrough
-- [ ] Support contact information
-
-**Status:** ☐ Completed / ☐ Pending
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 5.1 | Client can use the frontend to generate a report | ☐ | |
+| 5.2 | Client understands what a "brand proposal" includes | ☐ | Name, tagline, story, values, positioning |
+| 5.3 | Client understands what "product ideas" include | ☐ | 5 concepts with images, price, ingredients |
+| 5.4 | Client knows what L2 categories are available | ☐ | From Athena `DISTINCT l2_category` query |
+| 5.5 | Client understands the ~15–25 second generation time | ☐ | |
+| 5.6 | Client knows PDF links expire after 1 hour | ☐ | |
+| 5.7 | Client knows the API error codes (TRD001–TRD007) | ☐ | See Operations Guide §5.2 |
 
 ---
 
-## Access and Permissions
+## Section 6 — Monitoring
 
-### AWS Console Access
-
-- [ ] IAM users created for client team
-- [ ] Appropriate IAM policies assigned
-- [ ] Multi-factor authentication (MFA) enabled
-- [ ] Console access verified
-
-**Users Created:**
-- Name: _______________ Role: _______________
-- Name: _______________ Role: _______________
-- Name: _______________ Role: _______________
-
-### S3 Bucket Access
-
-- [ ] Raw bucket access verified
-- [ ] Curated bucket access verified
-- [ ] Metadata bucket access verified
-- [ ] Upload permissions tested
-- [ ] Download permissions tested
-
-**Access Methods:**
-- [ ] AWS Console
-- [ ] AWS CLI
-- [ ] Programmatic access (if applicable)
-
-### Glue Job Permissions
-
-- [ ] Job execution permissions verified
-- [ ] Job modification permissions (if needed)
-- [ ] Log access permissions verified
-- [ ] Test job execution
-
-### Athena Access
-
-- [ ] Workgroup access verified
-- [ ] Query execution permissions tested
-- [ ] Result location access verified
-- [ ] View creation permissions (if needed)
-
-### CloudWatch Access
-
-- [ ] Dashboard access verified
-- [ ] Log access verified
-- [ ] Alarm view permissions
-- [ ] Metric access verified
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 6.1 | Client can access the Data Lake CloudWatch dashboard | ☐ | `beauty-products-pipeline-metrics` |
+| 6.2 | Client can access the LLM CloudWatch dashboard | ☐ | `beauty-products-llm-dashboard` |
+| 6.3 | Client knows which alarms are configured and what they do | ☐ | 3 ETL alarms + LLM error alarms |
+| 6.4 | Client knows how to check alert email configuration | ☐ | SNS topic, `alert_email` in tfvars |
+| 6.5 | Client can view Lambda logs in CloudWatch | ☐ | `/aws/lambda/beauty-products-llm-orchestrator-dev` |
+| 6.6 | Client can query DynamoDB audit logs | ☐ | `beauty-products-prompt-logs-dev` |
 
 ---
 
-## Documentation Delivery
+## Section 7 — User Management
 
-### Core Documentation
-
-- [ ] README.md - Project overview
-- [ ] CLIENT-HANDOFF-PACKAGE.md - Executive summary
-- [ ] docs/ARCHITECTURE.md - System architecture
-- [ ] docs/CLIENT-DEPLOYMENT-GUIDE.md - Deployment guide
-- [ ] docs/CLIENT-OPERATIONS-GUIDE.md - Operations guide
-- [ ] docs/CLIENT-HANDOFF-CHECKLIST.md - This document
-- [ ] docs/INDEX.md - Documentation index
-
-### Technical Documentation
-
-- [ ] deployment-checklist.md - Detailed deployment steps
-- [ ] athena-views.sql - SQL view definitions
-- [ ] docs/s3-bucket-structure.md - Storage organization
-- [ ] schemas/ - Schema definitions
-- [ ] CHANGELOG.md - Version history
-
-### Operational Documentation
-
-- [ ] runbooks/etl-job-failure.md - Job failure recovery
-- [ ] runbooks/data-quality-investigation.md - Quality troubleshooting
-- [ ] runbooks/schema-evolution.md - Schema changes
-- [ ] runbooks/validation-and-testing.md - Testing procedures
-
-### Governance Documentation
-
-- [ ] governance/data-governance-charter.md - Governance framework
-- [ ] governance/business-glossary.csv - Terms and definitions
-- [ ] governance/source-to-target-mapping.xlsx - Data lineage
-
-### Code Documentation
-
-- [ ] scripts/beauty_products_etl.py - ETL script with comments
-- [ ] terraform/ - Infrastructure code
-- [ ] tests/ - Test suite and sample data
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 7.1 | Client knows how to create users in Cognito | ☐ | Via Console or CLI (Operations Guide §4) |
+| 7.2 | Client knows how to disable/delete users | ☐ | |
+| 7.3 | Client understands Cognito password requirements | ☐ | 8+ chars, uppercase, lowercase, number |
+| 7.4 | Client has changed or plans to change demo account password | ☐ | `VeryGreat123!` |
 
 ---
 
-## Training Completion
+## Section 8 — Deployment and Infrastructure
 
-### AWS Console Navigation
-
-- [ ] S3 bucket navigation
-- [ ] Glue job management
-- [ ] Athena query editor
-- [ ] CloudWatch dashboard
-- [ ] IAM user management
-
-**Trainees:**
-- _______________
-- _______________
-- _______________
-
-### Common Tasks
-
-- [ ] Upload data file to S3
-- [ ] Trigger Glue job manually
-- [ ] Monitor job execution
-- [ ] Review quality report
-- [ ] Execute Athena query
-- [ ] Access CloudWatch logs
-
-**Trainees:**
-- _______________
-- _______________
-- _______________
-
-### Troubleshooting
-
-- [ ] Identify job failure
-- [ ] Access and review logs
-- [ ] Execute runbook procedures
-- [ ] Respond to alerts
-- [ ] Escalate issues
-
-**Trainees:**
-- _______________
-- _______________
-- _______________
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 8.1 | Client has a copy of the project repository | ☐ | |
+| 8.2 | Client has a copy of `terraform.tfvars` (securely) | ☐ | Do not commit to git |
+| 8.3 | Client has `terraform.tfvars.example` as a reference | ☐ | `terraform/terraform.tfvars.example` |
+| 8.4 | Client understands the 2-step deployment: Terraform + Lambda deploy script | ☐ | |
+| 8.5 | Client knows how to re-deploy Lambda code updates | ☐ | `.\scripts\deploy-lambda-llm.ps1` |
+| 8.6 | Client knows how to run `terraform plan/apply` for infra changes | ☐ | |
+| 8.7 | Client knows how to destroy infrastructure if needed | ☐ | `terraform destroy` (see Deployment Guide §decommission) |
 
 ---
 
-## System Verification
+## Section 9 — Runbooks and Troubleshooting
 
-### Infrastructure Verification
-
-- [ ] All S3 buckets created and accessible
-- [ ] Glue job exists and is configured correctly
-- [ ] Glue databases and tables created
-- [ ] Crawlers configured and tested
-- [ ] EventBridge rule active
-- [ ] CloudWatch dashboard functional
-- [ ] CloudWatch alarms configured
-- [ ] SNS topic and subscriptions active
-- [ ] Athena workgroup configured
-
-### Functional Verification
-
-- [ ] Sample data upload successful
-- [ ] Glue job execution successful
-- [ ] Data appears in curated bucket
-- [ ] Quality report generated
-- [ ] Glue Catalog tables updated
-- [ ] Athena queries return results
-- [ ] Views are accessible
-- [ ] CloudWatch metrics populated
-- [ ] Alarms trigger correctly (test)
-
-### Performance Verification
-
-- [ ] Job execution time acceptable (< 10 minutes for sample)
-- [ ] Athena queries meet SLA (< 5 seconds)
-- [ ] CloudWatch dashboard loads quickly
-- [ ] No performance degradation
+| # | Runbook | Status | Notes |
+|---|---------|--------|-------|
+| 9.1 | ETL Job Failure | ☐ | `runbooks/etl-job-failure.md` |
+| 9.2 | Data Quality Investigation | ☐ | `runbooks/data-quality-investigation.md` |
+| 9.3 | Schema Evolution | ☐ | `runbooks/schema-evolution.md` |
+| 9.4 | Validation and Testing | ☐ | `runbooks/validation-and-testing.md` |
+| 9.5 | Lake Formation Security Review | ☐ | `runbooks/lake-formation-security-review.md` |
+| 9.6 | End-to-End Test (DL → LLM) | ☐ | `runbooks/e2e-dl-to-llm-test.md` |
 
 ---
 
-## Support Setup
+## Section 10 — Security and Compliance
 
-### Support Contacts
-
-**Technical Support:**
-- Primary Contact: _______________ Email: _______________ Phone: _______________
-- Secondary Contact: _______________ Email: _______________ Phone: _______________
-
-**Data Governance:**
-- Data Steward: _______________ Email: _______________
-
-**Infrastructure:**
-- AWS Support: _______________ (if applicable)
-- Internal IT: _______________
-
-### Support Procedures
-
-- [ ] Support escalation process documented
-- [ ] Response time SLAs defined
-- [ ] Communication channels established
-- [ ] Issue tracking system configured (if applicable)
-
-### Knowledge Base
-
-- [ ] Documentation repository location: _______________
-- [ ] Access instructions provided
-- [ ] Search functionality available
-- [ ] Update procedures documented
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 10.1 | Client understands that `terraform.tfvars` must NOT be committed to git | ☐ | Already in `.gitignore` |
+| 10.2 | Client will rotate Brave Search API key after handoff | ☐ | |
+| 10.3 | Client understands S3 buckets are private (public access blocked) | ☐ | |
+| 10.4 | Client understands data retention policies | ☐ | Operations Guide §8 |
+| 10.5 | Client has reviewed the Data Governance Charter | ☐ | `governance/data-governance-charter.md` |
+| 10.6 | Production hardening checklist reviewed | ☐ | See `terraform/README-LLM.md` Security section |
 
 ---
 
-## Post-Handoff Activities
+## Post-Handoff Action Items
 
-### Week 1
+Items the client should complete after the session:
 
-- [ ] Daily check-ins scheduled
-- [ ] First production data upload assisted
-- [ ] Initial quality review conducted
-- [ ] Questions and issues addressed
-- [ ] Documentation updates (if needed)
-
-**Status:** ☐ Completed / ☐ In Progress / ☐ Pending
-
-### Week 2-4
-
-- [ ] Weekly check-ins scheduled
-- [ ] Independent operations verified
-- [ ] Performance monitoring reviewed
-- [ ] Quality trends analyzed
-- [ ] Additional training (if needed)
-
-**Status:** ☐ Completed / ☐ In Progress / ☐ Pending
-
-### Month 2-3
-
-- [ ] Monthly review scheduled
-- [ ] System optimization opportunities identified
-- [ ] Governance review conducted
-- [ ] Documentation updates completed
-- [ ] Transition to full client ownership
-
-**Status:** ☐ Completed / ☐ In Progress / ☐ Pending
+| # | Action | Owner | Target Date |
+|---|--------|-------|-------------|
+| 1 | Change demo account password | Client | After handoff |
+| 2 | Create individual user accounts for the team | Client | Week 1 |
+| 3 | Rotate Brave Search API key | Client | Week 1 |
+| 4 | Configure `alert_email` to production ops team | Client | Week 1 |
+| 5 | Upload production data and run ETL | Client | Week 1 |
+| 6 | Enable MFA on Cognito User Pool (for production) | Client | Week 2 |
+| 7 | Review and accept Data Governance Charter | Client | Week 2 |
+| 8 | Set up cost monitoring in AWS Cost Explorer | Client | Week 2 |
 
 ---
 
-## Sign-Off
+## Handoff Sign-Off
 
-### Client Team Sign-Off
-
-**Primary Contact:**
-- Name: _______________
-- Title: _______________
-- Signature: _______________
-- Date: _______________
-
-**Technical Lead:**
-- Name: _______________
-- Title: _______________
-- Signature: _______________
-- Date: _______________
-
-### Handoff Team Sign-Off
-
-**Project Lead:**
-- Name: _______________
-- Title: _______________
-- Signature: _______________
-- Date: _______________
-
-**Technical Lead:**
-- Name: _______________
-- Title: _______________
-- Signature: _______________
-- Date: _______________
+| Role | Name | Signature | Date |
+|------|------|-----------|------|
+| Delivered by (Revstar) | | | |
+| Received by (Client) | | | |
+| Technical lead (Client) | | | |
 
 ---
 
-## Notes and Additional Information
-
-**Special Considerations:**
-```
-[Document any special configurations, customizations, or important notes]
-```
-
-**Outstanding Items:**
-```
-[Document any items that need to be completed post-handoff]
-```
-
-**Client-Specific Customizations:**
-```
-[Document any client-specific configurations or customizations]
-```
-
----
-
-## Related Documents
-
-- [Client Handoff Package](../CLIENT-HANDOFF-PACKAGE.md) - Executive summary
-- [Architecture Overview](ARCHITECTURE.md) - System architecture
-- [Deployment Guide](CLIENT-DEPLOYMENT-GUIDE.md) - Deployment procedures
-- [Operations Guide](CLIENT-OPERATIONS-GUIDE.md) - Daily operations
-
----
-
-**Handoff Status:** ☐ In Progress / ☐ Completed  
-**Completion Date:** _______________
+**Session Date:** _______________  
+**Duration:** _______________  
+**Participants:** _______________  
+**Follow-up session needed:** ☐ Yes / ☐ No  
+**Follow-up date:** _______________

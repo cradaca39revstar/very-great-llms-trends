@@ -1,0 +1,75 @@
+# Terraform Variables - Example Configuration
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to git (it is gitignored).
+
+# ─────────────────────────────────────────────
+# Environment Configuration
+# ─────────────────────────────────────────────
+
+# Options: dev, staging, prod, poc
+environment = "poc"
+
+# AWS region for all resources (LLM system requires us-east-1 for Nova Pro)
+aws_region = "us-east-1"
+
+# ─────────────────────────────────────────────
+# Alert Configuration
+# ─────────────────────────────────────────────
+
+# Email address for CloudWatch alarm notifications
+alert_email = "your-email@example.com"
+
+# Optional: SMS alerts (E.164 format, e.g. +12125550100). Leave empty to disable.
+alert_phone_number = ""
+
+# ─────────────────────────────────────────────
+# Project Configuration
+# ─────────────────────────────────────────────
+
+project_name = "BeautyProductsDataLake"
+
+# ─────────────────────────────────────────────
+# LLM System Configuration
+# ─────────────────────────────────────────────
+
+# Set to true to deploy the LLM Trending Products system (API Gateway, Lambda, Cognito, etc.)
+enable_llm_system = true
+
+# Cognito hosted UI domain prefix — must be globally unique across AWS.
+# Use a value like "beauty-products-trending-<yourenv>" or "beauty-products-trending-<yourcompany>".
+cognito_domain_prefix = "beauty-products-trending-poc"
+
+# Lambda memory in MB (valid range: 512–3008)
+lambda_memory_size = 1024
+
+# Lambda timeout in seconds (max: 900)
+lambda_timeout = 60
+
+# Days before generated PDF reports are automatically deleted from S3
+pdf_expiration_days = 7
+
+# ─────────────────────────────────────────────
+# Bedrock Model Configuration
+# ─────────────────────────────────────────────
+# Supported in us-east-1 with direct foundation model ID (no cross-region inference profile needed).
+# Nova Pro is the recommended model for this system.
+
+bedrock_primary_model  = "amazon.nova-pro-v1:0"
+bedrock_fallback_model = "amazon.nova-pro-v1:0"
+
+# ─────────────────────────────────────────────
+# Brave Search API (Optional)
+# ─────────────────────────────────────────────
+# Used by the Scraper Lambda for web URL discovery.
+# Free plan: 2,000 queries/month. Get your key at https://api.search.brave.com/
+# Leave empty ("") if enable_scraper_lambda = false.
+
+brave_search_api_key = "YOUR_BRAVE_SEARCH_API_KEY_HERE"
+
+# ─────────────────────────────────────────────
+# Scraper Lambda (Optional)
+# ─────────────────────────────────────────────
+# Set to true only if the Scraper Lambda code is deployed.
+# Default is false (disabled). Requires brave_search_api_key when enabled.
+
+enable_scraper_lambda = false

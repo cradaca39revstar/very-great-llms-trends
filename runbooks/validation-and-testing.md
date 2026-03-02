@@ -474,7 +474,7 @@ Verify that Athena queries against Glue Catalog tables and views meet the SLA of
   - `vw_quality_trends`
   - `vw_product_performance`
   - `vw_shop_leaderboard`
-- **SLA:** < 5 seconds for queries with `LIMIT 10` (per `deployment-checklist.md` Step 14 and `README.md`)
+- **SLA:** < 5 seconds for queries with `LIMIT 10` (per README and operations guide)
 
 ### Step 3.1: Verify Views Use Correct Tables and Partitions
 
@@ -638,7 +638,7 @@ View Performance Results:
 ### Step 3.4: Verify SLA Documentation
 
 **Check Files:**
-- `deployment-checklist.md` Step 14: "Performance acceptable (< 5 seconds)"
+- Deployment/operations guide: "Performance acceptable (< 5 seconds)"
 - `README.md`: "Query Performance: < 5 seconds (standard aggregations)"
 
 **Proposed Addition to README.md (Text Only - Do Not Edit):**
@@ -1087,7 +1087,7 @@ Run a request and confirm logs show successful steps (Athena query, Bedrock proc
 - **Athena Views:** `athena-views.sql`
 - **Crawler Configuration:** `terraform/glue-crawlers.tf`
 - **CloudWatch Dashboard:** `terraform/cloudwatch.tf`
-- **Deployment Checklist:** `deployment-checklist.md`
+- **Deployment:** [CLIENT-DEPLOYMENT-GUIDE.md](../docs/CLIENT-DEPLOYMENT-GUIDE.md)
 - **Integration Tests:** `tests/integration_test.py`
 - **LLM Architecture:** `docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`
 - **LLM Deployment & Testing:** `terraform/README-LLM.md`

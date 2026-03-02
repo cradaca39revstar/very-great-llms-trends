@@ -1,9 +1,9 @@
 # Beauty Products Data Lake
 
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Status:** Production Ready  
 **Framework:** DAMA-DMBOK Aligned  
-**Handoff Date:** _______________
+**Handoff Date:** February 26, 2026
 
 ---
 
@@ -18,6 +18,7 @@
 - 🤖 **[LLM Trending Products Architecture](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)** - AI-powered trending products report generator
 - 🚀 **[Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md)** - Step-by-step deployment instructions
 - ⚙️ **[Operations Guide](docs/CLIENT-OPERATIONS-GUIDE.md)** - Daily operations and support procedures
+- 🔗 **[Frontend Access (Amplify)](docs/AMPLIFY-CLIENT-LINK.md)** - Application URL, login, and user management
 - 📋 **[Handoff Checklist](docs/CLIENT-HANDOFF-CHECKLIST.md)** - Knowledge transfer tracking
 - 📚 **[Documentation Index](docs/INDEX.md)** - Complete documentation catalog
 
@@ -41,21 +42,27 @@ For questions or issues:
 
 The Beauty Products Data Lake is an AWS-based data pipeline that ingests, transforms, and curates beauty product sales data using S3, AWS Glue, and Athena. The solution implements comprehensive data quality checks, governance controls, and metadata management aligned with DAMA-DMBOK best practices.
 
-### LLM Trending Products System
+### LLM Trending Products System (V2 – Product Innovation Engine)
 
-**NEW**: AI-powered trending products report generator that integrates with the existing data lake to deliver intelligent, data-driven insights.
+**V2**: AI-powered **Product Innovation Report** generator. Uses real top-5 market data as context to generate one new brand proposal and five AI product ideas, with AI-generated concept images.
 
 **Key Features**:
-- Natural language queries (English)
-- AI-generated market trend analysis using AWS Bedrock
-- Professional PDF reports in 20-25 seconds
+- Natural language queries (English) by L2 category
+- **Market context**: Athena top 5 real products (revenue, growth, rank) — last 30 days
+- **Brand proposal**: One AI-generated brand (name, tagline, story, values, positioning) via Amazon Bedrock Nova Pro
+- **Product ideas**: Five AI product concepts with descriptions, price, ingredients, trends, competitive advantage
+- **AI images**: Stability AI SD 3.5 Large (us-west-2) — one holistic product + packaging + logo image per concept
+- Professional PDF reports in ~15–25 seconds
+- Async API: POST returns 202 + `request_id`; poll GET `/report/{request_id}` for result
 - Secure authentication via AWS Cognito
-- Integration with existing curated data
+- Web market insights via Brave Search with 6-hour DynamoDB cache
+- Optional Scraper Lambda (`enable_scraper_lambda`, default `false`)
 
 **Documentation**:
 - Architecture: [`docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md`](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md)
 - Deployment: [`terraform/README-LLM.md`](terraform/README-LLM.md)
 - User Guide: See [LLM Architecture Doc - User Guide Section](docs/LLM-TRENDING-PRODUCTS-ARCHITECTURE.md#user-guide)
+- Frontend (UI): [`frontend/README.md`](frontend/README.md) — local dev and Amplify Hosting
 
 **How to test the agent**: Prerequisites: Terraform applied, Lambda deployed (`.\scripts\deploy-lambda-llm.ps1`), and a Cognito test user created once (see [Testing in terraform/README-LLM.md](terraform/README-LLM.md#testing)). Then run `.\scripts\call-api-llm.ps1` from the project root.
 
@@ -252,7 +259,6 @@ Full schema: [`schemas/curated_beauty_products_v1.json`](schemas/curated_beauty_
 
 **Detailed Guides:**
 - [Client Deployment Guide](docs/CLIENT-DEPLOYMENT-GUIDE.md) - Step-by-step deployment instructions
-- [Deployment Checklist](deployment-checklist.md) - Detailed pre-deployment checklist
 
 ---
 
@@ -349,56 +355,89 @@ FROM beauty_products_db.curated_beauty_products;
 
 ```
 .
-├── terraform/                  # Infrastructure as Code
-│   ├── s3-buckets.tf          # S3 bucket definitions
-│   ├── iam.tf                 # IAM roles and policies
-│   ├── glue-catalog.tf        # Glue databases and tables
-│   ├── glue-jobs.tf           # Glue ETL job config
-│   ├── glue-crawlers.tf       # Glue crawler config
-│   ├── eventbridge.tf         # Scheduling
-│   ├── cloudwatch.tf          # Monitoring and alarms
-│   ├── sns.tf                 # Notifications
-│   ├── variables.tf           # Input variables
-│   ├── outputs.tf             # Output values
-│   └── provider.tf            # Terraform config
+├── terraform/                      # Infrastructure as Code (22 files)
+│   ├── s3-buckets.tf              # S3 bucket definitions
+│   ├── iam.tf                     # IAM roles and policies
+│   ├── glue-catalog.tf            # Glue databases and tables
+│   ├── glue-jobs.tf               # Glue ETL job config
+│   ├── glue-crawlers.tf           # Glue crawler config
+│   ├── eventbridge.tf             # Scheduling
+│   ├── cloudwatch.tf              # Data lake monitoring
+│   ├── cloudwatch-llm.tf          # LLM system monitoring
+│   ├── sns.tf                     # Notifications
+│   ├── lambda-llm.tf              # Lambda orchestrator
+│   ├── lambda-scraper.tf          # Scraper Lambda (optional)
+│   ├── api-gateway-llm.tf         # API Gateway
+│   ├── cognito-llm.tf             # Cognito User Pool
+│   ├── dynamodb-llm.tf            # DynamoDB tables
+│   ├── s3-llm-pdfs.tf             # PDF storage bucket
+│   ├── bedrock-permissions.tf     # Bedrock IAM permissions
+│   ├── variables.tf               # Input variables
+│   ├── outputs.tf                 # Output values
+│   ├── provider.tf                # Terraform config
+│   ├── terraform.tfvars.example   # Configuration template
+│   └── README-LLM.md             # LLM deployment guide
 │
-├── scripts/                    # ETL code
-│   └── beauty_products_etl.py # Main Glue ETL script
+├── lambda/                         # Lambda orchestrator (V2)
+│   ├── trending_products_orchestrator.py  # Main handler (954 lines)
+│   └── utils/
+│       ├── bedrock_helper.py      # Brand + product generation
+│       ├── image_generator.py     # Stability SD 3.5 images
+│       ├── image_utils.py         # Image thumbnailing
+│       ├── pdf_generator.py       # PDF with images
+│       ├── athena_helper.py       # Top-5 product queries
+│       └── market_research_agent.py  # Brave Search web insights
 │
-├── tests/                      # Test suite
-│   ├── test_transformations.py # Unit tests
-│   ├── integration_test.py    # Integration tests
-│   └── sample-data/           # Test datasets
-│       ├── valid_input.csv
-│       └── malformed_input.csv
+├── frontend/                       # React SPA (Vite + TypeScript)
+│   ├── src/                       # Components, types, auth
+│   └── README.md                  # Local dev + Amplify deploy guide
 │
-├── schemas/                    # Schema definitions
+├── lambda_scraper/                 # Optional scraper Lambda (disabled)
+│
+├── scripts/                        # ETL + deployment scripts
+│   ├── beauty_products_etl.py     # Main Glue ETL script (1,191 lines)
+│   ├── deploy-lambda-llm.ps1      # Lambda deployment (PowerShell)
+│   ├── deploy-lambda-llm.sh       # Lambda deployment (Bash)
+│   └── call-api-llm.ps1           # API test script
+│
+├── tests/                          # Test suite
+│   ├── integration_test.py        # ETL integration tests
+│   ├── test_transformations.py    # Unit tests
+│   ├── test_llm_integration.py    # LLM API tests
+│   └── sample-data/               # Test datasets
+│
+├── schemas/                        # Schema definitions
 │   ├── curated_beauty_products_v1.json
 │   └── quality_report_v1.json
 │
-├── governance/                 # Governance documents
+├── governance/                     # DAMA-DMBOK governance
 │   ├── data-governance-charter.md
 │   ├── business-glossary.csv
 │   └── source-to-target-mapping.xlsx
 │
-├── runbooks/                   # Operational guides
+├── runbooks/                       # Operational guides (7 runbooks)
 │   ├── etl-job-failure.md
 │   ├── schema-evolution.md
-│   └── data-quality-investigation.md
+│   ├── data-quality-investigation.md
+│   ├── validation-and-testing.md
+│   ├── e2e-dl-to-llm-test.md
+│   └── lake-formation-security-review.md
 │
-├── docs/                      # Documentation
-│   ├── ARCHITECTURE.md        # System architecture
-│   ├── CLIENT-DEPLOYMENT-GUIDE.md  # Deployment guide
-│   ├── CLIENT-OPERATIONS-GUIDE.md  # Operations guide
-│   ├── CLIENT-HANDOFF-CHECKLIST.md # Handoff checklist
-│   ├── INDEX.md               # Documentation index
-│   ├── diagrams/              # Architecture diagrams
-│   └── ...                    # Additional documentation
+├── docs/                           # Documentation
+│   ├── ARCHITECTURE.md            # Data Lake architecture
+│   ├── LLM-TRENDING-PRODUCTS-ARCHITECTURE.md  # LLM system architecture
+│   ├── CLIENT-DEPLOYMENT-GUIDE.md # Deployment guide
+│   ├── CLIENT-OPERATIONS-GUIDE.md # Operations guide
+│   ├── CLIENT-HANDOFF-CHECKLIST.md  # Handoff checklist
+│   ├── AMPLIFY-CLIENT-LINK.md     # Frontend access guide
+│   ├── INDEX.md                   # Documentation index
+│   ├── s3-bucket-structure.md     # S3 organization
+│   ├── testing-with-docker.md     # Docker test guide
+│   └── diagrams/                  # Architecture diagrams
 │
-├── athena-views.sql           # Athena view definitions
-├── CLIENT-HANDOFF-PACKAGE.md  # Executive handoff summary
-├── deployment-checklist.md    # Detailed deployment checklist
-└── README.md                  # This file
+├── athena-views.sql               # Athena view definitions
+├── CLIENT-HANDOFF-PACKAGE.md      # Executive handoff summary
+└── README.md                      # This file
 ```
 
 ---
@@ -447,7 +486,7 @@ aws s3 cp tests/sample-data/valid_input.csv \
 aws glue start-job-run --job-name beauty-products-etl-job
 
 # Check results
-# (See queries in deployment-checklist.md)
+# (See queries in docs/CLIENT-DEPLOYMENT-GUIDE.md and athena-views.sql)
 ```
 
 ---
@@ -506,7 +545,7 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 
 ## Roadmap
 
-### Phase 2 (Future Enhancements)
+### Phase 3 (Future Enhancements)
 
 - [ ] Incremental processing (CDC)
 - [ ] Real-time streaming (Kinesis)
@@ -515,7 +554,9 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 - [ ] Data catalog search (AWS DataZone)
 - [ ] Column-level lineage
 - [ ] Data quality dashboard (QuickSight)
-- [ ] API layer (API Gateway + Lambda)
+- [ ] Multi-language report generation
+- [ ] Report history and comparison UI
+- [ ] Custom domain for API Gateway and Amplify
 
 ---
 
@@ -565,6 +606,14 @@ Full governance documentation: [`governance/data-governance-charter.md`](governa
 ---
 
 ## Changelog
+
+### v2.0.0 (2026-02-03)
+
+- LLM system V2: brand proposal + 5 product ideas + Stability SD 3.5 concept images
+- Async API flow (POST 202 → poll GET /report/{request_id})
+- Web market insights via Brave Search with DynamoDB 6-hour cache
+- Titan IAM permissions updated to Stability SD 3.5 (us-west-2)
+- Scraper Lambda optional (`enable_scraper_lambda = false` by default)
 
 ### v1.0.0 (2026-01-17)
 

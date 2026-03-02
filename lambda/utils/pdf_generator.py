@@ -1,13 +1,44 @@
 """
-PDF Report Generator Module
-Creates professional PDF reports using FPDF
+PDF Report Generator Module (V2).
+Creates Product Innovation Report PDF: market context, brand proposal, product ideas with AI images.
 """
 
 import os
 from datetime import datetime, timezone
-from typing import Dict, List
+from io import BytesIO
+from typing import Dict, List, Optional, Tuple
 import boto3
 from fpdf import FPDF
+
+try:
+    from PIL import Image
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
+
+# -----------------------------------------------------------------------------
+# Layout constants (tweak here for global layout changes)
+# -----------------------------------------------------------------------------
+# Page margins in mm (FPDF default unit). Left/right/top/bottom.
+PAGE_MARGIN_MM = 15
+# Bottom margin reserved for footer (used by set_auto_page_break)
+PAGE_BOTTOM_MARGIN_MM = 15
+# Font sizes (pt): title, heading, body, small
+FONT_SIZE_TITLE = 24
+FONT_SIZE_HEADING = 16
+FONT_SIZE_SUBHEADING = 12
+FONT_SIZE_BODY = 11
+FONT_SIZE_SMALL = 10
+# Line height multiplier for multi_cell (pt per line)
+LINE_HEIGHT_BODY = 5
+LINE_HEIGHT_TITLE = 6
+# Max URL length before truncation with ellipsis (avoids overflow)
+MAX_URL_DISPLAY_LEN = 80
+# Market Intelligence: compact section (max 1 page)
+MI_SNIPPET_MAX_CHARS = 90
+MI_ITEMS_PER_SECTION = 3
+MI_LINE_HEIGHT = 4
+MI_SECTION_FILL_RGB = (240, 240, 240)
 
 # AWS S3 client
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION_NAME', 'us-east-1'))
@@ -21,192 +52,469 @@ class TrendingProductsPDF(FPDF):
         self.report_data = report_data
         
     def header(self):
-        """Page header"""
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'Trending Products Report', 0, 1, 'C')
-        self.set_font('Arial', '', 10)
-        self.cell(0, 5, f"Category: {self.report_data.get('category', '')}", 0, 1, 'C')
-        self.ln(5)
+        """Page header – left empty so title appears only once on the title page."""
+        pass
     
     def footer(self):
         """Page footer"""
         self.set_y(-15)
+        self.set_x(self.l_margin)
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f"Page {self.page_no()}", 0, 0, 'C')
 
 
-def generate_pdf_report(report: Dict) -> bytes:
+def generate_pdf_report(
+    report: Dict,
+    product_ideas_with_images: Optional[List[Dict]] = None,
+    brand_logo_bytes: Optional[bytes] = None,
+) -> bytes:
     """
-    Generate PDF report from formatted report data
-    
-    Args:
-        report: Formatted report dict with products
-        
-    Returns:
-        PDF file as bytes
+    Generate Product Innovation Report PDF (V2): title, top 5 market trends (highlights only, no table), brand proposal, product ideas.
+    product_ideas_with_images: list of product dicts that may contain _image_bytes for embedding.
+    brand_logo_bytes: optional AI-generated brand logo image (PNG) for brand proposal page.
     """
     pdf = TrendingProductsPDF(report)
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Add title page
-    add_title_page(pdf, report)
-    
-    # Add each product
-    products = report.get('products', [])
-    for product in products:
-        add_product_page(pdf, product)
-    
-    # Get PDF as bytes (fpdf2 2.8+ output() returns bytearray; no .encode())
-    pdf_bytes = bytes(pdf.output())
+    pdf.set_margins(PAGE_MARGIN_MM, PAGE_MARGIN_MM, PAGE_MARGIN_MM)
+    pdf.set_auto_page_break(auto=True, margin=PAGE_BOTTOM_MARGIN_MM)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_y(pdf.t_margin)
 
-    return pdf_bytes
+    add_title_page(pdf, report)
+    add_market_research_page(pdf, report)
+    add_brand_proposal_page(pdf, report.get("brand_proposal", {}), logo_bytes=brand_logo_bytes)
+    product_ideas = report.get("product_ideas", [])
+    ideas_with_images = product_ideas_with_images or []
+    for i, product in enumerate(product_ideas):
+        img_bytes = None
+        if i < len(ideas_with_images) and isinstance(ideas_with_images[i], dict):
+            img_bytes = ideas_with_images[i].get("_image_bytes")
+        add_product_idea_page(pdf, product, img_bytes)
+
+    return bytes(pdf.output())
 
 
 def add_title_page(pdf: FPDF, report: Dict):
-    """Add title/cover page to PDF"""
+    """V2: Product Innovation Report title page – title and category once; Proposed Brand (name + tagline); Generated; Data Period."""
     pdf.add_page()
-    
-    # Title
-    pdf.set_font('Arial', 'B', 24)
-    pdf.ln(30)
-    pdf.cell(0, 10, 'Trending Products Report', 0, 1, 'C')
-    
-    # Category
-    pdf.set_font('Arial', 'B', 18)
+    pdf.set_x(pdf.l_margin)
+    category = report.get("category", "")
+    brand_proposal = report.get("brand_proposal", {})
+    brand_name = brand_proposal.get("brand_name", "")
+    brand_tagline = brand_proposal.get("brand_tagline", "")
+
+    # Title and category (only once) – category in smaller font
+    pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
+    pdf.ln(20)
+    pdf.cell(0, 10, "Product Innovation Report", 0, 1, "C")
+    pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
+    w_label = pdf.get_string_width("Category: ")
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    w_cat = pdf.get_string_width(_sanitize_pdf_text(category))
+    pdf.set_x((pdf.w - w_label - w_cat) / 2)
+    pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
+    pdf.cell(w_label, 8, "Category: ", 0, 0, "L")
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(w_cat, 8, _sanitize_pdf_text(category), 0, 1, "L")
+
+    # Proposed Brand: Name (bold+italic) and Tagline (italic)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.ln(10)
-    pdf.cell(0, 10, f"Category: {report.get('category', '')}", 0, 1, 'C')
-    
-    # Metadata
-    pdf.set_font('Arial', '', 12)
-    pdf.ln(20)
-    pdf.cell(0, 8, f"Generated: {format_timestamp(report.get('generated_at', ''))}", 0, 1, 'C')
-    pdf.cell(0, 8, f"Data Period: {report.get('data_period', 'Last 30 Days')}", 0, 1, 'C')
-    pdf.cell(0, 8, f"Number of Products: {len(report.get('products', []))}", 0, 1, 'C')
-    
-    # Summary
-    pdf.ln(20)
-    pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(0, 6, 
-        f"This report presents the top {len(report.get('products', []))} trending products "
-        f"in the {report.get('category', '')} category based on revenue performance and "
-        f"month-over-month growth over the last 30 days. Each product includes AI-generated "
-        f"market trend analysis."
+    pdf.cell(0, 8, "Proposed Brand:", 0, 1, "C")
+    if brand_name:
+        pdf.set_font("Arial", "BI", FONT_SIZE_HEADING)
+        pdf.ln(4)
+        pdf.cell(0, 8, _sanitize_pdf_text(brand_name), 0, 1, "C")
+        if brand_tagline:
+            pdf.set_font("Arial", "I", FONT_SIZE_SUBHEADING)
+            pdf.cell(0, 6, _sanitize_pdf_text(brand_tagline), 0, 1, "C")
+
+    # Generated and Data Period
+    pdf.set_font("Arial", "", FONT_SIZE_SUBHEADING)
+    pdf.ln(12)
+    pdf.cell(0, 8, f"Generated: {format_timestamp(report.get('generated_at', ''))}", 0, 1, "C")
+    pdf.cell(0, 8, f"Data Period: {report.get('data_period', 'Last 30 Days')}", 0, 1, "C")
+
+    # Intro paragraph
+    pdf.ln(15)
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.set_x(pdf.l_margin)
+    mc_count = len(report.get("market_context") or [])
+    summary = _sanitize_pdf_text(
+        f"Based on market analysis of top-performing products in {category}, this report "
+        f"presents the top {mc_count} market trend{'s' if mc_count != 1 else ''}, an AI-generated brand proposal inspired by the top product, and 1 product concept."
     )
+    pdf.multi_cell(_content_width(pdf), LINE_HEIGHT_TITLE, summary)
 
 
-def add_product_page(pdf: FPDF, product: Dict):
-    """Add product details page"""
+def add_market_research_page(pdf: FPDF, report: Dict):
+    """Page 1 (after title): Top N Market Trends – intro and Product Highlights list (no table)."""
     pdf.add_page()
-    
-    rank = product.get('rank', 0)
-    
-    # Product header
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 10, f"Trending Product #{rank}", 0, 1, 'L')
-    pdf.ln(5)
-    
-    # Brand name
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 8, f"Brand Name: {product.get('brand_name', 'Unknown')}", 0, 1, 'L')
-    
-    # Product name
-    pdf.set_font('Arial', '', 12)
-    pdf.multi_cell(0, 6, f"Product: {product.get('product_name', '')}")
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    market_context = report.get("market_context") or []
+    count = len(market_context)
+
+    # Main title – reflect actual count instead of hard-coded 5
+    pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
+    pdf.ln(10)
+    pdf.cell(0, 10, f"Top {count} Market Trend{'s' if count != 1 else ''}", 0, 1, "L")
+
+    # Introductory sentence
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.ln(6)
+    intro = _sanitize_pdf_text("Top performing products in this category based on revenue, growth, and monthly momentum.")
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, intro)
+
+    if count < 5:
+        pdf.ln(4)
+        notice = _sanitize_pdf_text(f"Note: Only {count} product{'s were' if count != 1 else ' was'} found in the last 30 days for this category.")
+        pdf.set_font("Arial", "I", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, notice)
+        pdf.set_font("Arial", "", FONT_SIZE_BODY)
+
+    pdf.ln(10)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 8, "Product Highlights", 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
     pdf.ln(2)
-    
-    # URL (if available)
-    if product.get('brand_url'):
-        pdf.set_font('Arial', 'U', 10)
-        pdf.set_text_color(0, 0, 255)
-        pdf.cell(0, 6, f"URL: {product.get('brand_url', '')}", 0, 1, 'L')
-        pdf.set_text_color(0, 0, 0)
-    pdf.ln(2)
-    
-    # Description
-    pdf.set_font('Arial', '', 11)
-    pdf.multi_cell(0, 5, f"Description: {product.get('description', '')}")
-    pdf.ln(5)
-    
-    # Revenue metrics box
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 8, 'Revenue Metrics', 0, 1, 'L')
-    pdf.set_font('Arial', '', 11)
-    
-    # Metrics table
-    metrics = [
-        ('Revenue Trend:', product.get('revenue_trend', '')),
-        ('Revenue Scale:', product.get('revenue_scale', '')),
-        ('Product Rank in Category:', product.get('category_rank', ''))
-    ]
-    
-    for label, value in metrics:
-        pdf.set_font('Arial', 'B', 11)
-        pdf.cell(60, 6, label, 0, 0, 'L')
-        pdf.set_font('Arial', '', 11)
-        pdf.cell(0, 6, value, 0, 1, 'L')
-    
-    pdf.ln(5)
-    
-    # Supporting trends
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 8, 'Supporting Trends:', 0, 1, 'L')
-    pdf.ln(2)
-    
-    pdf.set_font('Arial', '', 11)
-    intro_text = (
-        f"Here are 5 macro trends that are driving the success of "
-        f"{product.get('brand_name', '')} {product.get('product_name', '')}, "
-        f"and which have helped make it one of the most dominant products in the market:"
-    )
-    pdf.multi_cell(0, 5, intro_text)
+    for i, p in enumerate(market_context, 1):
+        name = _sanitize_pdf_text(p.get("product_name") or "")
+        desc = _sanitize_pdf_text(p.get("short_description") or "")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Arial", "B", FONT_SIZE_BODY)
+        pdf.cell(8, LINE_HEIGHT_BODY, f"{i}.", 0, 0, "L")
+        pdf.multi_cell(cw - 8, LINE_HEIGHT_BODY, name, 0, "L")
+        if desc:
+            pdf.set_x(pdf.l_margin + 10)
+            pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.multi_cell(cw - 10, LINE_HEIGHT_BODY - 1, desc)
+        pdf.ln(3)
+
+
+def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
+    """V2: Market Analysis - top N real products."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    count = len(market_context)
+    pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
+    pdf.cell(0, 10, f"Market Analysis - Current Top {count} Performer{'s' if count != 1 else ''}", 0, 1, "L")
     pdf.ln(3)
-    
-    # List trends
-    trends = product.get('supporting_trends', [])
-    for i, trend in enumerate(trends, 1):
-        # Parse trend title and explanation
-        trend_parts = parse_trend_text(trend)
-        
-        # Trend number and title
-        pdf.set_font('Arial', 'B', 11)
-        pdf.multi_cell(0, 5, f"{i}. {trend_parts['title']}")
-        
-        # Trend explanation
-        pdf.set_font('Arial', '', 10)
-        pdf.multi_cell(0, 5, trend_parts['explanation'])
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(
+        "The following market data was analyzed to identify opportunities for the brand concept."
+    ))
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+    pdf.cell(12, LINE_HEIGHT_BODY, "Rank", 1, 0, "L")
+    pdf.cell(50, LINE_HEIGHT_BODY, "Product", 1, 0, "L")
+    pdf.cell(35, LINE_HEIGHT_BODY, "Shop", 1, 0, "L")
+    pdf.cell(25, LINE_HEIGHT_BODY, "Revenue", 1, 0, "R")
+    pdf.cell(20, LINE_HEIGHT_BODY, "Growth%", 1, 0, "R")
+    pdf.cell(20, LINE_HEIGHT_BODY, "Sold", 1, 1, "R")
+    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+    for p in market_context:
+        pdf.set_x(pdf.l_margin)
+        pdf.cell(12, LINE_HEIGHT_BODY, str(p.get("revenue_rank", "")), 1, 0, "L")
+        pdf.cell(50, LINE_HEIGHT_BODY, _sanitize_pdf_text((p.get("product_name") or "")[:28]), 1, 0, "L")
+        pdf.cell(35, LINE_HEIGHT_BODY, _sanitize_pdf_text((p.get("shop_name") or "")[:18]), 1, 0, "L")
+        pdf.cell(25, LINE_HEIGHT_BODY, f"${float(p.get('revenue_usd') or 0):,.0f}", 1, 0, "R")
+        pdf.cell(20, LINE_HEIGHT_BODY, f"{float(p.get('mom_growth_pct') or 0):.1f}%", 1, 0, "R")
+        pdf.cell(20, LINE_HEIGHT_BODY, str(int(p.get("item_sold") or 0)), 1, 1, "R")
+
+
+def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optional[bytes] = None):
+    """V2: Proposed Brand section with optional AI-generated logo (PNG, no background box)."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    name = brand_proposal.get("brand_name", "")
+    pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
+    pdf.cell(0, 10, f"Proposed Brand: {_sanitize_pdf_text(name)}", 0, 1, "L")
+    pdf.ln(3)
+    if logo_bytes:
+        try:
+            img_w_mm, img_h_mm = _image_dimensions_mm(logo_bytes, 50.0)
+            img_io = BytesIO(logo_bytes)
+            y0 = pdf.get_y()
+            pdf.image(img_io, x=pdf.l_margin, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
+            pdf.set_y(y0 + img_h_mm)
+            pdf.ln(8)
+        except Exception as e:
+            print(f"PDF: failed to embed brand logo: {e}")
+    pdf.set_x(pdf.l_margin)
+    # Show which top product inspired the brand (client requirement)
+    inspired_by = brand_proposal.get("inspired_by_product") or ""
+    if inspired_by:
+        pdf.set_font("Arial", "I", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(f"Inspired by: {inspired_by}"))
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(5)
+
+    for label, key in [
+        ("Tagline", "brand_tagline"),
+        ("Brand Story", "brand_story"),
+        ("Target Demographic", "target_demographic"),
+        ("Price Positioning", "price_positioning"),
+        ("Distribution Strategy", "distribution_strategy"),
+        ("Brand Personality", "brand_personality"),
+    ]:
+        val = brand_proposal.get(key) or ""
+        if isinstance(val, list):
+            val = ", ".join(str(x) for x in val)
+        val_str = str(val)
+        if key == "brand_personality":
+            val_str = _title_case_comma_list(val_str)
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, label, 0, 1, "L")
+        pdf.set_font("Arial", "", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(val_str) or "-")
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(3)
+    values = brand_proposal.get("brand_values") or []
+    if values:
+        values_str = _title_case_comma_list(", ".join(str(v) for v in values))
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, "Core Values", 0, 1, "L")
+        pdf.set_font("Arial", "", FONT_SIZE_BODY)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(values_str))
+        pdf.ln(3)
+
+
+def add_market_intelligence_page(pdf: FPDF, web_insights: Dict, show_disclaimer: bool = False) -> None:
+    """Market Intelligence: compact 1-page section with clear hierarchy, domain-only URLs, short snippets.
+    Uses gray section bars, bullets, and max MI_ITEMS_PER_SECTION items per block to fit in ~1 page."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    title_w = cw - 35
+    domain_w = 32
+    trends = web_insights.get("trends") or []
+    pain_points = web_insights.get("pain_points") or []
+    competitors = web_insights.get("competitors") or []
+    has_any = bool(trends or pain_points or competitors)
+    if show_disclaimer and not has_any:
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, "Market Intelligence", 0, 1, "L")
+        pdf.ln(2)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.multi_cell(
+            cw, MI_LINE_HEIGHT,
+            _sanitize_pdf_text(
+                "Web search insights could not be loaded for this report. "
+                "The following analysis is based on internal market data only."
+            )
+        )
+        return
+    if not has_any:
+        pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+        pdf.cell(0, 8, "Market Intelligence", 0, 1, "L")
+        pdf.ln(2)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.multi_cell(cw, MI_LINE_HEIGHT, _sanitize_pdf_text("No web search data available for this category."))
+        return
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 7, "Market Intelligence", 0, 1, "L")
+    pdf.ln(2)
+    sections = [
+        (">> Trends", trends),
+        (">> Pain points", pain_points),
+        (">> Competitors", competitors),
+    ]
+    for label, items in sections:
+        if not items:
+            continue
+        pdf.set_fill_color(*MI_SECTION_FILL_RGB)
+        pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+        pdf.cell(0, 7, f"  {label}", 0, 1, "L", fill=1)
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.ln(1)
+        for entry in items[:MI_ITEMS_PER_SECTION]:
+            if not isinstance(entry, dict):
+                continue
+            title = _sanitize_pdf_text((entry.get("title") or "").strip())
+            if len(title) > 52:
+                title = title[:49] + "..."
+            url = (entry.get("url") or "").strip()
+            domain = _url_to_domain(url)
+            snippet_raw = (entry.get("snippet") or "").strip()
+            snippet = _sanitize_pdf_text(snippet_raw[:MI_SNIPPET_MAX_CHARS] + ("..." if len(snippet_raw) > MI_SNIPPET_MAX_CHARS else ""))
+            y0 = pdf.get_y()
+            pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.multi_cell(title_w, MI_LINE_HEIGHT, "  - " + (title or "-"), 0, "L")
+            y1 = pdf.get_y()
+            if domain:
+                pdf.set_font("Arial", "I", 8)
+                pdf.set_xy(pdf.l_margin + title_w, y0)
+                pdf.cell(domain_w, MI_LINE_HEIGHT, domain[:28], 0, 0, "R")
+                pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.set_xy(pdf.l_margin, y1)
+            if snippet:
+                pdf.set_x(pdf.l_margin)
+                pdf.set_font("Arial", "", 8)
+                pdf.multi_cell(cw, MI_LINE_HEIGHT - 0.5, "     " + snippet, 0, "L")
+                pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+            pdf.ln(2)
         pdf.ln(2)
 
 
-def parse_trend_text(trend: str) -> Dict:
-    """
-    Parse trend text into title and explanation
-    
-    Args:
-        trend: Trend text (may include title on first line)
-        
-    Returns:
-        Dict with 'title' and 'explanation'
-    """
-    lines = trend.split('\n', 1)
-    
-    if len(lines) == 2:
-        return {
-            'title': lines[0].strip(),
-            'explanation': lines[1].strip()
-        }
-    else:
-        # Single paragraph - use first sentence as title
-        sentences = trend.split('. ', 1)
-        if len(sentences) == 2:
-            return {
-                'title': sentences[0],
-                'explanation': sentences[1]
-            }
+def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes] = None):
+    """V2: One page per product idea with optional AI-generated image."""
+    pdf.add_page()
+    pdf.set_x(pdf.l_margin)
+    cw = _content_width(pdf)
+    rank = product.get("rank", 0)
+    pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
+    pdf.cell(0, 10, f"Product Concept #{rank}", 0, 1, "L")
+    pdf.ln(3)
+    if image_bytes:
+        try:
+            img_w_mm, img_h_mm = _image_dimensions_mm(image_bytes, 60.0)
+            img_io = BytesIO(image_bytes)
+            y0 = pdf.get_y()
+            pdf.image(img_io, x=pdf.l_margin, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
+            pdf.set_y(y0 + img_h_mm)
+            pdf.ln(8)
+        except Exception as e:
+            print(f"PDF: failed to embed product image: {e}")
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 8, _sanitize_pdf_text(product.get("product_name", "") or "-"), 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_BODY)
+    pdf.set_x(pdf.l_margin)
+    desc_text = _sanitize_pdf_text(product.get("description", "") or "-")
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, desc_text, 0, "L")
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(3)
+    pdf.set_font("Arial", "B", FONT_SIZE_BODY)
+    pdf.cell(0, 8, f"Estimated Price: ${float(product.get('estimated_price_usd') or 0):.2f}", 0, 1, "L")
+    ingredients = product.get("key_ingredients") or []
+    if ingredients:
+        pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+        pdf.cell(0, 8, "Key Ingredients:", 0, 1, "L")
+        pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(", ".join(str(x) for x in ingredients)))
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(2)
+    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+    pdf.cell(0, 8, "Why It Would Sell:", 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(product.get("why_it_would_sell", "") or "-"))
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+    pdf.cell(0, 8, "Competitive Advantage:", 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+    pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(product.get("competitive_advantage", "") or "-"))
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+    pdf.cell(0, 8, "Supporting Trends:", 0, 1, "L")
+    pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+    intro = product.get("supporting_trends_intro") or ""
+    if intro:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(intro))
+        pdf.set_x(pdf.l_margin)
+        pdf.ln(3)
+    trends = product.get("supporting_trends") or []
+    for i, trend in enumerate(trends, 1):
+        pdf.set_x(pdf.l_margin)
+        if isinstance(trend, dict):
+            title = _sanitize_pdf_text((trend.get("title") or "").strip())
+            desc = _sanitize_pdf_text((trend.get("description") or "").strip())
+            if title:
+                pdf.set_font("Arial", "B", FONT_SIZE_SMALL)
+                pdf.multi_cell(cw, LINE_HEIGHT_BODY, f"{i}. {title}")
+                pdf.set_x(pdf.l_margin)
+            if desc:
+                pdf.set_font("Arial", "", FONT_SIZE_SMALL)
+                pdf.multi_cell(cw, LINE_HEIGHT_BODY, desc)
+            pdf.set_x(pdf.l_margin)
+            pdf.ln(2)
         else:
-            return {
-                'title': 'Market Trend',
-                'explanation': trend
-            }
+            pdf.multi_cell(cw, LINE_HEIGHT_BODY, _sanitize_pdf_text(f"{i}. {trend}"))
+        pdf.set_x(pdf.l_margin)
+    pdf.ln(5)
+    pdf.set_font("Arial", "I", FONT_SIZE_SMALL)
+    pdf.cell(0, 8, "AI-Generated Product Concept", 0, 1, "L")
+
+
+def _title_case_comma_list(s: str) -> str:
+    """Make capital letters consistent: title-case each comma-separated item (e.g. Brand Personality, Core Values)."""
+    if not s or not isinstance(s, str):
+        return s
+    parts = [p.strip().title() for p in s.split(",") if p.strip()]
+    return ", ".join(parts)
+
+
+def _sanitize_pdf_text(s: str) -> str:
+    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII equivalents."""
+    if not s or not isinstance(s, str):
+        return s
+    replacements = (
+        ('\u2019', "'"),   # RIGHT SINGLE QUOTATION MARK
+        ('\u2018', "'"),   # LEFT SINGLE QUOTATION MARK
+        ('\u201c', '"'),   # LEFT DOUBLE QUOTATION MARK
+        ('\u201d', '"'),   # RIGHT DOUBLE QUOTATION MARK
+        ('\u2014', "-"),   # EM DASH
+        ('\u2013', "-"),   # EN DASH
+        ('\u2026', "..."), # HORIZONTAL ELLIPSIS
+    )
+    out = s
+    for u, a in replacements:
+        out = out.replace(u, a)
+    return out
+
+
+def _content_width(pdf: FPDF) -> float:
+    """Full content width (epw) for body text. Use after set_x(l_margin) for consistent wrapping."""
+    return pdf.epw
+
+
+def _image_dimensions_mm(img_bytes: bytes, width_mm: float) -> Tuple[float, float]:
+    """Return (width_mm, height_mm) for embedding; height computed from aspect ratio. Fallback: width_mm x width_mm (square)."""
+    if not _PIL_AVAILABLE or not img_bytes:
+        return (width_mm, width_mm)
+    try:
+        img = Image.open(BytesIO(img_bytes))
+        w, h = img.size
+        if w and h:
+            height_mm = width_mm * (h / w)
+            return (width_mm, height_mm)
+    except Exception:
+        pass
+    return (width_mm, width_mm)
+
+
+def _safe_width(pdf: FPDF, min_w: float = 10.0) -> float:
+    """Width from current x to right margin; for two-column rows (e.g. metrics label + value)."""
+    w = pdf.w - pdf.r_margin - pdf.get_x()
+    return max(float(w), min_w)
+
+
+def _url_to_domain(url: str) -> str:
+    """Extract display domain from URL (e.g. https://www.reddit.com/r/... -> reddit.com)."""
+    if not url or not isinstance(url, str):
+        return ""
+    s = url.strip()
+    for prefix in ("https://", "http://"):
+        if s.lower().startswith(prefix):
+            s = s[len(prefix) :].lstrip("/")
+            break
+    if s.lower().startswith("www."):
+        s = s[4:]
+    # Take first path segment (domain only)
+    domain = s.split("/")[0].split("?")[0]
+    return domain if domain else ""
+
+
+def _truncate_url(url: str, max_len: int = MAX_URL_DISPLAY_LEN) -> str:
+    """Truncate long URLs with ellipsis to avoid overflow; keeps one line readable."""
+    if not url or len(url) <= max_len:
+        return url or ""
+    return url[: max_len - 3].rstrip("/") + "..."
 
 
 def upload_pdf_to_s3(pdf_bytes: bytes, bucket: str, key: str, expiration: int = 3600) -> str:

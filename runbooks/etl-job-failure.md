@@ -15,6 +15,8 @@ This runbook provides step-by-step procedures for diagnosing and recovering from
 **Criticality:** High  
 **SLA:** Recovery within 4 hours  
 
+**Pipeline note:** When the ETL job succeeds, a Glue crawler (`beauty-products-curated-crawler`) runs automatically to register new partitions in the curated table, so Athena and the LLM report see the latest data without manual `MSCK REPAIR TABLE`.  
+
 ---
 
 ## Prerequisites

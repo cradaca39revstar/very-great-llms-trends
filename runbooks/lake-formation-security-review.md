@@ -107,4 +107,4 @@ Store in a team-defined location (e.g. wiki, shared doc, changelog, or complianc
 
 - [Data Governance Charter — §4. Iterate Lake Formation Security](../governance/data-governance-charter.md#4-iterate-lake-formation-security)
 - [terraform/lake-formation.tf](../terraform/lake-formation.tf) — Lake Formation Terraform resources
-- [Deployment Checklist — Step 3b: Deploy Lake Formation](../deployment-checklist.md) — Initial deploy/validate procedure
+- [CLIENT-DEPLOYMENT-GUIDE — Deploy Lake Formation](../docs/CLIENT-DEPLOYMENT-GUIDE.md) — Initial deploy/validate procedure

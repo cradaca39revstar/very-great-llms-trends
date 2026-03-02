@@ -1,36 +1,19 @@
 # AWS Bedrock Model Access and Permissions
 # Configuration for foundation models used by LLM system
 
-# IMPORTANT UPDATE (January 2026):
-# The "Model access" page in AWS Console has been retired.
-# Serverless foundation models are now automatically enabled when first invoked.
-# No manual activation is required for most models.
+# UPDATE (January 2026):
+# The system uses Amazon Nova Pro (amazon.nova-pro-v1:0) in us-east-1 only.
+# Serverless foundation models are automatically enabled when first invoked.
+# No manual activation is required.
 
-# EXCEPTION FOR ANTHROPIC MODELS:
-# For Anthropic models (including Claude 3.7 Sonnet), first-time users may need
-# to submit use case details before accessing the model. This typically happens
-# when you first invoke the model via API or in the Bedrock Playground.
+# Model in Use:
+# - amazon.nova-pro-v1:0 (Primary and fallback; us-east-1 only)
+# Why Nova Pro: AWS Bedrock now requires inference profiles for newer Claude
+# models (3.5/4/4.5), which route traffic across regions. Using Nova Pro with
+# direct foundation model ID keeps all inference in us-east-1.
 
-# Required Model IDs (for reference):
-# - anthropic.claude-3-7-sonnet-20240229-v1:0 (Primary)
-# - amazon.nova-pro-v1:0 (Fallback)
-# - cohere.command-r-plus-v1:0 (Alternative)
-
-# How Model Access Works Now:
-# 1. Models are automatically enabled when first invoked in your account
-# 2. For Anthropic models, you may be prompted to provide use case details
-#    when accessing via Bedrock Playground or API for the first time
-# 3. Account administrators can control access via IAM policies and
-#    Service Control Policies (SCPs) if needed
-
-# To verify available models, use AWS CLI:
-# aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?contains(modelId, 'claude-3-7') || contains(modelId, 'nova-pro') || contains(modelId, 'command-r-plus')]"
-
-# To test model access (will auto-enable if not already enabled):
-# 1. Use Bedrock Playground in AWS Console: https://console.aws.amazon.com/bedrock/
-# 2. Select a model from Model catalog
-# 3. For Anthropic models, you may be prompted to provide use case details
-# 4. Once enabled, the model is available account-wide
+# To verify model availability:
+# aws bedrock list-foundation-models --region us-east-1 --query "modelSummaries[?modelId=='amazon.nova-pro-v1:0']"
 
 # IAM Policy Document for Bedrock Access (already included in lambda-llm.tf)
 # This file serves as documentation of required Bedrock permissions

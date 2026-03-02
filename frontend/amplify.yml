@@ -1,0 +1,19 @@
+# AWS Amplify Hosting build specification (version 1).
+# Used when Application root is set to "frontend" in the Amplify Console.
+# See docs/AMPLIFY-CLIENT-LINK.md for full deployment steps.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*

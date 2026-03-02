@@ -1,552 +1,445 @@
 # Client Deployment Guide
+## Beauty Products Data Lake + LLM Product Innovation Engine
 
-## Beauty Products Data Lake
-
-**Version:** 1.0.0
-**Last Updated:** January 26, 2026
+**Version:** 2.0.0  
+**Last Updated:** February 26, 2026
 
 ---
 
 ## Overview
 
-This guide provides step-by-step instructions for deploying the Beauty Products Data Lake to your AWS environment. The deployment uses Terraform for Infrastructure as Code (IaC) and follows AWS best practices for security, monitoring, and cost optimization.
+This guide covers end-to-end deployment of the full system: Data Lake (V1) + LLM Product Innovation Engine (V2). Follow the sections in order for a fresh deployment.
 
-**Estimated Deployment Time:** 30-45 minutes
+**Estimated total time:** 45–90 minutes (plus AWS propagation delays)
 
 ---
 
 ## Prerequisites
 
-### Required
+### Tools Required
 
-1. **AWS Account**
+| Tool | Version | Verify |
+|------|---------|--------|
+| AWS CLI | >= 2.x | `aws --version` |
+| Terraform | >= 1.0 | `terraform --version` |
+| Python | >= 3.10 | `python --version` |
+| Node.js | >= 18 | `node --version` |
+| PowerShell | >= 5.1 (Windows) | `$PSVersionTable.PSVersion` |
 
-   - Administrative access or permissions to create:
-     - S3 buckets
-     - IAM roles and policies
-     - AWS Glue jobs, databases, and crawlers
-     - EventBridge rules
-     - CloudWatch dashboards and alarms
-     - SNS topics
-     - Athena workgroups
-2. **Terraform**
+### AWS Permissions Required
 
-   - Version 1.0 or higher
-   - Installation: https://www.terraform.io/downloads
-3. **AWS CLI**
+Your AWS IAM user or role must have permissions for:
+- S3, Glue, Athena, EventBridge, CloudWatch, SNS
+- Lambda, API Gateway, Cognito, DynamoDB
+- Bedrock (InvokeModel), IAM (role/policy management)
+- Lake Formation, Amplify
 
-   - Version 2.x recommended
-   - Configured with credentials: `aws configure`
-   - Installation: https://aws.amazon.com/cli/
-4. **Git**
+### Bedrock Model Access (Required Before Deployment)
 
-   - To clone the repository
+Enable the following models in the AWS Console before running Terraform:
 
-### Optional (Recommended)
+**In `us-east-1`:**
+- **Amazon Nova Pro** (`amazon.nova-pro-v1:0`) — auto-enabled on first invocation
 
-- **S3 Bucket for Terraform State**: Remote state management
-- **AWS CloudShell**: Alternative to local CLI setup
+**In `us-west-2`:** (for AI product images)
+1. Go to **AWS Console** → **Amazon Bedrock** → change region to **US West (Oregon)**
+2. Click **Model access** → **Manage model access**
+3. Enable:
+   - **Stability AI SD3.5 Large** (`stability.sd3-5-large-v1:0`)
+   - **Stability AI SD3 Large** (`stability.sd3-large-v1:0`) — fallback model
+4. Wait for **Access granted** status (~1–2 minutes)
 
----
-
-## Pre-Deployment Checklist
-
-Before starting deployment, ensure:
-
-- [ ] AWS account has sufficient service quotas
-- [ ] Terraform is installed and accessible
-- [ ] AWS CLI is configured with appropriate credentials
-- [ ] You have decided on environment name (dev, staging, prod, poc)
-- [ ] Alert email address is available for CloudWatch notifications
-- [ ] AWS region is selected (default: us-east-1)
+> If these models are not enabled, product concept images will fail silently and the report will be generated without images.
 
 ---
 
-## Step 1: Clone Repository
+## Part 1 — Infrastructure Deployment (Terraform)
 
-```bash
-git clone https://github.com/cradaca39revstar/very-great-llms-trends
-cd very-great-llms-trends
-```
+### Step 1: Configure Variables
 
----
+Copy the example configuration and fill in your values:
 
-## Step 2: Configure Terraform Variables
-
-1. Navigate to the terraform directory:
-
-   ```bash
-   cd terraform
-   ```
-2. Create `terraform.tfvars` file:
-
-   ```bash
-   # Copy example if available, or create new file
-   # terraform.tfvars
-   ```
-3. Configure variables in `terraform.tfvars`:
-
-   ```hcl
-   # Environment Configuration
-   environment = "poc"  # Options: dev, staging, prod, poc
-   aws_region  = "us-east-1"
-
-   # Alert Configuration
-   alert_email = "your-email@example.com"
-
-   # Optional: Phone number for SMS alerts
-   alert_phone_number = ""
-
-   # Project Tagging
-   project_name = "BeautyProductsDataLake"
-
-   # Additional Tags (optional)
-   tags = {
-     Owner       = "Data Team"
-     Project     = "Beauty Products"
-     CostCenter  = "Analytics"
-   }
-   ```
-
-**Important Variables:**
-
-- `environment`: Used in resource naming (e.g., `very-great-products-raw-us-east-1-poc`)
-- `alert_email`: Email address for CloudWatch alarm notifications
-- `aws_region`: AWS region for all resources (must be consistent)
-
----
-
-## Step 3: Review Terraform Configuration
-
-1. Review the Terraform files to understand what will be created:
-
-   - `s3-buckets.tf` - S3 buckets for raw, curated, and metadata zones
-   - `iam.tf` - IAM roles and policies
-   - `glue-catalog.tf` - Glue databases and tables
-   - `glue-jobs.tf` - ETL job configuration
-   - `glue-crawlers.tf` - Crawler configurations
-   - `eventbridge.tf` - Scheduling rules
-   - `cloudwatch.tf` - Monitoring and alarms
-   - `sns.tf` - Notification topics
-   - `athena-workgroup.tf` - Athena workgroup
-2. Review `variables.tf` for all available configuration options
-
----
-
-## Step 4: Initialize Terraform
-
-```bash
+```powershell
 cd terraform
-terraform init
+copy terraform.tfvars.example terraform.tfvars
 ```
 
-This will:
-
-- Download required Terraform providers (AWS)
-- Initialize the backend (local state by default)
-
-**Optional: Configure Remote State**
-
-If using S3 for Terraform state, create a backend configuration file or add to `provider.tf`:
+Edit `terraform.tfvars`:
 
 ```hcl
-terraform {
-  backend "s3" {
-    bucket = "your-terraform-state-bucket"
-    key    = "beauty-products-data-lake/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
+environment           = "poc"          # or "dev", "staging", "prod"
+aws_region            = "us-east-1"
+alert_email           = "your-team@example.com"
+project_name          = "BeautyProductsDataLake"
+
+# LLM System
+enable_llm_system     = true
+cognito_domain_prefix = "beauty-products-trending-poc"   # Must be globally unique
+lambda_memory_size    = 1024
+lambda_timeout        = 60
+pdf_expiration_days   = 7
+
+# Bedrock models
+bedrock_primary_model  = "amazon.nova-pro-v1:0"
+bedrock_fallback_model = "amazon.nova-pro-v1:0"
+
+# Brave Search (optional — for web market insights)
+brave_search_api_key   = "YOUR_KEY_HERE"   # Leave empty "" to disable
+enable_scraper_lambda  = false             # Set true only if Scraper Lambda is deployed
 ```
 
-Then run `terraform init` again.
+**Important:** `cognito_domain_prefix` must be globally unique across all AWS accounts. If you get a "domain already exists" error, add your company name (e.g. `beauty-products-trending-acme-poc`).
 
----
+### Step 2: Create Lambda Placeholder (First Time Only)
 
-## Step 5: Review Deployment Plan
+Before the first `terraform apply`, a placeholder Lambda zip must exist:
 
-```bash
+```powershell
+cd terraform
+.\create-lambda-placeholder.ps1
+```
+
+### Step 3: Initialize and Deploy Terraform
+
+```powershell
+cd terraform
+
+# Initialize providers
+terraform init
+
+# Review what will be created (~50+ AWS resources)
 terraform plan
-```
 
-This will show:
-
-- Resources to be created (S3 buckets, IAM roles, Glue jobs, etc.)
-- Estimated costs (if enabled)
-- Configuration details
-
-**Review carefully:**
-
-- Resource names and tags
-- IAM permissions
-- S3 bucket configurations
-- Alert email addresses
-
----
-
-## Step 6: Deploy Infrastructure
-
-```bash
+# Deploy (type 'yes' when prompted)
 terraform apply
 ```
 
-Terraform will:
+**Deployment time:** 3–8 minutes.
 
-1. Show the execution plan
-2. Prompt for confirmation: Type `yes` to proceed
-3. Create all AWS resources
-4. Display outputs (bucket names, job names, etc.)
-
-**Expected Output:**
-
-```
-Apply complete! Resources: XX added, 0 changed, 0 destroyed.
-
-Outputs:
-
-raw_bucket_name = "very-great-products-raw-us-east-1-poc"
-curated_bucket_name = "very-great-products-processed-us-east-1-poc"
-metadata_bucket_name = "very-great-products-metadata-us-east-1-poc"
-glue_job_name = "beauty-products-etl-job"
-athena_workgroup_name = "beauty-products-athena-poc"
-...
-```
-
-**Save these outputs** - you'll need them for subsequent steps.
-
----
-
-## Step 7: Upload ETL Script to S3
-
-The Glue job requires the ETL script to be in S3. Upload it:
-
-```bash
-# Get the curated bucket name from Terraform output
-CURATED_BUCKET=$(terraform output -raw curated_bucket_name)
-
-# Upload the ETL script
-aws s3 cp ../scripts/beauty_products_etl.py \
-  s3://${CURATED_BUCKET}/scripts/beauty_products_etl.py
-```
-
-**Alternative: Use PowerShell (Windows)**
+### Step 4: Save Terraform Outputs
 
 ```powershell
-$curatedBucket = terraform output -raw curated_bucket_name
-aws s3 cp ..\scripts\beauty_products_etl.py `
-  s3://$curatedBucket/scripts/beauty_products_etl.py
+terraform output
 ```
 
-**Verify Upload:**
+Save all output values — you will need them for Lambda deployment and frontend configuration:
 
-```bash
-aws s3 ls s3://${CURATED_BUCKET}/scripts/
+```
+api_gateway_url           = "https://xxxxxx.execute-api.us-east-1.amazonaws.com/poc/trending-products/query"
+cognito_user_pool_id      = "us-east-1_xxxxxxxxx"
+cognito_client_id         = "xxxxxxxxxxxxxxxxxxxxxxxxxx"
+pdf_bucket_name           = "beauty-products-pdfs-us-east-1-poc"
+lambda_function_name      = "beauty-products-llm-orchestrator-poc"
+athena_workgroup_name     = "beauty-products-athena-poc"
+cloudwatch_llm_dashboard_url = "https://console.aws.amazon.com/cloudwatch/..."
 ```
 
 ---
 
-## Step 8: Update Glue Job Script Location
+## Part 2 — Lambda Code Deployment
 
-If the Glue job script path wasn't set during Terraform deployment, update it:
+### Step 5: Deploy Lambda Orchestrator
 
-1. Go to AWS Console → Glue → Jobs
-2. Select `beauty-products-etl-job`
-3. Edit the job
-4. Under "Script path", set: `s3://${CURATED_BUCKET}/scripts/beauty_products_etl.py`
-5. Save changes
+From the project root:
 
-**Note**: The Terraform configuration should handle this automatically, but verify if needed.
+```powershell
+.\scripts\deploy-lambda-llm.ps1
+```
+
+The script will:
+1. Install Python dependencies from `lambda/requirements.txt` into the Lambda package
+2. Create `lambda/function.zip`
+3. Upload to the Lambda function created by Terraform
+4. Wait for the update to complete
+
+**Expected output:** `Lambda function updated successfully.`
+
+**Manual deployment** (if script fails):
+
+```powershell
+cd lambda
+pip install -r requirements.txt -t .
+Compress-Archive -Path * -DestinationPath function.zip -Force -Exclude "*.pyc","__pycache__","tests"
+$FUNCTION = terraform -chdir=..\terraform output -raw lambda_function_name
+aws lambda update-function-code --function-name $FUNCTION --zip-file fileb://function.zip
+aws lambda wait function-updated --function-name $FUNCTION
+```
+
+### Step 6: Verify Lambda Deployment
+
+```powershell
+$FUNCTION = (cd terraform; terraform output -raw lambda_function_name)
+aws lambda get-function --function-name $FUNCTION --query "Configuration.[State,LastUpdateStatus,Runtime]"
+```
+
+Expected: `["Active", "Successful", "python3.10"]`
 
 ---
 
-## Step 9: Create Athena Views
+## Part 3 — ETL Data Pipeline Setup
 
-1. Open AWS Console → Athena
-2. Select the workgroup: `beauty-products-athena-{environment}`
-3. Set result location (if prompted): `s3://${METADATA_BUCKET}/athena-results/`
-4. Open the SQL query editor
-5. Copy and execute the views from `../athena-views.sql`
+### Step 7: Upload Test or Production Data
 
-**Views to Create:**
+Upload a CSV file to the S3 raw zone. The path must follow the date partition format:
 
-- `vw_high_quality_products`
-- `vw_sales_by_category_month`
-- `vw_quality_trends`
-- `vw_product_performance`
-- `vw_shop_leaderboard`
+```powershell
+# Replace {environment} with your environment value (e.g. poc, dev)
+$ENV = "poc"
+$DATE = (Get-Date).ToString("yyyy/MM/dd")
+aws s3 cp tests/sample-data/valid_input.csv `
+  "s3://very-great-products-raw-us-east-1-$ENV/landing/beauty-products/$DATE/"
+```
 
-**Verify Views:**
+**CSV format required** (11 columns):
+```
+Month, Product Id, Product Name, Shop Name, L1 category, L2 category, L3 category, Item Sold, Revenue, Avg. Unit Price, MoM Growth %
+```
+
+### Step 8: Run the ETL Job
+
+```powershell
+aws glue start-job-run --job-name beauty-products-etl-job
+```
+
+**Monitor progress** (wait ~5–8 minutes):
+
+```powershell
+aws glue get-job-run --job-name beauty-products-etl-job --run-id <RunId> --query "JobRun.JobRunState"
+```
+
+Or watch logs:
+
+```powershell
+aws logs tail /aws-glue/jobs/beauty-products-etl-job --follow
+```
+
+### Step 9: Verify Data in Athena
+
+In the **Athena Query Editor** (workgroup: `beauty-products-athena-{environment}`):
 
 ```sql
-SHOW TABLES IN beauty_products_db;
+SELECT COUNT(*) as total_records,
+       AVG(data_quality_score) as avg_quality
+FROM beauty_products_db.curated_beauty_products;
 ```
 
----
+Expected: record count > 0, avg quality > 0.90
 
-## Step 10: Upload Sample Data (Optional)
-
-To test the pipeline, upload sample data:
-
-```bash
-# Get the raw bucket name
-RAW_BUCKET=$(terraform output -raw raw_bucket_name)
-
-# Create date-based folder structure
-DATE=$(date +%Y/%m/%d)  # Format: YYYY/MM/DD
-
-# Upload sample CSV file
-aws s3 cp ../tests/sample-data/valid_input.csv \
-  s3://${RAW_BUCKET}/landing/beauty-products/${DATE}/beauty-products_$(date +%Y%m%d).csv
-```
-
-**Verify Upload:**
-
-```bash
-aws s3 ls s3://${RAW_BUCKET}/landing/beauty-products/${DATE}/
-```
-
----
-
-## Step 11: Run Initial Glue Job
-
-Test the ETL pipeline:
-
-```bash
-# Get job name
-JOB_NAME=$(terraform output -raw glue_job_name)
-
-# Start job run
-aws glue start-job-run --job-name ${JOB_NAME}
-```
-
-**Monitor Job:**
-
-1. AWS Console → Glue → Jobs → `beauty-products-etl-job`
-2. Click on the job run
-3. View logs in CloudWatch Logs
-4. Check execution status
-
-**Expected Duration:** 5-8 minutes for sample data
-
----
-
-## Step 12: Verify Deployment
-
-### 12.1 Check S3 Buckets
-
-```bash
-# Verify curated data
-aws s3 ls s3://${CURATED_BUCKET}/curated/beauty-products/ --recursive
-
-# Verify quality reports
-aws s3 ls s3://${CURATED_BUCKET}/quality-reports/beauty-products/ --recursive
-```
-
-### 12.2 Check Glue Catalog
-
-1. AWS Console → Glue → Databases
-2. Verify databases exist:
-   - `beauty_products_db`
-   - `beauty_products_metadata_db`
-3. Check tables are created and updated
-
-### 12.3 Test Athena Query
+Verify L2 categories available for LLM queries:
 
 ```sql
--- In Athena Query Editor
-SELECT COUNT(*) as total_records
+SELECT DISTINCT l2_category, COUNT(*) as products
 FROM beauty_products_db.curated_beauty_products
-LIMIT 10;
+WHERE data_quality_score >= 0.95
+GROUP BY l2_category
+ORDER BY products DESC;
 ```
-
-### 12.4 Check CloudWatch Dashboard
-
-1. AWS Console → CloudWatch → Dashboards
-2. Open `beauty-products-pipeline-metrics`
-3. Verify widgets are displaying data
-
-### 12.5 Verify Alarms
-
-1. AWS Console → CloudWatch → Alarms
-2. Check alarm status:
-   - `beauty-products-job-failure`
-   - `beauty-products-low-quality`
-   - `beauty-products-high-error-rate`
-3. Verify SNS subscription (check email for confirmation)
 
 ---
 
-## Step 13: Configure Monitoring Alerts
+## Part 4 — Cognito User Setup
 
-### Email Notifications
+### Step 10: Create Test/Admin User
 
-1. Check your email for SNS subscription confirmation
-2. Click the confirmation link to activate notifications
+```powershell
+cd terraform
+$USER_POOL_ID = terraform output -raw cognito_user_pool_id
 
-### Optional: SMS Notifications
+# Create user
+aws cognito-idp admin-create-user `
+  --user-pool-id $USER_POOL_ID `
+  --username verygreat@test.com `
+  --user-attributes Name=email,Value=verygreat@test.com `
+  --temporary-password "VeryGreat123!" `
+  --message-action SUPPRESS
 
-If you configured `alert_phone_number`:
-
-1. AWS Console → SNS → Subscriptions
-2. Verify phone number subscription
-3. Confirm via SMS code
+# Set permanent password
+aws cognito-idp admin-set-user-password `
+  --user-pool-id $USER_POOL_ID `
+  --username verygreat@test.com `
+  --password "VeryGreat123!" `
+  --permanent
+```
 
 ---
 
-## Post-Deployment Tasks
+## Part 5 — End-to-End Test
 
-### 1. Review Quality Reports
+### Step 11: Test the API
 
-After first job run, check quality metrics:
+From the project root:
 
-```bash
-# List quality reports
-aws s3 ls s3://${CURATED_BUCKET}/quality-reports/beauty-products/ --recursive
-
-# Download latest report
-LATEST_REPORT=$(aws s3 ls s3://${CURATED_BUCKET}/quality-reports/beauty-products/ \
-  --recursive | sort | tail -1 | awk '{print $NF}')
-
-aws s3 cp s3://${CURATED_BUCKET}/${LATEST_REPORT} quality-report.json
-
-# View report
-cat quality-report.json | jq '.'
+```powershell
+.\scripts\call-api-llm.ps1
 ```
 
-**Expected Metrics:**
-
-- `pass_rate >= 0.95`
-- `avg_quality_score >= 0.95`
-
-### 2. Test Athena Views
-
-```sql
--- Test high quality products view
-SELECT * FROM beauty_products_db.vw_high_quality_products LIMIT 10;
-
--- Test sales by category
-SELECT * FROM beauty_products_db.vw_sales_by_category_month 
-WHERE year = 2024 
-ORDER BY total_revenue_usd DESC 
-LIMIT 10;
+Expected response (abbreviated):
+```json
+{
+  "status": "processing",
+  "request_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "message": "Report is being generated. Poll GET /report/{request_id} for status."
+}
 ```
 
-### 3. Review CloudWatch Metrics
+Then poll for the result:
+```json
+{
+  "status": "success",
+  "request_id": "...",
+  "brand_name": "...",
+  "category": "Skincare",
+  "product_count": 5,
+  "pdf_url": "https://...",
+  "execution_time_ms": 22000
+}
+```
 
-1. Open CloudWatch Dashboard
-2. Verify metrics are being collected
-3. Check for any alarms in alarm state
+**Typical execution time:** 15–25 seconds.
 
-### 4. Document Access Information
+### Step 12: Test the Frontend
 
-Save the following for your team:
+1. Open https://amplify-versio.d32yhcl4pif1yr.amplifyapp.com/
+2. Sign in with the test account
+3. Select a category and click **Get Report**
+4. Verify the report loads with brand proposal, 5 product ideas, and AI images
+5. Click **Download PDF** and verify the PDF opens
 
-- S3 bucket names
-- Glue job name
-- Athena workgroup name
-- CloudWatch dashboard URL
-- SNS topic ARN
+---
+
+## Part 6 — Frontend (Amplify) Configuration
+
+The frontend is already deployed on Amplify. If you need to redeploy or reconfigure:
+
+### Amplify Environment Variables
+
+Set these in **AWS Amplify Console** → your app → **Environment variables**:
+
+| Variable | Source |
+|----------|--------|
+| `VITE_API_URL` | `terraform output -raw api_gateway_url` |
+| `VITE_COGNITO_USER_POOL_ID` | `terraform output -raw cognito_user_pool_id` |
+| `VITE_COGNITO_CLIENT_ID` | `terraform output -raw cognito_client_id` |
+| `VITE_AWS_REGION` | `us-east-1` |
+
+### Trigger Amplify Rebuild
+
+After updating environment variables, trigger a new build from the Amplify Console or by pushing a commit to the connected branch.
+
+---
+
+## Deployment Checklist
+
+```
+INFRASTRUCTURE
+  [ ] Terraform initialized and applied successfully
+  [ ] All terraform outputs captured and saved
+  [ ] No resources failed during apply
+
+LAMBDA
+  [ ] deploy-lambda-llm.ps1 completed successfully
+  [ ] Lambda state: Active, LastUpdateStatus: Successful
+
+DATA PIPELINE
+  [ ] CSV data uploaded to S3 raw zone
+  [ ] Glue ETL job completed (state: SUCCEEDED)
+  [ ] Athena query returns records with expected categories
+
+COGNITO
+  [ ] Test user created with permanent password
+  [ ] Login tested via API or frontend
+
+END-TO-END
+  [ ] call-api-llm.ps1 returns success with report
+  [ ] Frontend loads and generates a report
+  [ ] PDF download works
+  [ ] CloudWatch dashboard shows metrics
+
+FRONTEND (AMPLIFY)
+  [ ] Amplify environment variables set correctly
+  [ ] Frontend URL confirmed working
+```
 
 ---
 
 ## Troubleshooting
 
-### Terraform Apply Fails
+### Terraform: "Domain already exists"
 
-**Issue**: Resource creation fails
-
-**Solutions**:
-
-- Check AWS service quotas
-- Verify IAM permissions
-- Review error messages in Terraform output
-- Check for existing resources with same names
-
-### Glue Job Fails
-
-**Issue**: Job execution fails
-
-**Solutions**:
-
-- Check CloudWatch Logs: `/aws-glue/jobs/beauty-products-etl-job`
-- Verify script path in S3 is correct
-- Check IAM role permissions
-- Review job parameters
-
-### No Data in Athena
-
-**Issue**: Tables exist but queries return no data
-
-**Solutions**:
-
-- Run Glue crawlers manually
-- Verify data exists in S3 curated bucket
-- Check table partitions
-- Verify Athena workgroup result location
-
-### Alarms Not Triggering
-
-**Issue**: Alarms configured but not sending notifications
-
-**Solutions**:
-
-- Verify SNS subscription is confirmed
-- Check alarm thresholds
-- Review CloudWatch metrics are being published
-- Test alarm manually
-
----
-
-## Rollback Procedure
-
-If deployment needs to be rolled back:
-
-```bash
-cd terraform
-terraform destroy
+```
+Error: InvalidParameterException: Domain already exists
 ```
 
-**Warning**: This will delete all resources created by Terraform, including:
-
-- S3 buckets and all data
-- Glue jobs, databases, and tables
-- CloudWatch dashboards and alarms
-- IAM roles and policies
-
-**Before destroying:**
-
-- Backup any important data
-- Export Terraform state
-- Document current configuration
+Change `cognito_domain_prefix` in `terraform.tfvars` to a unique value and re-run `terraform apply`.
 
 ---
 
-## Next Steps
+### Terraform: Lambda role IAM propagation
 
-After successful deployment:
+```
+Error: The role defined for the function cannot be assumed by Lambda
+```
 
-1. **Review** [Operations Guide](CLIENT-OPERATIONS-GUIDE.md) for daily operations
-2. **Configure** backup and disaster recovery procedures
-3. **Train** team members on system usage
-4. **Schedule** regular quality reviews
-5. **Monitor** costs and optimize as needed
+Wait 15 seconds and re-run `terraform apply`.
 
 ---
 
-## Support
+### Lambda: Module not found
 
-For deployment issues:
+```
+Error: Module not found: fpdf2 (or Pillow, boto3)
+```
 
-1. Review [Troubleshooting](#troubleshooting) section
-2. Check [Runbooks](../runbooks/) for specific scenarios
-3. Review CloudWatch Logs for detailed error messages
-4. Contact your system administrator
+Re-run the Lambda deployment script. Dependencies were not packaged correctly.
+
+```powershell
+cd lambda
+Remove-Item -Recurse -Force * -Exclude "*.py","utils","requirements*.txt"
+pip install -r requirements.txt -t .
+.\scripts\deploy-lambda-llm.ps1
+```
+
+---
+
+### No products returned for a category
+
+```
+"Category not found in last 30 days"
+```
+
+The Athena table has no records for that category in the last 30 days. Verify data was uploaded and the ETL job completed:
+
+```sql
+SELECT DISTINCT l2_category, MAX(month) as latest_month
+FROM beauty_products_db.curated_beauty_products
+WHERE data_quality_score >= 0.95
+GROUP BY l2_category;
+```
+
+---
+
+### Bedrock: AccessDeniedException for images
+
+```
+AccessDeniedException: aws-marketplace:ViewSubscriptions
+```
+
+Enable Stability AI models in `us-west-2` (see Prerequisites → Bedrock Model Access).
+
+---
+
+### High latency (> 30 seconds)
+
+1. Check CloudWatch metrics for the slow step (Athena, Bedrock, image generation, PDF)
+2. Increase Lambda memory to 2048 MB in `terraform.tfvars` and re-apply
+3. Check for Bedrock throttling: request quota increase in Service Quotas
 
 ---
 
 ## Related Documentation
 
-- [Architecture Overview](ARCHITECTURE.md) - System architecture details
-- [Operations Guide](CLIENT-OPERATIONS-GUIDE.md) - Daily operations
-- [Deployment Checklist](../deployment-checklist.md) - Detailed checklist
-- [README](../README.md) - Project overview
+- [Operations Guide](CLIENT-OPERATIONS-GUIDE.md) — Daily operations after deployment
+- [Frontend Access](AMPLIFY-CLIENT-LINK.md) — User management and frontend usage
+- [LLM Architecture](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) — Detailed technical reference
+- [LLM Terraform Guide](../terraform/README-LLM.md) — Infrastructure details
+- [Runbooks](../runbooks/) — Specific troubleshooting procedures

@@ -93,3 +93,22 @@ variable "pdf_expiration_days" {
     error_message = "PDF expiration must be between 1 and 365 days."
   }
 }
+
+variable "knowledge_base_id" {
+  description = "Optional Bedrock Knowledge Base ID for product URL/image retrieval (Option A)"
+  type        = string
+  default     = ""
+}
+
+variable "brave_search_api_key" {
+  description = "Optional Brave Search API key for Market Intelligence (orchestrator) and scraper URL discovery. Get one at api.search.brave.com. When set, orchestrator fills Market Intelligence page; otherwise report shows disclaimer."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "enable_scraper_lambda" {
+  description = "Enable scraper Lambda (V2 uses AI-generated products + Titan images; set to false to disable legacy scraper)."
+  type        = bool
+  default     = false
+}
