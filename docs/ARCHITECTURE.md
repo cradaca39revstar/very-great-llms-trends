@@ -5,7 +5,7 @@
 **Version:** 1.0.0
 **Last Updated:** January 26, 2026
 
----
+
 
 ## Overview
 
@@ -13,7 +13,7 @@ The Beauty Products Data Lake follows a **Medallion Architecture** pattern (Raw 
 
 ## Visual Architecture Diagram
 
-![1769439415886](image\ARCHITECTURE\1769438682858.png)
+![1769439415886](image/ARCHITECTURE/1769438682858.png)
 
 *For a detailed visual representation of the system architecture, refer to the diagram above.*
 
