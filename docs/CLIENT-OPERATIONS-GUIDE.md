@@ -19,7 +19,8 @@ This guide covers day-to-day operations of the Beauty Products system, including
 The Glue ETL job runs **automatically every day at 2:00 AM UTC** via EventBridge. No manual action is required unless the job fails.
 
 **Verify last run:**
-```bash
+
+```sh
 aws glue get-job-runs --job-name beauty-products-etl-job --max-results 1 \
   --query "JobRuns[0].{State:JobRunState,Start:StartedOn,Duration:ExecutionTime}"
 ```
@@ -64,6 +65,7 @@ aws glue start-job-run --job-name beauty-products-etl-job
 ```
 
 Monitor progress:
+
 ```powershell
 aws glue get-job-runs --job-name beauty-products-etl-job --max-results 1
 ```
@@ -95,6 +97,7 @@ Job typically completes in **5–8 minutes** for files up to 10K records.
 | LLM error alarms | Lambda errors > threshold | CloudWatch alert |
 
 **Check alarm status:**
+
 ```powershell
 aws cloudwatch describe-alarms --alarm-name-prefix "beauty-products" `
   --query "MetricAlarms[*].{Name:AlarmName,State:StateValue}"
@@ -121,6 +124,7 @@ aws dynamodb scan `
 ```
 
 View Lambda logs in real-time:
+
 ```powershell
 aws logs tail /aws/lambda/beauty-products-llm-orchestrator-dev --follow
 ```
@@ -138,6 +142,7 @@ aws logs tail /aws/lambda/beauty-products-llm-orchestrator-dev --follow
 ### 3.2 Common Queries
 
 **Top products by revenue (current year):**
+
 ```sql
 SELECT product_name, shop_name, l2_category,
        SUM(revenue_usd) as total_revenue,
@@ -151,6 +156,7 @@ LIMIT 20;
 ```
 
 **Top 5 products per L2 category (used by LLM system):**
+
 ```sql
 SELECT l2_category, product_name, shop_name,
        revenue_usd, mom_growth_pct, item_sold
@@ -162,6 +168,7 @@ LIMIT 5;
 ```
 
 **Available categories:**
+
 ```sql
 SELECT DISTINCT l2_category, COUNT(*) as products
 FROM beauty_products_db.curated_beauty_products
@@ -171,6 +178,7 @@ ORDER BY products DESC;
 ```
 
 **Pre-built views (faster queries):**
+
 ```sql
 SELECT * FROM beauty_products_db.vw_high_quality_products LIMIT 10;
 SELECT * FROM beauty_products_db.vw_sales_by_category_month LIMIT 10;
@@ -233,12 +241,14 @@ aws cognito-idp admin-delete-user --user-pool-id $USER_POOL_ID --username user@e
 **Symptoms:** CloudWatch alarm fires, ETL job state = FAILED
 
 **Step 1 — Check the error:**
+
 ```powershell
 aws glue get-job-runs --job-name beauty-products-etl-job --max-results 1 `
   --query "JobRuns[0].{State:JobRunState,Error:ErrorMessage}"
 ```
 
 **Step 2 — Check full logs:**
+
 ```powershell
 aws logs tail /aws-glue/jobs/beauty-products-etl-job --follow
 ```
@@ -253,6 +263,7 @@ aws logs tail /aws-glue/jobs/beauty-products-etl-job --follow
 | `Out of memory` | File too large for 2 G.1X workers | Increase workers in Terraform: `glue_worker_count = 4` |
 
 **Step 4 — Retry:**
+
 ```powershell
 aws glue start-job-run --job-name beauty-products-etl-job
 ```
@@ -266,6 +277,7 @@ Full runbook: [`runbooks/etl-job-failure.md`](../runbooks/etl-job-failure.md)
 **Symptoms:** Frontend shows error, or `status: "failed"` in API response
 
 **Step 1 — Check the request logs:**
+
 ```powershell
 aws logs filter-log-events `
   --log-group-name /aws/lambda/beauty-products-llm-orchestrator-dev `
@@ -285,6 +297,7 @@ aws logs filter-log-events `
 | `TRD007` | Internal server error | Check Lambda logs for full stack trace |
 
 **Step 3 — Check Bedrock model access:**
+
 ```powershell
 aws bedrock list-foundation-models --region us-east-1 `
   --query "modelSummaries[?modelId=='amazon.nova-pro-v1:0'].{id:modelId,status:modelLifecycle}"
@@ -297,6 +310,7 @@ aws bedrock list-foundation-models --region us-east-1 `
 **Symptoms:** Low quality score alarm, high quarantine rate
 
 **Step 1 — Check quality report:**
+
 ```powershell
 $ENV = "dev"
 aws s3 ls "s3://very-great-products-processed-us-east-1-$ENV/quality-reports/beauty-products/" `
@@ -304,11 +318,13 @@ aws s3 ls "s3://very-great-products-processed-us-east-1-$ENV/quality-reports/bea
 ```
 
 Download and inspect:
+
 ```powershell
 aws s3 cp s3://very-great-products-processed-us-east-1-$ENV/quality-reports/.../report.json report.json
 ```
 
 **Step 2 — Query quarantined records:**
+
 ```sql
 -- In Athena — view records that failed quality
 SELECT quality_flags, COUNT(*) as count
