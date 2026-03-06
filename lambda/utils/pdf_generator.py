@@ -79,11 +79,15 @@ def generate_pdf_report(
     pdf.set_x(pdf.l_margin)
     pdf.set_y(pdf.t_margin)
 
-    add_title_page(pdf, report)
-    add_market_research_page(pdf, report)
-    add_brand_proposal_page(pdf, report.get("brand_proposal", {}), logo_bytes=brand_logo_bytes)
     product_ideas = report.get("product_ideas", [])
     ideas_with_images = product_ideas_with_images or []
+    first_product_image_bytes = None
+    if ideas_with_images and isinstance(ideas_with_images[0], dict):
+        first_product_image_bytes = ideas_with_images[0].get("_image_bytes")
+
+    add_title_page(pdf, report, first_product_image_bytes=first_product_image_bytes)
+    add_market_research_page(pdf, report)
+    add_brand_proposal_page(pdf, report.get("brand_proposal", {}), logo_bytes=brand_logo_bytes)
     for i, product in enumerate(product_ideas):
         img_bytes = None
         if i < len(ideas_with_images) and isinstance(ideas_with_images[i], dict):
@@ -93,8 +97,8 @@ def generate_pdf_report(
     return bytes(pdf.output())
 
 
-def add_title_page(pdf: FPDF, report: Dict):
-    """V2: Product Innovation Report title page – title and category once; Proposed Brand (name + tagline); Generated; Data Period."""
+def add_title_page(pdf: FPDF, report: Dict, first_product_image_bytes: Optional[bytes] = None):
+    """V2: Title page – Report title & category first, then product image directly above brand name, then Proposed Brand (name + tagline); Generated; Data Period."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     category = report.get("category", "")
@@ -102,7 +106,7 @@ def add_title_page(pdf: FPDF, report: Dict):
     brand_name = brand_proposal.get("brand_name", "")
     brand_tagline = brand_proposal.get("brand_tagline", "")
 
-    # Title and category (only once) – category in smaller font
+    # Title and category first
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(20)
     pdf.cell(0, 10, "Product Innovation Report", 0, 1, "C")
@@ -116,9 +120,25 @@ def add_title_page(pdf: FPDF, report: Dict):
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.cell(w_cat, 8, _sanitize_pdf_text(category), 0, 1, "L")
 
-    # Proposed Brand: Name (bold+italic) and Tagline (italic)
+    # Product image directly above brand name (centered)
+    if first_product_image_bytes:
+        try:
+            pdf.ln(8)
+            img_w_mm, img_h_mm = _image_dimensions_mm(first_product_image_bytes, 55.0)
+            img_io = BytesIO(first_product_image_bytes)
+            y0 = pdf.get_y()
+            x_center = (pdf.w - img_w_mm) / 2
+            pdf.image(img_io, x=x_center, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
+            pdf.set_y(y0 + img_h_mm)
+            pdf.ln(6)
+        except Exception as e:
+            print(f"PDF: failed to embed product image on title page: {e}")
+    else:
+        pdf.ln(10)
+
+    # Proposed Brand: Name (bold+italic) and Tagline (italic) – centered below image
+    pdf.set_x(pdf.l_margin)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
-    pdf.ln(10)
     pdf.cell(0, 8, "Proposed Brand:", 0, 1, "C")
     if brand_name:
         pdf.set_font("Arial", "BI", FONT_SIZE_HEADING)
@@ -147,7 +167,7 @@ def add_title_page(pdf: FPDF, report: Dict):
 
 
 def add_market_research_page(pdf: FPDF, report: Dict):
-    """Page 1 (after title): Top N Market Trends – intro and Product Highlights list (no table)."""
+    """Page 1 (after title): Top N Products – intro and Product Highlights list (no table)."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
@@ -157,7 +177,7 @@ def add_market_research_page(pdf: FPDF, report: Dict):
     # Main title – reflect actual count instead of hard-coded 5
     pdf.set_font("Arial", "B", FONT_SIZE_TITLE)
     pdf.ln(10)
-    pdf.cell(0, 10, f"Top {count} Market Trend{'s' if count != 1 else ''}", 0, 1, "L")
+    pdf.cell(0, 10, f"Top {count} Product{'s' if count != 1 else ''}", 0, 1, "L")
 
     # Introductory sentence
     pdf.set_font("Arial", "", FONT_SIZE_BODY)
@@ -225,13 +245,15 @@ def add_market_context_page(pdf: FPDF, market_context: List[Dict]):
 
 
 def add_brand_proposal_page(pdf: FPDF, brand_proposal: Dict, logo_bytes: Optional[bytes] = None):
-    """V2: Proposed Brand section with optional AI-generated logo (PNG, no background box)."""
+    """V2: Brand Concept section with optional AI-generated logo (PNG, no background box)."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
     name = brand_proposal.get("brand_name", "")
     pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
-    pdf.cell(0, 10, f"Proposed Brand: {_sanitize_pdf_text(name)}", 0, 1, "L")
+    pdf.cell(0, 10, "Brand Concept", 0, 1, "L")
+    pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
+    pdf.cell(0, 8, f"Proposed Brand: {_sanitize_pdf_text(name)}", 0, 1, "L")
     pdf.ln(3)
     if logo_bytes:
         try:
@@ -360,7 +382,7 @@ def add_market_intelligence_page(pdf: FPDF, web_insights: Dict, show_disclaimer:
 
 
 def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes] = None):
-    """V2: One page per product idea with optional AI-generated image."""
+    """V2: One page per product idea. Product image only on title page (above brand name), not here."""
     pdf.add_page()
     pdf.set_x(pdf.l_margin)
     cw = _content_width(pdf)
@@ -368,16 +390,6 @@ def add_product_idea_page(pdf: FPDF, product: Dict, image_bytes: Optional[bytes]
     pdf.set_font("Arial", "B", FONT_SIZE_HEADING)
     pdf.cell(0, 10, f"Product Concept #{rank}", 0, 1, "L")
     pdf.ln(3)
-    if image_bytes:
-        try:
-            img_w_mm, img_h_mm = _image_dimensions_mm(image_bytes, 60.0)
-            img_io = BytesIO(image_bytes)
-            y0 = pdf.get_y()
-            pdf.image(img_io, x=pdf.l_margin, y=y0, w=img_w_mm, h=img_h_mm, type="PNG")
-            pdf.set_y(y0 + img_h_mm)
-            pdf.ln(8)
-        except Exception as e:
-            print(f"PDF: failed to embed product image: {e}")
     pdf.set_x(pdf.l_margin)
     pdf.set_font("Arial", "B", FONT_SIZE_SUBHEADING)
     pdf.cell(0, 8, _sanitize_pdf_text(product.get("product_name", "") or "-"), 0, 1, "L")
@@ -450,7 +462,7 @@ def _title_case_comma_list(s: str) -> str:
 
 
 def _sanitize_pdf_text(s: str) -> str:
-    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII equivalents."""
+    """Replace Unicode chars not in Latin-1 (helvetica) with ASCII/Latin-1 equivalents. Strip any remaining unsupported chars."""
     if not s or not isinstance(s, str):
         return s
     replacements = (
@@ -461,10 +473,15 @@ def _sanitize_pdf_text(s: str) -> str:
         ('\u2014', "-"),   # EM DASH
         ('\u2013', "-"),   # EN DASH
         ('\u2026', "..."), # HORIZONTAL ELLIPSIS
+        ('\u3010', "["),   # LEFT BLACK LENTICULAR BRACKET 【 (CJK)
+        ('\u3011', "]"),   # RIGHT BLACK LENTICULAR BRACKET 】
+        ('\u2109', " deg F"),   # DEGREE FAHRENHEIT ℉
     )
     out = s
     for u, a in replacements:
         out = out.replace(u, a)
+    # Replace any remaining character outside Latin-1 (0-255) so FPDF/Helvetica never raises
+    out = "".join(c if ord(c) <= 255 else "?" for c in out)
     return out
 
 

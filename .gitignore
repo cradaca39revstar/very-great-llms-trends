@@ -74,6 +74,10 @@ yarn.lock
 # Lambda build artifacts (regenerated on deploy)
 lambda/function.zip
 
+# Lambda pip installs (pip -t lambda): package metadata and licenses
+lambda/*.dist-info/
+lambda/**/*.dist-info/
+
 # AWS
 .aws/
 *.pem

@@ -142,7 +142,7 @@ export function ChatPage() {
       <header className="chat-header">
         <div className="chat-header__brand">
           <h1 className="chat-header__title-main">Very Great</h1>
-          <p className="chat-header__title-sub">Trending Products</p>
+          <p className="chat-header__title-sub">AI Brand Engine</p>
         </div>
         <button type="button" className="chat-header__signout" onClick={handleLogout}>
           Sign out
@@ -264,7 +264,7 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
       {report.market_context && report.market_context.length > 0 && (
         <section className="market-research">
           <h2 className="market-research__title">
-            Top {report.market_context.length} Market Trend{report.market_context.length !== 1 ? 's' : ''}
+            Top {report.market_context.length} Product{report.market_context.length !== 1 ? 's' : ''}
           </h2>
           <p className="market-research__intro">
             Top performing products by revenue, growth, and monthly momentum.
@@ -286,6 +286,25 @@ function SuccessView({ data }: { data: TrendQuerySuccess }) {
             ))}
           </ol>
         </section>
+      )}
+
+      {/* Product image above brand name (not above Top Market Trends) */}
+      {productIdeas.length > 0 && (productIdeas[0].image_base64 || productIdeas[0].image_url) && (
+        <div className="report-hero-image">
+          {productIdeas[0].image_base64 ? (
+            <img
+              src={`data:image/${productIdeas[0].image_base64_format || 'png'};base64,${productIdeas[0].image_base64}`}
+              alt={productIdeas[0].product_name}
+              className="report-hero-image__img"
+            />
+          ) : (
+            <img
+              src={productIdeas[0].image_url!}
+              alt={productIdeas[0].product_name}
+              className="report-hero-image__img"
+            />
+          )}
+        </div>
       )}
 
       {brand && (
@@ -310,6 +329,7 @@ function BrandProposalCard({ brand, brandName }: { brand: BrandProposal; brandNa
     : brand.logo_image_url || null;
   return (
     <article className="brand-card">
+      <h2 className="brand-card__section-title">Brand Concept</h2>
       {logoSrc && (
         <div className="brand-card__logo-wrap">
           <img src={logoSrc} alt={`${brandName || brand.brand_name} logo`} className="brand-card__logo" />
@@ -367,26 +387,6 @@ function ProductIdeaCard({ product: p }: { product: ProductIdea }) {
         <span className="product-idea-card__rank">Concept #{p.rank}</span>
         {p.has_image && (
           <span className="product-idea-card__badge">AI-Generated Concept</span>
-        )}
-      </div>
-
-      <div className="product-idea-card__image-wrap">
-        {p.image_base64 ? (
-          <img
-            src={`data:image/${p.image_base64_format || 'png'};base64,${p.image_base64}`}
-            alt={p.product_name}
-            className="product-idea-card__image"
-          />
-        ) : p.image_url ? (
-          <img
-            src={p.image_url}
-            alt={p.product_name}
-            className="product-idea-card__image"
-          />
-        ) : p.has_image ? (
-          <span className="product-idea-card__image-placeholder">Image in PDF</span>
-        ) : (
-          <span className="product-idea-card__image-placeholder">No image</span>
         )}
       </div>
 
