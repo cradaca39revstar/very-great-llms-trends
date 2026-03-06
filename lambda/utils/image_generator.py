@@ -27,68 +27,68 @@ SD_IMAGE_RETRY_DELAY_SEC = 2
 # ============================================================================
 _BRAND_ICON_MAP = [
     (["nature", "terra", "green", "eco", "natural", "organic", "botan", "herb", "plant"],
-     "a golden leaf embossed on"),
+     "a golden leaf logo printed on"),
     (["royal", "crown", "king", "queen", "regal", "majest", "noble"],
-     "a golden crown embossed on"),
+     "a golden crown logo printed on"),
     (["star", "celeste", "sky", "luna", "stella", "astral", "cosmic"],
-     "a golden five-pointed star embossed on"),
+     "a golden five-pointed star logo printed on"),
     (["ocean", "aqua", "marine", "wave", "sea", "tide", "coral"],
-     "a silver water droplet embossed on"),
+     "a silver water droplet logo printed on"),
     (["aura", "glow", "light", "lux", "lumina", "illumina", "radi", "bright", "lumin"],
-     "a golden sunburst circle embossed on"),
+     "a golden sunburst circle logo printed on"),
     (["silk", "soft", "velvet", "smooth", "satin", "petal", "blossom", "flora", "bloom"],
-     "a golden lotus flower embossed on"),
+     "a golden lotus flower logo printed on"),
     (["derma", "derm", "skin", "clinic", "medic", "pharm", "scienc"],
-     "a silver geometric hexagon embossed on"),
+     "a silver geometric hexagon logo printed on"),
     (["hydra", "moist", "dew", "fresh", "rain", "mist", "spring"],
-     "a silver water droplet embossed on"),
+     "a silver water droplet logo printed on"),
     (["pure", "zen", "calm", "serene", "tranquil", "balance", "harmony"],
-     "a golden mandala circle embossed on"),
+     "a golden mandala circle logo printed on"),
     (["vita", "vital", "energy", "power", "boost", "reviv", "renew", "rejuv"],
-     "a golden rising sun embossed on"),
+     "a golden rising sun logo printed on"),
     (["luxe", "luxury", "elegant", "premium", "prestige", "opul"],
-     "a golden diamond embossed on"),
+     "a golden diamond logo printed on"),
     (["curl", "wave", "coil", "spiral", "twist", "strand", "lock"],
-     "a golden spiral embossed on"),
+     "a golden spiral logo printed on"),
     (["shield", "protect", "guard", "defense", "barrier", "armor"],
-     "a silver shield embossed on"),
+     "a silver shield logo printed on"),
     (["honey", "gold", "amber", "nectar", "bee"],
-     "a golden honeycomb hexagon embossed on"),
+     "a golden honeycomb hexagon logo printed on"),
     (["crystal", "gem", "jewel", "prism", "clear", "glass"],
-     "a silver crystal prism embossed on"),
+     "a silver crystal prism logo printed on"),
     (["moon", "night", "noir", "midnight", "eclipse"],
-     "a silver crescent moon embossed on"),
+     "a silver crescent moon logo printed on"),
     (["fire", "flame", "heat", "warm", "blaze", "ember"],
-     "a golden flame embossed on"),
+     "a golden flame logo printed on"),
     (["feather", "air", "breeze", "cloud", "float", "wind"],
-     "a silver feather embossed on"),
+     "a silver feather logo printed on"),
 ]
 
 _DEFAULT_FALLBACK_ICONS = [
-    "a golden sunburst circle embossed on",
-    "a golden five-pointed star embossed on",
-    "a golden diamond embossed on",
-    "a silver geometric hexagon embossed on",
-    "a golden rising sun embossed on",
-    "a silver crystal prism embossed on",
+    "a golden sunburst circle logo printed on",
+    "a golden five-pointed star logo printed on",
+    "a golden diamond logo printed on",
+    "a silver geometric hexagon logo printed on",
+    "a golden rising sun logo printed on",
+    "a silver crystal prism logo printed on",
 ]
 
 _CATEGORY_FALLBACK_ICONS = {
     "skincare": [
-        "a golden sunburst circle embossed on",
-        "a golden lotus flower embossed on",
-        "a silver geometric hexagon embossed on",
-        "a golden mandala circle embossed on",
-        "a golden diamond embossed on",
-        "a silver water droplet embossed on",
+        "a golden sunburst circle logo printed on",
+        "a golden lotus flower logo printed on",
+        "a silver geometric hexagon logo printed on",
+        "a golden mandala circle logo printed on",
+        "a golden diamond logo printed on",
+        "a silver water droplet logo printed on",
     ],
     "haircare & styling": [
-        "a golden spiral embossed on",
-        "a golden leaf embossed on",
-        "a golden five-pointed star embossed on",
-        "a golden rising sun embossed on",
-        "a silver feather embossed on",
-        "a silver crystal prism embossed on",
+        "a golden spiral logo printed on",
+        "a golden leaf logo printed on",
+        "a golden five-pointed star logo printed on",
+        "a golden rising sun logo printed on",
+        "a silver feather logo printed on",
+        "a silver crystal prism logo printed on",
     ],
 }
 
@@ -122,6 +122,114 @@ def _get_style_preset(brand_name: str) -> str:
     return "line-art"
 
 
+def _extract_packaging_keywords(ref: str) -> str:
+    """
+    Detect non-bottle packaging keywords in product name (lowercase).
+    Returns the most relevant phrase (e.g. 'sonic toothbrush', 'heating pad') or '' if none.
+    """
+    if not ref or not isinstance(ref, str):
+        return ""
+    r = ref.lower().strip()
+    # Compound phrases first (most specific)
+    if "sonic" in r and "toothbrush" in r:
+        return "sonic toothbrush"
+    if "heating" in r and "pad" in r:
+        return "heating pad"
+    if "face" in r and "mask" in r:
+        return "face mask"
+    if "sheet" in r and "mask" in r:
+        return "sheet mask"
+    if "body" in r and "wrap" in r:
+        return "body wrap"
+    if "eye" in r and "patch" in r:
+        return "eye patch"
+    if "lip" in r and "patch" in r:
+        return "lip patch"
+    if "roll-on" in r:
+        return "roll-on"
+    # Single-word / device/appliance non-bottle packaging
+    if "toothbrush" in r or "flosser" in r:
+        return "toothbrush"
+    if "trimmer" in r or "razor" in r:
+        return "razor or trimmer"
+    if "plush" in r:
+        return "plush"
+    if "pad" in r:
+        return "heating pad"
+    if "mask" in r:
+        return "face mask"
+    if "wrap" in r:
+        return "body wrap"
+    if "patch" in r:
+        return "patch"
+    if "wipe" in r:
+        return "wipe"
+    if "sheet" in r:
+        return "sheet mask"
+    if "stick" in r:
+        return "stick"
+    if "sponge" in r:
+        return "sponge"
+    if "device" in r or "appliance" in r:
+        return "beauty device"
+    if "brush" in r and ("makeup" in r or "cosmetic" in r or "lip" in r or "eye" in r):
+        return "cosmetic brush"
+    if "kit" in r:
+        return "kit"
+    if "pack" in r:
+        return "pack"
+    if "tool" in r:
+        return "beauty tool"
+    return ""
+
+
+def _get_product_type_phrase(
+    l2_category: str,
+    product_name: str = "",
+    top_product_name: str = "",
+) -> str:
+    """Return the main product PACKAGING phrase (physical object with label). Same idea in all categories: product + logo."""
+    ref = (top_product_name or product_name or "").lower()
+    cat = (l2_category or "").lower().strip()
+    if "makeup" in cat or "cosmetic" in cat or any(w in ref for w in ["lip", "mascara", "eye", "gloss", "compact", "blush", "eyeshadow"]):
+        return "luxury makeup packaging (lipstick tube, mascara tube, or cosmetic compact case) with"
+    if "hair" in cat or "beard" in cat or "grooming" in cat or any(w in ref for w in ["hair", "beard", "conditioner", "serum", "scalp"]):
+        return "luxury haircare bottle with"
+    packaging_kw = _extract_packaging_keywords(ref)
+    if packaging_kw:
+        return f"luxury {packaging_kw} with"
+    cat_label = cat if cat else "beauty care"
+    return f"luxury {cat_label} product bottle with"
+
+
+def _get_default_visual_desc(
+    l2_category: str,
+    product_name: str = "",
+    product_description: str = "",
+    top_product_name: str = "",
+) -> str:
+    """Default: physical product packaging on clean background. Never applied makeup or person."""
+    cat = (l2_category or "").lower().strip()
+    desc = (product_description or "").strip()
+    ref = (top_product_name or product_name or "").lower()
+    if "makeup" in cat or "cosmetic" in cat or any(w in ref for w in ["lip", "mascara", "eye", "gloss", "compact"]):
+        base = "physical makeup packaging (tube or compact) on clean white background, product shot only, luxury cosmetic aesthetic"
+    elif "hair" in cat or "beard" in cat or "grooming" in cat or any(w in ref for w in ["hair", "beard", "conditioner", "scalp"]):
+        base = "physical haircare bottle on clean white background, product shot only, luxury cosmetic aesthetic"
+    else:
+        packaging_kw = _extract_packaging_keywords(ref)
+        if packaging_kw:
+            base = f"physical {packaging_kw} on clean white background, product shot only, luxury aesthetic"
+        else:
+            cat_label = cat if cat else "beauty care"
+            base = f"physical {cat_label} product bottle on clean white background, product shot only, luxury cosmetic aesthetic"
+    if desc:
+        short = desc[:120].strip()
+        if short:
+            base = f"{base}. Visual style: {short}"
+    return base
+
+
 # ============================================================================
 # Holistic product prompt — product + packaging + logo icon + brand name
 # ============================================================================
@@ -131,7 +239,10 @@ SD_PRODUCT_NEGATIVE_PROMPT = (
     "duplicate brand name, repeated brand name, repeated text, brand name in two places, "
     "flat label, pasted label, badly photoshopped, "
     "cluttered design, low quality, blurry text, blur, distorted, "
-    "cartoon, illustration, drawing, amateur"
+    "cartoon, illustration, drawing, amateur, "
+    "lips, face, model, person, woman, man, applied makeup, makeup on skin, close-up of face, face shot, portrait, human, "
+    "face in logo, face in sunburst, sunburst with face, human face in icon, logo with face, "
+    "sunburst as separate object, floating sunburst, floating icon, logo floating, decorative object separate from product, sunburst next to product"
 )
 
 
@@ -141,15 +252,24 @@ def build_product_prompt(
     image_prompt: str = "",
     key_ingredients: Optional[List[str]] = None,
     l2_category: str = "",
+    product_description: str = "",
+    top_product_name: str = "",
 ) -> str:
     """
-    Build a holistic SD 3.5 prompt. The icon/logo is described FIRST so the model
-    prioritizes rendering it. Uses concrete shapes (sunburst, leaf, crown, droplet)
-    that SD 3.5 reliably draws. Icon varies by brand name + category.
+    Build a holistic SD 3.5 prompt. Product type and default visual depend on
+    l2_category, product description, and top #1 market product for focus.
     """
     brand = (brand_name or "Brand").strip()
     product = (product_name or "Product").strip()
-    visual_desc = (image_prompt or "premium skincare bottle on a clean background, luxury cosmetic aesthetic").strip()
+    cat = (l2_category or "").lower().strip()
+    top_name = (top_product_name or "").strip()
+
+    if image_prompt and image_prompt.strip():
+        visual_desc = image_prompt.strip()
+    else:
+        visual_desc = _get_default_visual_desc(cat, product, product_description or "", top_name)
+
+    product_type_phrase = _get_product_type_phrase(cat, product, top_name)
     logo_icon = get_logo_icon(brand, l2_category)
     style_preset = _get_style_preset(brand)
 
@@ -159,17 +279,23 @@ def build_product_prompt(
         if top:
             benefit_line = f" ({', '.join(top)})"
 
-    prompt = (
-        f"A luxury skincare bottle with {logo_icon} the front label. "
-        f"The embossed icon is large, centered, and clearly visible on the label. "
-        f"Below the icon, the brand name \"{brand}\" in elegant typography, once. "
-        f"Below that, \"{product}\"{benefit_line} in smaller text. "
-        f"Professional studio photograph, {visual_desc}. "
-        f"The label wraps naturally around the bottle with realistic curvature. "
-        f"No other text or branding anywhere else on the bottle. "
-        f"Clean minimal design, soft studio lighting, {style_preset} style, photorealistic, 4K."
+    packaging_line = (
+        "The label wraps naturally around the bottle with realistic curvature."
+        if "bottle" in product_type_phrase
+        else "Elegant packaging with clear, minimal branding."
     )
 
+    prompt = (
+        f"Physical product packaging only. A {product_type_phrase} {logo_icon} the front label. "
+        f"The logo icon is large, centered, and clearly visible on the label. "
+        f"Below the icon, the brand name \"{brand}\" in elegant typography, once. "
+        f"Below that, \"{product}\"{benefit_line} in smaller text. "
+        f"Professional product photography, {visual_desc}. "
+        f"{packaging_line} "
+        f"No other text or branding anywhere else on the packaging. "
+        f"Clean minimal design, soft studio lighting, {style_preset} style, photorealistic, 4K. "
+        f"Product packaging only, no person no face. Logo and brand name clearly visible on the packaging."
+    )
     return prompt
 
 
@@ -216,6 +342,8 @@ def generate_product_image(
     bedrock_client=None,
     key_ingredients: Optional[List[str]] = None,
     l2_category: str = "",
+    product_description: str = "",
+    top_product_name: str = "",
 ) -> Optional[bytes]:
     """
     Generate a holistic product image via SD 3.5 Large: product + packaging + label +
@@ -228,6 +356,8 @@ def generate_product_image(
         image_prompt=image_prompt,
         key_ingredients=key_ingredients,
         l2_category=l2_category,
+        product_description=product_description,
+        top_product_name=top_product_name,
     )
 
     for model_id in (SD_IMAGE_MODEL_ID, SD_IMAGE_FALLBACK_MODEL_ID):
@@ -246,17 +376,23 @@ def generate_images_parallel(
     bedrock_client=None,
     max_workers: int = 4,
     l2_category: str = "",
+    top_product_name: str = "",
 ) -> List[Optional[bytes]]:
-    """Generate holistic product images in parallel via SD 3.5 Large."""
+    """Generate holistic product images in parallel via SD 3.5 Large. Focused on top #1 market product."""
     brand_name = brand_name or ""
     results: List[Optional[bytes]] = [None] * len(product_ideas)
 
     def task(i: int, idea: dict) -> tuple:
         name = idea.get("product_name") or ""
         prompt = idea.get("image_prompt") or ""
+        description = idea.get("description") or ""
         ingredients = idea.get("key_ingredients") if isinstance(idea.get("key_ingredients"), list) else None
         start = time.time()
-        img = generate_product_image(name, brand_name, prompt, None, ingredients, l2_category)
+        img = generate_product_image(
+            name, brand_name, prompt, None, ingredients, l2_category,
+            product_description=description,
+            top_product_name=top_product_name,
+        )
         elapsed = (time.time() - start) * 1000
         print(f"[Product] image {i + 1} done in {elapsed:.0f}ms (ok={img is not None})")
         return (i, img)
@@ -273,3 +409,34 @@ def generate_images_parallel(
             except Exception as e:
                 print(f"Image task failed: {e}")
     return results
+
+
+# ============================================================================
+# Tests — product type and visual desc (run: python image_generator.py)
+# ============================================================================
+if __name__ == "__main__":
+    # 1. fragrance → "luxury fragrance product bottle with"
+    out = _get_product_type_phrase("fragrance", "")
+    assert out == "luxury fragrance product bottle with", f"got: {out}"
+
+    # 2. nails + Essie Nail Polish Set → "luxury nails product bottle with"
+    out = _get_product_type_phrase("nails", "Essie Nail Polish Set")
+    assert out == "luxury nails product bottle with", f"got: {out}"
+
+    # 3. special personal care + Heating Pad Plush → "luxury heating pad with"
+    out = _get_product_type_phrase("special personal care", "Squishmallows Heating Pad Microwavable Plush")
+    assert out == "luxury heating pad with", f"got: {out}"
+
+    # 4. makeup + tarte lip gloss → original makeup branch
+    out = _get_product_type_phrase("makeup", "tarte lip gloss")
+    assert out == "luxury makeup packaging (lipstick tube, mascara tube, or cosmetic compact case) with", f"got: {out}"
+
+    # 5. empty cat + empty name → "luxury beauty care product bottle with"
+    out = _get_product_type_phrase("", "")
+    assert out == "luxury beauty care product bottle with", f"got: {out}"
+
+    # 6. Personal Care Appliances + sonic toothbrush → "luxury sonic toothbrush with"
+    out = _get_product_type_phrase("Personal Care Appliances", "AquaPure Luxe Sonic Toothbrush")
+    assert out == "luxury sonic toothbrush with", f"got: {out}"
+
+    print("All 6 _get_product_type_phrase tests passed.")
