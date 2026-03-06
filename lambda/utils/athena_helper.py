@@ -56,52 +56,48 @@ def query_athena_top_products(
 def build_top_products_query(l2_category: str, database: str, limit: int = 5) -> str:
     """
     Build SQL query for top products by L2 category.
-    Uses only the latest partition (year, month_num) so data is from the most recent
-    period (e.g. last 30 days when table is loaded monthly). One row per product, no duplicates.
-    Results ordered by revenue (desc) then growth (desc).
+    Uses all historical partitions: aggregates revenue and items sold across all months,
+    ranks by total revenue. When new data is added, previous data is kept (cumulative).
+    One row per product with aggregated metrics. Results ordered by revenue (desc) then growth (desc).
     """
     # Escape single quotes in category name
     safe_category = l2_category.replace("'", "''")
     table = f"{database}.curated_beauty_products"
     query = f"""
-    WITH distinct_partitions AS (
-      SELECT DISTINCT year, month_num FROM {table}
-    ),
-    ranked_partitions AS (
-      SELECT year, month_num,
-             ROW_NUMBER() OVER (ORDER BY year DESC, month_num DESC) AS rn
-      FROM distinct_partitions
-    ),
-    latest_partition AS (
-      SELECT year, month_num FROM ranked_partitions WHERE rn = 1
-    ),
-    latest_data AS (
+    WITH all_data AS (
       SELECT p.product_id, p.product_name, p.shop_name, p.l2_category,
              p.revenue_usd, p.mom_growth_pct, p.item_sold
       FROM {table} p
-      INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
       WHERE LOWER(TRIM(p.l2_category)) = LOWER(TRIM('{safe_category}'))
         AND p.data_quality_score >= 0.95
     ),
-    deduped AS (
-      SELECT product_id, product_name, shop_name, l2_category,
-             revenue_usd, mom_growth_pct, item_sold,
-             ROW_NUMBER() OVER (
-               PARTITION BY product_id, product_name, shop_name
-               ORDER BY revenue_usd DESC, mom_growth_pct DESC
-             ) AS rn
-      FROM latest_data
+    aggregated AS (
+      SELECT
+        product_id,
+        product_name,
+        shop_name,
+        l2_category,
+        SUM(revenue_usd) AS revenue_usd,
+        AVG(mom_growth_pct) AS mom_growth_pct,
+        SUM(item_sold) AS item_sold
+      FROM all_data
+      GROUP BY product_id, product_name, shop_name, l2_category
     ),
     ranked_products AS (
-      SELECT product_id, product_name, shop_name, l2_category,
-             revenue_usd, mom_growth_pct, item_sold,
-             ROW_NUMBER() OVER (
-               ORDER BY revenue_usd DESC, mom_growth_pct DESC
-             ) AS revenue_rank
-      FROM deduped
-      WHERE rn = 1
+      SELECT
+        product_id,
+        product_name,
+        shop_name,
+        l2_category,
+        revenue_usd,
+        mom_growth_pct,
+        item_sold,
+        ROW_NUMBER() OVER (
+          ORDER BY revenue_usd DESC, mom_growth_pct DESC
+        ) AS revenue_rank
+      FROM aggregated
     )
-    SELECT 
+    SELECT
       product_id,
       product_name,
       shop_name,
@@ -119,32 +115,16 @@ def build_top_products_query(l2_category: str, database: str, limit: int = 5) ->
 
 def build_distinct_categories_query(database: str) -> str:
     """
-    Build SQL to get distinct l2_category from the latest partition only (last 30 days).
-    Used for dynamic category list in the frontend — only categories with data in the most recent period.
+    Build SQL to get distinct l2_category from all historical data.
+    Used for dynamic category list in the frontend.
     """
     table = f"{database}.curated_beauty_products"
     return f"""
-    WITH distinct_partitions AS (
-      SELECT DISTINCT year, month_num FROM {table}
-    ),
-    ranked_partitions AS (
-      SELECT year, month_num,
-             ROW_NUMBER() OVER (ORDER BY year DESC, month_num DESC) AS rn
-      FROM distinct_partitions
-    ),
-    latest_partition AS (
-      SELECT year, month_num FROM ranked_partitions WHERE rn = 1
-    ),
-    latest_data AS (
-      SELECT p.l2_category
-      FROM {table} p
-      INNER JOIN latest_partition lp ON p.year = lp.year AND p.month_num = lp.month_num
-      WHERE p.data_quality_score >= 0.95
-        AND p.l2_category IS NOT NULL
-        AND TRIM(p.l2_category) != ''
-    )
     SELECT MIN(TRIM(l2_category)) AS l2_category
-    FROM latest_data
+    FROM {table} p
+    WHERE p.data_quality_score >= 0.95
+      AND p.l2_category IS NOT NULL
+      AND TRIM(p.l2_category) != ''
     GROUP BY LOWER(TRIM(l2_category))
     ORDER BY l2_category
     """.strip()
@@ -152,7 +132,7 @@ def build_distinct_categories_query(database: str) -> str:
 
 def query_athena_l2_categories(workgroup: str, database: str) -> List[str]:
     """
-    Return sorted list of L2 category names that have data in the latest partition (last 30 days).
+    Return sorted list of L2 category names that have data in the curated table (all history).
     Empty list on failure or no data.
     """
     try:
