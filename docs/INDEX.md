@@ -41,6 +41,7 @@ Essential documents for understanding and deploying the system.
 | [LLM-TRENDING-PRODUCTS-ARCHITECTURE.md](LLM-TRENDING-PRODUCTS-ARCHITECTURE.md) | LLM Product Innovation Engine V2 architecture | Technical teams, Stakeholders |
 | [CLIENT-DEPLOYMENT-GUIDE.md](CLIENT-DEPLOYMENT-GUIDE.md) | Step-by-step deployment instructions (Data Lake + LLM) | DevOps, Engineers |
 | [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md) | Frontend URL, login, and Cognito user management | All users, Project leads |
+| [COGNITO-GUIDE.md](COGNITO-GUIDE.md) | How we handle Cognito: User Pool, API Gateway, frontend, users, and tokens | DevOps, Engineers, Operations |
 | [CLIENT-HANDOFF-CHECKLIST.md](CLIENT-HANDOFF-CHECKLIST.md) | Knowledge transfer tracking checklist | Project managers |
 
 ---
@@ -124,6 +125,9 @@ Project history, changes, and planning documents.
 
 **Get a client link for the LLM Trending Products app:**
 → [AMPLIFY-CLIENT-LINK.md](AMPLIFY-CLIENT-LINK.md)
+
+**Understand or manage Cognito (auth, users, tokens):**
+→ [COGNITO-GUIDE.md](COGNITO-GUIDE.md)
 
 **Test the system after deployment / Test the LLM API:**
 → [README.md](../README.md) (see "How to test the agent" and Quick Start)

@@ -471,7 +471,7 @@ def parse_date_field(date_str):
 
 
 def normalize_product_id(product_id_str):
-    """Convert product ID from scientific notation to BIGINT"""
+    """Convert product ID from string to BIGINT without float precision loss for long integers."""
     if product_id_str is None:
         return None
     try:
@@ -483,12 +483,16 @@ def normalize_product_id(product_id_str):
             cleaned = product_id_str.replace(',', '').strip()
             if not cleaned:
                 return None
-            as_float = float(cleaned)
-            as_int = int(as_float)
+            # Avoid float() for plain integers to preserve precision (e.g. 19-digit IDs)
+            if '.' in cleaned or 'e' in cleaned.lower():
+                as_float = float(cleaned)
+                as_int = int(as_float)
+            else:
+                as_int = int(cleaned)
             if 0 <= as_int <= 9223372036854775807:
                 return as_int
         return None
-    except:
+    except (ValueError, OverflowError):
         return None
 
 
